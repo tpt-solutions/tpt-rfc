@@ -1,0 +1,239 @@
+# RFC → Rust Crate Coverage Survey
+
+Survey date: 2026-08-13. Bar for "Good": actively maintained (release/commit
+within ~18 months), reasonably adopted, licensed to cover **both** the MIT
+and Apache-2.0 crowds (dual MIT/Apache-2.0, or MIT-only — but **not**
+Apache-2.0-only, since that fails MIT-only consumers), and a spec-complete
+implementation (not a partial subset). All license/maintenance claims below
+were verified live against crates.io/docs.rs/GitHub during research, not
+from memory.
+
+Legend: **Good** = meets the bar. **Partial** = usable but fails one bar
+(stale, incomplete, wrong license, or subset-only). **Gap** = nothing
+suitable found.
+
+---
+
+## Web / HTTP
+
+| RFC | Candidate crate(s) | License | Last release | Downloads (approx) | Notes | Verdict |
+|---|---|---|---|---|---|---|
+| 9110 / 9112 (semantics, HTTP/1.1) | hyper | MIT | v1.11.0, 2026-07-20 | 833M | Full HTTP/1.1 client+server, general semantics. Actively developed. | Good |
+| 9113 (HTTP/2) | h2 | MIT | v0.4.15, 2026-06-15 | 741M | Full HTTP/2 framing/flow-control, hyper's backend. | Good |
+| 9111 (HTTP caching) | http-cache-semantics | **BSD-2-Clause** | v3.0.0, 2026-02-04 | 4.9M | Correct RFC 7234/9111 freshness/validation logic, but license fails MIT/Apache bar. No comparable MIT/Apache alternative found. | **Gap (license)** |
+| 9114 (HTTP/3) | h3 (hyperium) + quinn (QUIC) | MIT | h3 v0.0.8 (2025-05-06, still 0.x); quinn v0.11.11 (2026-06-22) | h3 3.8M; quinn 260M | h3 self-describes as "still very experimental." quinn transport is mature. | Partial |
+| 6455 (WebSocket) | tokio-tungstenite / tungstenite | MIT OR Apache-2.0 | v0.30.0, 2026-07-11 | 241M / 269M | Full handshake, framing, ping/pong, fragmentation, TLS. | Good |
+| 8259 (JSON) | serde_json | MIT OR Apache-2.0 | v1.0.151, 2026-07-20 | 1.16B | Complete grammar coverage, de-facto ecosystem standard. | Good |
+| 3986 (URI) | url / http::Uri / iri-string | all MIT OR Apache-2.0 | url v2.5.8; http v1.5.0; iri-string v0.7.14 | 794M / 911M / 198M | No single dominant crate implements *strict* RFC 3986. `url` is WHATWG-flavored (deviates from 3986 edge cases); `http::Uri` is an HTTP-only subset; `iri-string` is spec-faithful but far less adopted. | **Partial (spec-fragmented)** |
+| 6749 + 6750 (OAuth2 + Bearer) | oauth2 (ramosbugs) | MIT OR Apache-2.0 | v5.0.0, 2025-01-21 (~19mo, though repo has commits to 2026-02) | 44.5M | Covers grant types, PKCE, bearer tokens, revocation, introspection — feature-complete, but release-stale past the 18mo bar. `SyncHttpClient`/`AsyncHttpClient` traits make the HTTP layer fully swappable (reqwest/curl/ureq or bring-your-own). | Partial (stale release) |
+| OIDC (layered on 6749/6750) | openidconnect (ramosbugs) | MIT | v4.0.1, 2025-07-06 | 11.6M | Built explicitly as a **dependency layer on top of `oauth2`** — same maintainer, re-exports oauth2 token types instead of reimplementing them, inherits the pluggable HTTP-client trait. Adds discovery, JWKS fetch/verification, ID-token signature+nonce validation, standard claims. The staleness of the underlying `oauth2` crate propagates here. | Good (best composability example in this survey) |
+| | openid (kilork) | Unlicense OR MIT | v0.23.0, 2026-02-28 | 4.18M | Independent OIDC+Discovery implementation — does **not** compose with the `oauth2` crate, owns its own core. Faster release cadence, more built-ins (TLS backends, Microsoft/UMA2 extras), but not the "core + layer" modularity model. | Good, but not composable with `oauth2` |
+| 7519 (JWT) | jsonwebtoken (Keats) | MIT | v11.0.0, 2026-07-24 | 168M | HS/RS/PS/ES/EdDSA, standard claim validation. JWS-only — no JWE (encrypted JWT) support. | Good (signed-JWT case; JWE excluded) |
+| 7515-7518 (JOSE: JWS/JWE/JWK/JWA) | josekit / biscuit | both MIT OR Apache-2.0 (biscuit: MIT) | josekit v0.10.3 (2025-05-20, ~15mo); biscuit v0.8.0 (2026-04-05) | 3.6M / 6.0M | josekit is most complete (JWS+JWE+JWK+JWA together) but slowing; biscuit is active but self-admittedly doesn't cover all algorithms/paths. Neither is both complete and fresh. | **Partial** |
+
+## Crypto / Security
+
+| RFC | Candidate crate(s) | License | Last release | Downloads (approx) | Notes | Verdict |
+|---|---|---|---|---|---|---|
+| 5246 / 8446 (TLS 1.2/1.3) | rustls | Apache-2.0 OR ISC OR MIT | v0.23.43, 2026-07-29 | 827M | Full TLS1.2+1.3 client/server, modern cipher suites only (no legacy RC4/3DES/static-RSA). | Good |
+| | openssl (rust-openssl bindings) | **Apache-2.0 only** | v0.10.81, 2026-06-12 | 369M | Full TLS1.0-1.3 via FFI to C OpenSSL, but crate license fails the MIT-crowd bar. Not needed anyway since rustls already covers this RFC. | Partial (license; also FFI) |
+| | ring (crypto primitives, via webpki) | **Apache-2.0 AND ISC (mixed)** | v0.17.14, 2025-03-11 (>17mo stale) | 668M | Mixed license, not clean MIT/Apache; also stale. | Partial (license/stale) |
+| 8017 (PKCS#1/RSA) | rsa (RustCrypto) | MIT OR Apache-2.0 | v0.9.10, 2026-04-27 | 198M | Pure-Rust PKCS1v15+OAEP+PSS. **Unpatched RUSTSEC-2023-0071 "Marvin Attack" timing side-channel** — no fix exists yet. | Partial (unpatched vuln) |
+| | pkcs1 (RustCrypto, encoding-only) | MIT OR Apache-2.0 | v0.7.5, 2025-09-15 | 190M | ASN.1 encoding only, not the crypto ops. | Partial (subset) |
+| 5280 (X.509) | x509-parser / x509-cert | MIT OR Apache-2.0 | v0.18.1 (2026-02-05) / v0.3.0 (2026-07-09) | 143M / 32M | Parse/decode certs correctly; **no full chain/path validation or revocation logic**. | Good (as parser only) |
+| | rustls-webpki (does full validation) | **ISC only** | v0.103.14, 2026-08-11 | 696M | Fills the validation gap x509-parser leaves, but license fails MIT/Apache bar. | **Gap (full validation under license constraint)** |
+| 4648 (Base16/32/64) | base64 | MIT OR Apache-2.0 | v0.23.1, 2026-08-04 | 1.43B | Base64 only, no base16/32. | Good (base64 only) |
+| | data-encoding | MIT | v2.11.1, 2026-08-03 | 370M | Base16, base32, base32hex, base64, base64url, hex — full RFC coverage. | Good |
+| 2104 (HMAC) | hmac (RustCrypto) | MIT OR Apache-2.0 | v0.13.0, 2026-03-29 | 515M | Generic, spec-complete, ecosystem standard. | Good |
+| 6238 (TOTP) | totp-rs | MIT | v6.0.0, 2026-08-06 | 8.98M | RFC-compliant defaults, SHA1/256/512. | Good |
+| 4226 (HOTP) | rust-otp / otp-rs | MIT | rust-otp v3.0.0 (2026-04-12, 19.9K downloads); otp-rs v0.1.1 (stale, 3.6K downloads) | low | No dedicated mature HOTP crate — totp-rs is TOTP-only. Candidates exist but have very low adoption/are stale. | **Gap** |
+| 8032 (Ed25519/EdDSA) | ed25519-dalek | **BSD-3-Clause** | v3.0.0, 2026-07-06 | 186M | Canonical, spec-complete, most popular — but license fails the MIT/Apache bar. | **Gap (license)** |
+| | ed25519-compact | MIT | v2.3.1, 2026-06-17 | 15.6M | Full RFC8032 impl, correct license, actively maintained, but far less battle-tested than dalek. | Good |
+
+## Email / Messaging
+
+| RFC | Candidate crate(s) | License | Last release | Downloads (approx) | Notes | Verdict |
+|---|---|---|---|---|---|---|
+| 5321 (SMTP) | lettre | MIT only | v0.11.23, active | 14.7M | Client (submission) only — no MTA/server. | Good (client-side) |
+| | mail-send (Stalwart) | Apache-2.0 OR MIT | v0.6.1, 2026-07-04 | 489K | Client + signing, also client-only. | Good (client-side) |
+| 5322 (Internet Message Format) | mail-parser (Stalwart) | Apache-2.0 OR MIT | v0.11.6, 2026-08-10 | 2.9M | Full RFC 5322 + MIME parser, 100% safe Rust, 41 charsets. | Good |
+| 6376 (DKIM) | mail-auth (Stalwart) | Apache-2.0 OR MIT | v0.12.0, 2026-08-12 | 439K | Sign + verify, plus ARC/SPF/DMARC, very actively developed. | Good |
+| 3501 (IMAP4) | async-imap / imap (jonhoo) | MIT OR Apache-2.0 | async-imap v0.11.3 (2026-07-17); imap v3.0.0-alpha.15 (2025-02-08) | 1.19M / 1.31M | **Client-only** — no maintained IMAP server crate exists. | **Gap (no server)** |
+
+## Data Formats
+
+| RFC | Candidate crate(s) | License | Last release | Downloads (approx) | Notes | Verdict |
+|---|---|---|---|---|---|---|
+| 8949 (CBOR) | ciborium | **Apache-2.0 only** | crates.io v0.2.2 (2024-01-24) but GitHub active through 2026-06-19 | 211.7M | Comprehensive serde-based CBOR, actively maintained upstream — but license fails the MIT-crowd bar. | **Partial (license)** |
+| | serde_cbor | MIT OR Apache-2.0 | v0.11.2, 2021-08-15 | 78.2M | Correct dual license, but deprecated/unmaintained (>5yr stale) — superseded by ciborium. | Partial (stale) |
+| 4122 (UUID) | uuid | Apache-2.0 OR MIT | v1.24.0, 2026-07-15 | 722M | De facto standard, versions 1-8, active. | Good |
+
+## Networking / Infra
+
+| RFC | Candidate crate(s) | License | Last release | Downloads (approx) | Notes | Verdict |
+|---|---|---|---|---|---|---|
+| 1035 (DNS) | hickory-resolver / hickory-server | MIT OR Apache-2.0 | v0.26.1, 2026-05-01 | 66.6M / 3.2M | Full client resolver + authoritative server, actively maintained (formerly trust-dns). | Good |
+| 8484 (DNS over HTTPS) | hickory-resolver (feature flag) | MIT OR Apache-2.0 | same | bundled | Works, but only as a feature inside hickory, not a first-class dedicated crate. Dedicated alternatives (doh-client: BSD-3-Clause; https-dns: MIT but stale/low-use) don't clear the bar either. | **Partial/Gap (no dedicated well-licensed crate)** |
+| 2131 (DHCP) | dhcproto | MIT | v0.15.0, 2026-05-19 | 775K | Wire-format encode/decode only — no bundled client or server (maintainers point to a separate "dora" server project). | **Partial (protocol lib only)** |
+| 791 / 8200 (IPv4/IPv6) | std::net | MIT OR Apache-2.0 | stdlib | n/a | Address types/parsing/classification all in std. No crate needed. | Good |
+| 793 (TCP) | std::net + tokio | MIT OR Apache-2.0 | stdlib + active | n/a / 100Ms | Sync in std, async via tokio. | Good |
+| 4251-4254 (SSH) | russh | **Apache-2.0 only** | v0.62.6, 2026-08-11 | 5.67M | Pure Rust, async, client **and** server. Full transport (RFC 4253), user auth (RFC 4252), connection/channels (RFC 4254). Three 2026 CVEs (RUSTSEC-2026-0154 + two GitLab GLAD advisories) all patched by 0.62.5. Otherwise the strongest option in the ecosystem, but license fails the MIT-crowd bar. | **Partial (license)** |
+| | ssh2 (ssh2-rs) | MIT OR Apache-2.0 | v0.9.6, 2026-06-30 | 7.35M | FFI bindings to libssh2 (C) — **client-only** (libssh2 has no server mode). Solid, stable, but you inherit the C ABI and can't extend the protocol layer; C-side CVEs not tracked by Rust tooling. | Partial (client-only, C dependency) |
+| | thrussh (pre-fork original) | Apache-2.0 | unmaintained since ~2022-23 | legacy | Superseded by the russh fork (contentious fork history, not a license dispute) — treat as dead upstream. | Gap (superseded) |
+
+---
+
+## Deeper nuance on specific areas
+
+- **CBOR licensing/maintenance**: `ciborium` is **single-licensed Apache-2.0**
+  — under the MIT-crowd requirement, it doesn't clear the bar at all, not
+  just "worth noting." Maintenance is otherwise fine (active GitHub commits
+  into mid-2026) but the crates.io-published version has been stale since
+  Jan 2024, so anyone relying on the published crate (not a git dependency)
+  is trusting an old snapshot regardless of license. `serde_cbor` is the
+  correctly dual MIT/Apache alternative but is deprecated/unmaintained
+  (>5yr stale). Net result: **no actively-maintained CBOR crate satisfies
+  both the MIT bar and the freshness bar at once** — this is a real gap,
+  not just a nuance.
+
+- **JWK/JOSE fragmentation**: this is a structural gap, not just a
+  maintenance one. The RFCs split cleanly into JWS (7515) / JWE (7516) / JWK
+  (7517) / JWA (7518), but no Rust crate mirrors that separation with
+  composable primitives (the way RustCrypto separates hash/MAC/cipher
+  traits). `josekit` bundles all four monolithically; `biscuit` bundles
+  JWS+JWE but admits incomplete algorithm/path coverage; `jsonwebtoken` only
+  covers JWS-shaped JWT and ignores JWK/JWE entirely. Picking "verify JWTs"
+  vs "full JOSE stack with JWKS-based key rotation" means picking an entirely
+  different crate, not adding a feature flag.
+
+- **MIME/email**: well covered — `mail-parser` implements RFC 5322 + MIME
+  (2045-2049) together, Apache/MIT, actively maintained, no known parsing
+  gaps. Building (not just parsing) MIME messages is handled by `mail-builder`
+  in the same Stalwart family — confirm its license/maintenance matches if
+  that matters, but this is the strongest, most coherent cluster in the
+  whole survey.
+
+- **Strict URI parsing (RFC 3986)**: a gap in adoption, not correctness.
+  `iri-string` is the spec-faithful RFC 3986/3987 parser (MIT/Apache) but has
+  a fraction of `url`'s adoption (198M vs 794M downloads) because `url`
+  implements the WHATWG URL Standard, not strict 3986, and deviates from it
+  in edge cases. Anyone needing actual RFC 3986 semantics (vs browser-URL
+  semantics) should reach for `iri-string`, against the ecosystem default.
+
+- **Unified base encoding (RFC 4648)**: popularity and completeness point
+  to different crates. `data-encoding` is the actual "unified" crate
+  (base16/32/32hex/64/64url/hex all in one, MIT) but is 4x less downloaded
+  than `base64`, which only covers base64 variants. If full RFC 4648
+  grammar coverage in one dependency matters, `data-encoding` is correct;
+  if you just need base64, the popular default is fine.
+
+- **OAuth2/OIDC modularity**: `openidconnect` is a genuine dependency-based
+  layer on `oauth2` (same author, shared `SyncHttpClient`/`AsyncHttpClient`
+  trait abstraction, re-exported token types) rather than a parallel
+  reimplementation — the cleanest core/layer composability example found in
+  this whole survey. A codebase already on `oauth2` for pure OAuth2 flows can
+  adopt `openidconnect` incrementally. The competing `openid` (kilork) crate
+  is well-maintained with a faster release cadence but owns its own OAuth2
+  core instead of composing with `oauth2` — better if you want more
+  built-ins (TLS backends, Microsoft-specific quirks) in one crate, worse if
+  ecosystem-wide reuse is the priority. Note the underlying `oauth2` crate's
+  ~19-month release staleness propagates to `openidconnect` since it depends
+  directly on it.
+
+- **SSH (RFC 4251-4254) under the MIT-crowd rule**: `russh` is the only
+  pure-Rust implementation with both client+server and an
+  embeddable/extensible protocol layer, but it's **Apache-2.0 only**, so it
+  fails outright for MIT-only consumers. `ssh2` (MIT OR Apache-2.0) is the
+  sole dual-licensed option, but it's a client-only FFI wrapper around C
+  libssh2 — no server mode, no protocol-layer extensibility, and its C
+  dependency isn't covered by Rust security tooling. There is currently no
+  crate that is simultaneously dual-licensed, pure Rust, and offers a server.
+
+## Gaps worth building a crate for
+
+Ranked by how concrete the demand signal is:
+
+1. **RFC 8949 CBOR under a proper MIT/Apache dual license** — `ciborium`
+   is Apache-2.0 only and thus fails the MIT-crowd bar outright, despite
+   being the best-maintained CBOR implementation. `serde_cbor` is correctly
+   dual-licensed but dead. A maintained, dual MIT/Apache CBOR crate (or
+   ciborium re-licensing, if upstream would consider it) is a concrete gap
+   for anyone who can't accept Apache-2.0-only dependencies.
+
+2. **RFC 4251-4254 SSH, dual-licensed, with server support** — `russh`
+   (the only full-featured pure-Rust option) is Apache-2.0 only; the one
+   dual-licensed crate (`ssh2`) is a client-only C binding. A dual
+   MIT/Apache pure-Rust SSH server (or a relicense negotiation with russh's
+   maintainers) would close a real gap — SSH servers are common
+   infrastructure and there's currently no MIT-compatible pure-Rust path.
+
+3. **RFC 4226 HOTP** — TOTP is well covered (totp-rs) but there's no
+   mature, well-adopted, actively-maintained, clean-MIT/Apache HOTP
+   implementation. Existing candidates (rust-otp, otp-rs) are low-download
+   or stale. A small, focused `hotp` crate with a clean API (mirroring
+   totp-rs's ergonomics) would fill a real gap — HOTP is still used for
+   hardware tokens (e.g. YubiKey) and this is a well-specified, low-surface
+   RFC to implement correctly.
+
+4. **RFC 5280 X.509 full chain/path validation under MIT/Apache** —
+   the only crate that does full validation (rustls-webpki) is ISC-only;
+   the MIT/Apache parsers (x509-parser, x509-cert) stop at decoding. Anyone
+   needing strict dual-permissive licensing for validation currently has
+   no option. This is a bigger lift (path building, trust anchors,
+   revocation/CRL/OCSP) but high-value given how foundational X.509 is.
+
+5. **RFC 8032 Ed25519 without relying on BSD-3-Clause dalek** —
+   ed25519-compact already exists and is a good MIT-licensed option, so
+   this is a *lower priority* gap (mostly closed), but it's much less
+   battle-tested/adopted than dalek. Worth noting rather than building —
+   contributing audits/adoption to ed25519-compact may be more valuable
+   than a new crate.
+
+6. **RFC 3501 IMAP4 server** — no maintained server-side IMAP
+   implementation exists in the Rust ecosystem at all (only client crates).
+   This is a large surface (full IMAP command set, mailbox storage
+   semantics) but a genuine, complete gap — anyone building a Rust mail
+   server today has to drop to C libraries or roll their own.
+
+7. **RFC 8484 DNS-over-HTTPS as a dedicated crate** — currently only
+   available bundled as a hickory-resolver feature; standalone attempts
+   are stale or wrongly licensed. A thin, focused, MIT/Apache DoH client
+   crate (could even wrap hickory + reqwest/hyper) would be a
+   comparatively small, high-clarity project.
+
+8. **RFC 9111 HTTP caching semantics under MIT/Apache** — the correct
+   logic exists (http-cache-semantics) but is BSD-2-Clause. A clean-room
+   MIT/Apache reimplementation of RFC 9111 freshness/validation rules
+   would unblock strict-license consumers; moderate spec complexity
+   (freshness lifetime calc, validators, vary handling, request
+   directives).
+
+9. **RFC 2131 DHCP client/server (not just wire codec)** — dhcproto
+   covers packet encode/decode well but there's no full client or server
+   built on it in the mainstream ecosystem (only a separate WIP "dora"
+   project). Lower priority unless you specifically need DHCP tooling.
+
+## Notable license traps found during this survey
+
+These are worth flagging since they're commonly (and incorrectly) assumed
+to be MIT/Apache-2.0 by people skimming the ecosystem:
+
+- **ed25519-dalek** — BSD-3-Clause, not MIT/Apache.
+- **ring** — "Apache-2.0 AND ISC" mixed, not clean MIT/Apache.
+- **rustls-webpki** — ISC only.
+- **http-cache-semantics** — BSD-2-Clause.
+- **doh-client** — BSD-3-Clause.
+- **ciborium** — Apache-2.0 only, no MIT option (fails MIT-only consumers).
+- **russh** — Apache-2.0 only, no MIT option.
+- **openssl (rust-openssl)** — Apache-2.0 only, no MIT option (moot here since rustls covers TLS with a proper dual license).
+
+## Other flags
+
+- **rsa (RFC 8017)** has an open, unpatched timing side-channel advisory
+  (RUSTSEC-2023-0071, "Marvin Attack") as of this survey — usable but not
+  safe against network-observable timing attackers.
+- **oauth2 (ramosbugs)** is feature-complete but hasn't cut a release in
+  ~19 months (repo still has commits, so not abandoned — just release-stale).
+- Stalwart Labs' mail-parser / mail-send / mail-auth form the strongest,
+  most coherent, actively-maintained dual-licensed cluster found in this
+  entire survey.

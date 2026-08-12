@@ -1,0 +1,31 @@
+[package]
+name = "tpt-cbor"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["cbor", "rfc8949", "encoding", "serialization", "binary"]
+categories = ["encoding", "data-structures"]
+description = "Clean-room, dual-licensed CBOR (RFC 8949) implementation with optional serde support"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
+serde = ["dep:serde"]
+
+[package.metadata.docs.rs]
+all-features = true

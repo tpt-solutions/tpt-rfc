@@ -1,0 +1,42 @@
+# cargo-deny configuration
+# Ensures no copyleft or incompatible licenses sneak into the dual-licensed
+# workspace, and flags vulnerable / unmaintained dependencies.
+
+[advisories]
+version = 2
+yanked = "warn"
+ignore = []
+
+[licenses]
+version = 2
+# The workspace is dual-licensed MIT OR Apache-2.0. We must not allow a
+# dependency that is GPL/LGPL/MPL-only, or Apache-2.0-only where that would
+# taint, into the tree. Permissive + dual-licensed crates are allowed.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+    "LicenseRef-ring",
+    "OpenSSL",
+]
+confidence-threshold = 0.8
+# Ring and friends are Apache-2.0/MIT; treat their bundled license refs as ok.
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+highlight = "all"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

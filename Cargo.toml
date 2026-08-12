@@ -1,0 +1,37 @@
+[workspace]
+resolver = "2"
+members = [
+    "tpt-cbor",
+    # Additional crates are added here as they are scaffolded:
+    # "tpt-ssh",
+    # "tpt-hotp",
+    # "tpt-x509",
+    # "tpt-ed25519",
+    # "tpt-imap-server",
+    # "tpt-doh",
+    # "tpt-http-cache",
+    # "tpt-dhcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT OR Apache-2.0"
+authors = ["TPT Solutions <oss@tpt.example>"]
+repository = "https://github.com/tpt-solutions/tpt-rfc"
+homepage = "https://github.com/tpt-solutions/tpt-rfc"
+keywords = ["rfc", "protocol", "ietf"]
+categories = ["encoding", "network-programming", "cryptography"]
+readme = "README.md"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
+
+# Shared lints applied to all workspace members.
+[workspace.lints.rust]
+unsafe_code = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
