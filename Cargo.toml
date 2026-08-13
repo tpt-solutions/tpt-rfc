@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
     "tpt-cbor",
+    "tpt-hotp",
+    "tpt-ssh",
     # Additional crates are added here as they are scaffolded:
-    # "tpt-ssh",
-    # "tpt-hotp",
     # "tpt-x509",
     # "tpt-ed25519",
     # "tpt-imap-server",

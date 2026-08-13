@@ -1,0 +1,24 @@
+[package]
+name = "tpt-hotp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["hotp", "otp", "rfc4226", "authentication", "totp"]
+categories = ["authentication", "cryptography"]
+description = "Clean-room, dual-licensed HOTP (RFC 4226) implementation with ergonomics similar to totp-rs"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+hmac = "0.12"
+sha1 = "0.10"
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

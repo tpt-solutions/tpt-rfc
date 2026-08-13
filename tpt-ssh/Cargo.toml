@@ -1,0 +1,39 @@
+[package]
+name = "tpt-ssh"
+version.workspace = true
+edition.workspace = true
+# orion (X25519) requires Rust >= 1.86; this crate's MSRV follows its
+# crypto primitives rather than the workspace-wide 1.74 baseline.
+rust-version = "1.86"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["ssh", "rfc4253", "secure-shell", "protocol", "transport"]
+categories = ["network-programming", "cryptography"]
+description = "Clean-room, dual-licensed SSH transport (RFC 4251-4254) implementation"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# All crypto primitives are dual-licensed (MIT/Apache or MIT) and reused
+# rather than reimplemented:
+#   sha2       — SHA-256 (RFC 8732 KEX hash)        MIT/Apache-2.0
+#   orion      — X25519 ECDH (curve25519-sha256)    MIT
+#   chacha20   — ChaCha20 stream cipher             MIT/Apache-2.0
+#   poly1305   — Poly1305 MAC                       MIT/Apache-2.0
+#   ed25519-compact — Ed25519 host keys             MIT
+sha2 = "0.10"
+orion = "0.17"
+chacha20 = "0.9"
+poly1305 = "0.8"
+ed25519-compact = { version = "2", features = ["getrandom"] }
+
+[dev-dependencies]
+hex = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true
