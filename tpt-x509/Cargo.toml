@@ -1,0 +1,42 @@
+[package]
+name = "tpt-x509"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.74"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["x509", "rfc5280", "certificate", "pkix", "path-validation"]
+categories = ["cryptography"]
+description = "Clean-room, dual-licensed X.509 certificate path validation (RFC 5280)"
+readme = "README.md"
+
+[dependencies]
+thiserror = { workspace = true }
+# Dual-licensed (MIT/Apache-2.0) X.509 parser from RustCrypto. We reuse it for
+# DER decoding only and build clean-room *validation* logic on top (the gap
+# rustls-webpki leaves, while keeping a permissive license).
+x509-cert = { version = "0.3", features = ["builder"] }
+# ASN.1 DER helpers (RustCrypto, MIT/Apache-2.0). x509-cert 0.3 itself depends
+# on der/spki/const-oid 0.8/0.8/0.10, so we pin to the SAME versions to keep
+# the `der`/`spki` trait impls (Decode, Sequence, …) unambiguous. `der`'s
+# `derive` feature is required for the hand-rolled RSA public-key struct.
+spki = "0.8"
+der = { version = "0.8", features = ["derive"] }
+const-oid = "0.10"
+num-integer = "0.1"    # MIT/Apache-2.0 (BigUint::modpow for RSA verification)
+# Crypto primitives for signature verification (all dual-licensed):
+sha2 = "0.10"          # MIT/Apache-2.0
+rsa = "0.9"            # MIT/Apache-2.0 (used for BigUint only; the RSA
+                       # signature check is implemented in clean room here)
+ecdsa = "0.16"         # MIT/Apache-2.0
+p256 = "0.13"          # MIT/Apache-2.0
+p384 = "0.13"          # MIT/Apache-2.0
+ed25519-compact = "2"  # MIT
+
+[dev-dependencies]
+hex = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true

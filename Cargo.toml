@@ -4,8 +4,8 @@ members = [
     "tpt-cbor",
     "tpt-hotp",
     "tpt-ssh",
+    "tpt-x509",
     # Additional crates are added here as they are scaffolded:
-    # "tpt-x509",
     # "tpt-ed25519",
     # "tpt-imap-server",
     # "tpt-doh",

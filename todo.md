@@ -8,9 +8,10 @@ next. External security audits are a platform-wide phase at the end, not a
 per-crate gate.
 
 Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
-`tpt-imap-server` · `tpt-doh` · `tpt-http-cache` · `tpt-dhcp` · `tpt-tsp` ·
-`tpt-ocsp` · `tpt-cms` · `tpt-http-sig` · `tpt-ohttp` · `tpt-privacy-pass` ·
-`tpt-coap` · `tpt-bfd` · `tpt-dhcpv6` · `tpt-kerberos` · `tpt-smtp` ·
+`tpt-x25519` · `tpt-imap-server` · `tpt-pop3` · `tpt-jmap` · `tpt-doh` ·
+`tpt-http-cache` · `tpt-dhcp` · `tpt-tsp` ·
+`tpt-ocsp` · `tpt-cms` · `tpt-http-sig` · `tpt-privacy-pass` ·
+`tpt-bfd` · `tpt-ospf` · `tpt-dhcpv6` · `tpt-kerberos` · `tpt-smtp` ·
 `tpt-sieve` · `tpt-snmp` · `tpt-netconf` · `tpt-dtls` · `tpt-sip` · `tpt-rtp` ·
 `tpt-bgp` · `tpt-ipsec` · `tpt-ldap-server` · `tpt-radius`
 
@@ -97,9 +98,23 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-ed25519`
 - [ ] Mark crate "spec-complete" once RFC + Wycheproof vectors pass
 
-## Phase 6 — `tpt-imap-server` (RFC 3501)
+## Phase 6 — `tpt-x25519` (RFC 7748 — X25519/X448)
 
-- [ ] Read RFC 3501 in full; write `SPEC-NOTES.md` covering command set, states (not authenticated/authenticated/selected/logout), response syntax
+- [ ] Note: `x25519-dalek` (the dominant crate) is BSD-3-Clause — same license gap as `ed25519-dalek`, which is why `tpt-ed25519` (Phase 5) already exists in-house; this is the natural companion crate
+- [ ] Read RFC 7748 in full; write `SPEC-NOTES.md`
+- [ ] Implement X25519 scalar multiplication (Curve25519 Montgomery ladder)
+- [ ] Implement X448 scalar multiplication (Curve448)
+- [ ] Source RFC 7748 official test vectors + Wycheproof X25519/X448 test vectors, wire into test suite
+- [ ] Security review: constant-time scalar multiplication, no secret-dependent branching
+- [ ] Benchmark against `x25519-dalek` to validate this is a credible, competitive alternative
+- [ ] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-x25519`
+- [ ] Mark crate "spec-complete" once RFC + Wycheproof vectors pass
+
+## Phase 7 — `tpt-imap-server` (RFC 3501 / RFC 9051 IMAP4rev2)
+
+- [ ] Note: target RFC 9051 (IMAP4rev2, which obsoletes RFC 3501) as the primary spec; the only full-featured Rust IMAP server (Stalwart) is AGPL-3.0-licensed, so this remains a genuine MIT-chain gap regardless of which RFC version is targeted
+- [ ] Read RFC 9051 in full (noting deltas from RFC 3501); write `SPEC-NOTES.md` covering command set, states (not authenticated/authenticated/selected/logout), response syntax
 - [ ] Design server architecture: connection/session state machine, pluggable mailbox storage backend trait (so users can plug in their own storage)
 - [ ] Implement core commands: CAPABILITY, LOGIN/AUTHENTICATE, SELECT/EXAMINE, LOGOUT
 - [ ] Implement mailbox management commands: CREATE, DELETE, RENAME, LIST, LSUB, STATUS
@@ -111,8 +126,35 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-imap-server`
 - [ ] Mark crate "spec-complete" once core command set + IDLE pass interop testing
 
-## Phase 7 — `tpt-doh` (RFC 8484)
+## Phase 8 — `tpt-pop3` (RFC 1939 POP3)
 
+- [ ] Note: no solid MIT-chain POP3 server was found — small crates are thin/unmaintained, and the only production-grade server (Stalwart) is AGPL-3.0; genuine gap
+- [ ] Read RFC 1939 in full; write `SPEC-NOTES.md` covering states (AUTHORIZATION/TRANSACTION/UPDATE) and command set
+- [ ] Design server architecture: connection/session state machine, pluggable mailbox storage backend trait (share the trait shape with `tpt-imap-server` where sensible)
+- [ ] Implement core commands: USER/PASS, STAT, LIST, RETR, DELE, NOOP, RSET, QUIT
+- [ ] Implement optional commands: TOP, UIDL, APOP
+- [ ] Provide a reference in-memory mailbox backend for testing/examples
+- [ ] Interop-test against real POP3 clients against the reference backend
+- [ ] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-pop3`
+- [ ] Mark crate "spec-complete" once core command set passes interop testing
+
+## Phase 9 — `tpt-jmap` (RFC 8620/8621 JMAP)
+
+- [ ] Note: client-side is covered by `jmap-client` (Apache-2.0 OR MIT) — focus this crate on the server side only; the only full JMAP server (Stalwart) is AGPL-3.0
+- [ ] Read RFC 8620 (JMAP core) and RFC 8621 (JMAP for Mail) in full; write `SPEC-NOTES.md`
+- [ ] Design server architecture: JSON method-call dispatch, pluggable mail-store backend trait (share shape with `tpt-imap-server`/`tpt-pop3` where sensible)
+- [ ] Implement core JMAP protocol: session resource, method calls/responses, result references, error handling
+- [ ] Implement JMAP Mail data model: Mailbox, Email, Thread, EmailSubmission objects and their methods
+- [ ] Provide a reference in-memory mail-store backend for testing/examples
+- [ ] Interop-test against a real JMAP client (e.g. `jmap-client`) against the reference backend
+- [ ] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-jmap`
+- [ ] Mark crate "spec-complete" once core protocol + Mail data model pass interop testing
+
+## Phase 10 — `tpt-doh` (RFC 8484)
+
+- [ ] Note: `hickory-dns` (MIT OR Apache-2.0) already covers DoH/DoT/DoQ natively and is very actively maintained — this phase's value is specifically a focused/composable standalone DoH client (per the original design rationale below), not filling an absolute gap; reconsider priority if that differentiation doesn't hold up
 - [ ] Read RFC 8484 in full; write `SPEC-NOTES.md`
 - [ ] Design API as a focused DoH client (wire format is standard DNS message format — reuse a dual-licensed DNS message crate if suitable, or implement minimal encode/decode needed)
 - [ ] Implement GET and POST request modes per RFC 8484
@@ -123,7 +165,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-doh`
 - [ ] Mark crate "spec-complete" once RFC 8484 request/response handling passes interop tests
 
-## Phase 8 — `tpt-http-cache` (RFC 9111)
+## Phase 11 — `tpt-http-cache` (RFC 9111)
 
 - [ ] Read RFC 9111 in full; write `SPEC-NOTES.md`
 - [ ] Design API modeled on `http-cache-semantics`' proven interface shape (clean-room reimplementation of behavior, not code)
@@ -136,7 +178,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-http-cache`
 - [ ] Mark crate "spec-complete" once freshness/validation/vary test suite passes
 
-## Phase 9 — `tpt-dhcp` (RFC 2131)
+## Phase 12 — `tpt-dhcp` (RFC 2131)
 
 - [ ] Read RFC 2131 in full; write `SPEC-NOTES.md` covering client/server state machines and message flow (DISCOVER/OFFER/REQUEST/ACK)
 - [ ] Design crate architecture: wire codec + client state machine + server state machine + pluggable lease-storage trait for the server
@@ -149,8 +191,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-dhcp`
 - [ ] Mark crate "spec-complete" once client+server state machines pass interop testing
 
-## Phase 10 — `tpt-tsp` (RFC 3161 Timestamping)
+## Phase 13 — `tpt-tsp` (RFC 3161 Timestamping)
 
+- [ ] Note: `freetsa` (MIT OR Apache-2.0) already covers the TSP *client* side reasonably well — focus new work on the TSA (server) responder, not another client
 - [ ] Read RFC 3161 in full; write `SPEC-NOTES.md` covering TimeStampReq/TimeStampResp structures and trust model
 - [ ] Decide on ASN.1/CMS dependency: reuse a dual-licensed ASN.1 der/CMS crate for encoding, build clean-room timestamp logic on top
 - [ ] Implement TimeStampReq generation (client) with nonce/policy/hash-alg options
@@ -161,7 +204,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-tsp`
 - [ ] Mark crate "spec-complete" once client+server round-trip and verification pass
 
-## Phase 11 — `tpt-ocsp` (RFC 6960 OCSP)
+## Phase 14 — `tpt-ocsp` (RFC 6960 OCSP)
 
 - [ ] Read RFC 6960 in full; write `SPEC-NOTES.md` covering OCSPRequest/OCSPResponse structures and responder statuses
 - [ ] Reuse existing dual-licensed ASN.1/x509 parsing crates for the wire structures; build clean-room request/response logic on top
@@ -173,8 +216,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-ocsp`
 - [ ] Mark crate "spec-complete" once client+responder round-trip and interop tests pass
 
-## Phase 12 — `tpt-cms` (RFC 5652 CMS)
+## Phase 15 — `tpt-cms` (RFC 5652 CMS)
 
+- [ ] Note: RustCrypto's `cms` crate (Apache-2.0 OR MIT) is dual-licensed and worth evaluating, but is pre-release (0.3.0-pre.2) with an unstable API — treat as a starting reference, not a dependency to build on top of yet; the older, more complete `cryptographic-message-syntax` crate is MPL-2.0 and doesn't count at all
 - [ ] Read RFC 5652 in full; write `SPEC-NOTES.md` covering ContentInfo, SignedData, EnvelopedData, DigestedData, EncryptedData
 - [ ] Reuse a dual-licensed ASN.1 der crate for wire encoding; build clean-room CMS content-type logic on top
 - [ ] Implement SignedData: signing, signature verification, certificate/CRL bundling, multiple signer support
@@ -185,8 +229,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-cms`
 - [ ] Mark crate "spec-complete" once SignedData/EnvelopedData round-trip and OpenSSL interop pass
 
-## Phase 13 — `tpt-http-sig` (RFC 9421 HTTP Message Signatures)
+## Phase 16 — `tpt-http-sig` (RFC 9421 HTTP Message Signatures)
 
+- [ ] Note: `httpsig` (MIT) already implements RFC 9421 but is hyper-coupled — the actual gap is a framework-agnostic implementation
 - [ ] Read RFC 9421 in full; write `SPEC-NOTES.md` covering signature base construction, components, parameters, algorithms
 - [ ] Design API as pluggable middleware-friendly signer/verifier (framework-agnostic, similar composability to `tpt-doh`'s HTTP client abstraction)
 - [ ] Implement signature base string construction from covered components
@@ -197,19 +242,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-http-sig`
 - [ ] Mark crate "spec-complete" once all RFC test vectors pass
 
-## Phase 14 — `tpt-ohttp` (RFC 9458 Oblivious HTTP)
-
-- [ ] Read RFC 9458 in full; write `SPEC-NOTES.md` covering encapsulation/decapsulation and the client/relay/gateway roles
-- [ ] Depend on a dual-licensed HPKE crate for the underlying encryption primitive; build clean-room OHTTP framing on top
-- [ ] Implement client-side request encapsulation and response decapsulation
-- [ ] Implement gateway-side request decapsulation and response encapsulation
-- [ ] Implement key configuration structure (RFC 9458 §3) parsing/serialization
-- [ ] Source official test vectors (RFC 9458 Appendix or reference implementation output) and wire into test suite
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-ohttp`
-- [ ] Mark crate "spec-complete" once encapsulation/decapsulation test vectors pass
-
-## Phase 15 — `tpt-privacy-pass` (RFC 9576 Privacy Pass)
+## Phase 17 — `tpt-privacy-pass` (RFC 9576 Privacy Pass)
 
 - [ ] Read RFC 9576 (and companion RFC 9578 issuance protocol) in full; write `SPEC-NOTES.md`
 - [ ] Depend on a dual-licensed VOPRF/blind-signature crate for the cryptographic core; build clean-room protocol/token logic on top
@@ -220,19 +253,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-privacy-pass`
 - [ ] Mark crate "spec-complete" once issuance/redemption test vectors pass
 
-## Phase 16 — `tpt-coap` (RFC 7252 CoAP)
-
-- [ ] Read RFC 7252 in full; write `SPEC-NOTES.md` covering message model, methods, options, reliability (CON/NON/ACK/RST)
-- [ ] Design crate architecture: wire codec + client + server, transport-agnostic (works over UDP or DTLS via `tpt-dtls`)
-- [ ] Implement message encode/decode (header, token, options, payload)
-- [ ] Implement client request/response with confirmable retransmission and deduplication
-- [ ] Implement server request handling and resource routing, including Observe extension (RFC 7641) if in scope
-- [ ] Interop-test against a known CoAP implementation (e.g. libcoap, aiocoap)
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-coap`
-- [ ] Mark crate "spec-complete" once client+server pass interop testing
-
-## Phase 17 — `tpt-bfd` (RFC 5880 BFD)
+## Phase 18 — `tpt-bfd` (RFC 5880 BFD)
 
 - [ ] Read RFC 5880 (and RFC 5881 for IP/UDP encapsulation) in full; write `SPEC-NOTES.md` covering state machine and control packet format
 - [ ] Implement control packet encode/decode
@@ -243,7 +264,20 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-bfd`
 - [ ] Mark crate "spec-complete" once session state machine passes interop testing
 
-## Phase 18 — `tpt-dhcpv6` (RFC 8415 DHCPv6)
+## Phase 19 — `tpt-ospf` (RFC 2328 OSPFv2 + RFC 5340 OSPFv3)
+
+- [ ] Note: `ospf-parser` is the only existing crate found and is parser-only with unconfirmed license/maintenance — treat this as a from-scratch full gap, not a partial one
+- [ ] Read RFC 2328 (OSPFv2) and RFC 5340 (OSPFv3) in full; write `SPEC-NOTES.md` covering LSA types, flooding, SPF calculation, areas
+- [ ] Implement packet encode/decode (Hello, DBD, LSR, LSU, LSAck) for both v2 and v3
+- [ ] Implement the OSPF neighbor state machine (Down through Full) and interface state machine
+- [ ] Implement LSA database and flooding logic
+- [ ] Implement Dijkstra SPF calculation and routing table derivation
+- [ ] Interop-test against a real OSPF implementation (e.g. FRRouting, BIRD) in a lab/VM setup
+- [ ] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-ospf`
+- [ ] Mark crate "spec-complete" once neighbor FSM + SPF calculation pass interop testing
+
+## Phase 20 — `tpt-dhcpv6` (RFC 8415 DHCPv6)
 
 - [ ] Read RFC 8415 in full; write `SPEC-NOTES.md` covering message types, options, client/server state machines
 - [ ] Depend on a dual-licensed DHCPv6 wire-codec crate if a solid one exists (confirm license/maintenance), else implement encode/decode clean-room
@@ -255,8 +289,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-dhcpv6`
 - [ ] Mark crate "spec-complete" once client+server state machines pass interop testing
 
-## Phase 19 — `tpt-kerberos` (RFC 4120 Kerberos v5 + RFC 4178 SPNEGO)
+## Phase 21 — `tpt-kerberos` (RFC 4120 Kerberos v5 + RFC 4178 SPNEGO)
 
+- [ ] Note: `kerbeiros` (Himmelblau project) is a real full client but is AGPL-3.0-licensed — not usable as a dependency or "gap closed" for this dual MIT/Apache-2.0 platform; keep full client+server scope below
 - [ ] Read RFC 4120 (Kerberos v5) and RFC 4178 (SPNEGO) in full; write `SPEC-NOTES.md` covering AS/TGS exchanges, ticket structure, GSSAPI framing
 - [ ] Reuse dual-licensed ASN.1 der crate for wire structures; build clean-room protocol/state logic on top
 - [ ] Implement client AS-REQ/AS-REP and TGS-REQ/TGS-REP exchanges, ticket caching
@@ -268,8 +303,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-kerberos`
 - [ ] Mark crate "spec-complete" once AS/TGS/AP exchanges and SPNEGO negotiation pass interop testing against a real KDC
 
-## Phase 20 — `tpt-smtp` (RFC 5321/5322 SMTP + Internet Message Format/MIME)
+## Phase 22 — `tpt-smtp` (RFC 5321/5322 SMTP + Internet Message Format/MIME)
 
+- [ ] Note: only `mailin`/`mailin-embedded` (MIT OR Apache-2.0) are confirmed MIT-chain, and both are thin/fragmented — `samotop`'s core server crate is **Apache-2.0 only** (only its `samotop-delivery` sub-crate is dual), so it does NOT count despite earlier notes; this gap is larger than previously stated, closer to "no solid cohesive option" than "fragmented but covered"
 - [ ] Read RFC 5321 (SMTP) and RFC 5322 (IMF) in full; write `SPEC-NOTES.md` covering envelope commands, extensions (ESMTP), message header/body syntax
 - [ ] Design crate architecture: wire codec (commands/replies + IMF parser) + client + server, pluggable message-store/relay trait for the server
 - [ ] Implement client: connection, EHLO/HELO, MAIL/RCPT/DATA, STARTTLS negotiation hook, AUTH extension hook
@@ -281,8 +317,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-smtp`
 - [ ] Mark crate "spec-complete" once client+server pass interop testing
 
-## Phase 21 — `tpt-sieve` (RFC 5228 Sieve mail filtering)
+## Phase 23 — `tpt-sieve` (RFC 5228 Sieve mail filtering)
 
+- [ ] Note: `sieve-rs` (Stalwart Labs) is comprehensive but AGPL-3.0-licensed (commercial license required to avoid copyleft) — not usable as a dependency for this dual MIT/Apache-2.0 platform; full scope below stands
 - [ ] Read RFC 5228 in full; write `SPEC-NOTES.md` covering script grammar, tests, actions, control structures
 - [ ] Implement Sieve script parser/lexer
 - [ ] Implement evaluation engine against a pluggable message-context trait (so it composes with `tpt-smtp`/`tpt-imap-server`)
@@ -292,8 +329,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-sieve`
 - [ ] Mark crate "spec-complete" once parser+engine pass the RFC test suite
 
-## Phase 22 — `tpt-snmp` (RFC 3411 et al. SNMP)
+## Phase 24 — `tpt-snmp` (RFC 3411 et al. SNMP)
 
+- [ ] Note: `snmp2` (MIT OR Apache-2.0) and others exist but are fragmented across small crates — the gap is a cohesive v1/v2c/v3 agent+manager, not absence of any support
 - [ ] Read RFC 3411-3418 (SNMPv3 architecture, message processing, security) in full; write `SPEC-NOTES.md`
 - [ ] Depend on a dual-licensed ASN.1 BER crate for wire encoding; build clean-room PDU/security logic on top
 - [ ] Implement SNMPv1/v2c PDU encode/decode (GetRequest/GetNextRequest/GetBulkRequest/SetRequest/Response/Trap)
@@ -304,8 +342,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-snmp`
 - [ ] Mark crate "spec-complete" once v1/v2c/v3 PDU handling passes interop testing
 
-## Phase 23 — `tpt-netconf` (RFC 6241/7950 NETCONF/YANG)
+## Phase 25 — `tpt-netconf` (RFC 6241/7950 NETCONF/YANG)
 
+- [ ] Note: `rustnetconf`/`netconf-rs`/`yang-rs` cover the client+YANG-parsing side reasonably well (license for `rustnetconf` unconfirmed — verify before depending on it); narrow this phase's focus to the *server* side regardless
 - [ ] Read RFC 6241 (NETCONF protocol) and RFC 7950 (YANG 1.1) in full; write `SPEC-NOTES.md`
 - [ ] Implement NETCONF transport framing over SSH (reusing `tpt-ssh` subsystem support) including `]]>]]>` and chunked framing
 - [ ] Implement NETCONF RPC operations: get, get-config, edit-config, copy-config, delete-config, lock/unlock, close-session
@@ -316,7 +355,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-netconf`
 - [ ] Mark crate "spec-complete" once core RPC operations pass interop testing
 
-## Phase 24 — `tpt-dtls` (RFC 9147 DTLS 1.3)
+## Phase 26 — `tpt-dtls` (RFC 9147 DTLS 1.3)
 
 - [ ] Read RFC 9147 in full; write `SPEC-NOTES.md` covering handshake differences from TLS 1.3, record layer, replay protection, retransmission
 - [ ] Reuse dual-licensed TLS 1.3 crypto/handshake-message primitives where structurally shared (e.g. via `rustls`'s lower-level building blocks if permissible) rather than reimplementing crypto
@@ -328,8 +367,9 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-dtls`
 - [ ] Mark crate "spec-complete" once handshake+record layer pass interop testing against OpenSSL
 
-## Phase 25 — `tpt-sip` (RFC 3261 SIP)
+## Phase 27 — `tpt-sip` (RFC 3261 SIP)
 
+- [ ] Note: `rsipstack` (MIT) claims full RFC 3261 compliance with a complete transaction state machine already — verify its real-world maturity/interop before committing to a from-scratch build; this may not be a gap at all
 - [ ] Read RFC 3261 in full; write `SPEC-NOTES.md` covering message syntax, transactions, dialogs, core methods (INVITE/ACK/BYE/CANCEL/REGISTER/OPTIONS)
 - [ ] Design crate architecture: wire codec (reuse a dual-licensed SIP message parser if solid, else clean-room) + transaction layer + dialog layer + transport-agnostic (UDP/TCP/TLS)
 - [ ] Implement transaction state machines (client/server, INVITE and non-INVITE per RFC 3261 §17)
@@ -340,7 +380,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-sip`
 - [ ] Mark crate "spec-complete" once transaction/dialog layers pass interop testing
 
-## Phase 26 — `tpt-rtp` (RFC 3550/3551 RTP/RTCP)
+## Phase 28 — `tpt-rtp` (RFC 3550/3551 RTP/RTCP)
 
 - [ ] Read RFC 3550 (RTP) and RFC 3551 (audio/video profile) in full; write `SPEC-NOTES.md`
 - [ ] Implement RTP packet encode/decode (header, extensions, padding, CSRC list)
@@ -352,7 +392,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-rtp`
 - [ ] Mark crate "spec-complete" once packet codec + session stats pass interop testing
 
-## Phase 27 — `tpt-bgp` (RFC 4271 BGP)
+## Phase 29 — `tpt-bgp` (RFC 4271 BGP)
 
 - [ ] Read RFC 4271 in full; write `SPEC-NOTES.md` covering FSM, message types (OPEN/UPDATE/NOTIFICATION/KEEPALIVE), path attributes
 - [ ] Implement message encode/decode including common path attributes (AS_PATH, NEXT_HOP, MED, LOCAL_PREF, etc.)
@@ -364,7 +404,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-bgp`
 - [ ] Mark crate "spec-complete" once FSM + UPDATE processing pass interop testing
 
-## Phase 28 — `tpt-ipsec` (RFC 4301/7296 IPsec/IKEv2)
+## Phase 30 — `tpt-ipsec` (RFC 4301/7296 IPsec/IKEv2)
 
 - [ ] Read RFC 4301 (IPsec architecture) and RFC 7296 (IKEv2) in full; write `SPEC-NOTES.md` covering SA management, IKE_SA_INIT/IKE_AUTH/CREATE_CHILD_SA exchanges
 - [ ] Reuse dual-licensed crypto primitive crates (DH, AEAD ciphers, PRFs) for cryptographic operations; build clean-room protocol/state logic on top
@@ -377,7 +417,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-ipsec`
 - [ ] Mark crate "spec-complete" once IKE_SA_INIT/IKE_AUTH/CREATE_CHILD_SA pass interop testing against strongSwan
 
-## Phase 29 — `tpt-ldap-server` (RFC 4511 LDAP)
+## Phase 31 — `tpt-ldap-server` (RFC 4511 LDAP)
 
 - [ ] Read RFC 4511 (and RFC 4510 roadmap) in full; write `SPEC-NOTES.md` covering protocol operations, BER encoding, search filters
 - [ ] Depend on a dual-licensed ASN.1 BER crate for wire encoding; build clean-room server logic on top
@@ -391,7 +431,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-ldap-server`
 - [ ] Mark crate "spec-complete" once core operations pass interop testing
 
-## Phase 30 — `tpt-radius` (RFC 2865 RADIUS)
+## Phase 32 — `tpt-radius` (RFC 2865 RADIUS)
 
 - [ ] Read RFC 2865 (and RFC 2866 accounting) in full; write `SPEC-NOTES.md` covering packet format, attributes, shared-secret authentication
 - [ ] Implement packet encode/decode (Access-Request/Accept/Reject/Challenge, Accounting-Request/Response) with attribute (AVP) parsing
@@ -404,7 +444,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-radius`
 - [ ] Mark crate "spec-complete" once client+server pass interop testing
 
-## Phase 31 — Platform-wide hardening & launch
+## Phase 33 — Platform-wide hardening & launch
 
 - [ ] Commission/perform external security audits for the security-sensitive crates (`tpt-ssh`, `tpt-x509`, `tpt-ed25519`, `tpt-hotp`)
 - [ ] Address audit findings, cut patch releases as needed
