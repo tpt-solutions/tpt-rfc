@@ -96,6 +96,11 @@ impl ReceiverStats {
             return;
         }
         let udelta = seq.wrapping_sub(self.prev_seq) as u32;
+        if udelta == 0 {
+            // Exact duplicate of the most recent packet: do not count it and
+            // do not advance the high-water mark.
+            return;
+        }
         if udelta < MAX_DROPOUT {
             // Valid forward advance (a small forward distance, or a wrap since a
             // wrap produces a small forward distance on the circle).

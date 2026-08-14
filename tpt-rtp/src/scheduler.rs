@@ -194,8 +194,9 @@ mod tests {
 
     #[test]
     fn reverse_reconsideration_shortens() {
-        let s = RtcpScheduler::new(8000.0);
-        // 10 members, scheduled tn = 10.0; drops to 5 members at tc=0
+        let mut s = RtcpScheduler::new(8000.0);
+        s.set_members(10); // 10 members before the drop
+        // scheduled tn = 10.0 at tc = 0; drops to 5 members
         let new_tn = s.reverse_reconsideration(0.0, 10.0, 5);
         // tn' = 0 + (5/10)*10 = 5.0
         assert!((new_tn - 5.0).abs() < 1e-9);

@@ -31,6 +31,7 @@ pub mod error;
 pub mod hash;
 pub mod oids;
 pub mod responder;
+pub mod signer;
 pub mod verify;
 
 pub use certid::{CertId, CertStatusValue};
@@ -38,3 +39,4 @@ pub use client::{build_request, decode_request, DecodedRequest, OcspClient, Requ
 pub use error::{OcspError, OcspResult};
 pub use hash::HashAlgorithm;
 pub use responder::{CertStatusProvider, OcspResponder, ProvidedStatus, ResponderIdKind};
+pub use signer::SigningKey;

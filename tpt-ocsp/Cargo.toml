@@ -36,7 +36,13 @@ getrandom = { version = "0.2", features = ["std"] }
 
 [dev-dependencies]
 hex = "0.4"
-rand_core = "0.6" # MIT/Apache-2.0 (test key generation)
+rand = "0.8" # MIT/Apache-2.0 (test key generation)
+# Integration tests build certificates and keys directly, so the same crates
+# used by the library must be available as dev-dependencies.
+x509-cert = { version = "0.3", features = ["builder"] }
+p256 = "0.14"
+rsa = "0.9"
+sha2 = { version = "0.11", features = ["oid"] }
 
 [package.metadata.docs.rs]
 all-features = true

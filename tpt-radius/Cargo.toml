@@ -1,0 +1,25 @@
+[package]
+name = "tpt-radius"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["radius", "rfc2865", "rfc2866", "authentication", "aaa"]
+categories = ["network-programming", "authentication"]
+description = "Clean-room, dual-licensed RADIUS client/server (RFC 2865/2866) with a pluggable auth backend"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+md-5 = "0.10"
+hmac = "0.12"
+getrandom = "0.2"
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

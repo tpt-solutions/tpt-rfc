@@ -488,10 +488,9 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
     .map_err(CmsError::Asn1)?;
     let _ = curve_oid;
     let pubk_any = oc.take()?;
-    let originator_pub = BitStringRef::try_from(pubk_any.value())
-        .map_err(CmsError::Asn1)?
-        .as_bytes()
-        .to_vec();
+        let originator_pub = BitStringRef::from(pubk_any.value())
+            .as_bytes()
+            .to_vec();
 
     // ukm [1] EXPLICIT OCTET STRING OPTIONAL
     let (ukm, key_agree_any, rek) = if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(1)) {
@@ -539,10 +538,8 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
 fn extract_octet_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
-    Ok(OctetStringRef::try_from(p.value())
-        .map_err(CmsError::Asn1)?
-        .as_bytes()
-        .to_vec())
+    let os = OctetStringRef::from(p.value());
+    Ok(os.as_bytes().to_vec())
 }
 
 // ---------------------------------------------------------------------------

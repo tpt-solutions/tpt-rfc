@@ -14,7 +14,7 @@ fn rtp_packet_decodes_to_known_fields() {
     // V=2, P=0, X=0, CC=2, M=1, PT=96; seq=0x1234; ts=0x0a0b0c0d; ssrc=0x01020304
     // CSRC[0]=0xaabbccdd, CSRC[1]=0x11223344; payload = 0xde 0xad 0xbe 0xef
     let wire = [
-        0x82u8, 0x60, 0x12, 0x34, // b0=1000_0010 (CC=2), b1=0110_0000 (M=1,PT=96)
+        0x82u8, 0xe0, 0x12, 0x34, // b0=1000_0010 (CC=2), b1=1110_0000 (M=1,PT=96)
         0x0a, 0x0b, 0x0c, 0x0d, 0x01, 0x02, 0x03, 0x04, // ts + ssrc
         0xaa, 0xbb, 0xcc, 0xdd, // CSRC 0
         0x11, 0x22, 0x33, 0x44, // CSRC 1
@@ -60,7 +60,7 @@ fn rtcp_sr_known_fields() {
     // ntp=0x0011223344556677; rtp_ts=0xaabbccdd; pc=5; oc=1234
     // one report block: ssrc=0x55667788, frac=17, cumlost=0x00ffffff&...=16777215? we use 0x0000ff01
     let wire = [
-        0x81u8, 0xc8, 0x00, 0x07, // RC=1, PT=200(0xc8), len=7
+        0x81u8, 0xc8, 0x00, 0x0c, // RC=1, PT=200(0xc8), len=12 (=> 13*4=52 bytes)
         0x11, 0x11, 0x11, 0x11, // ssrc
         0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, // ntp
         0xaa, 0xbb, 0xcc, 0xdd, // rtp ts
@@ -146,7 +146,7 @@ fn rtcp_bye_and_app() {
     let app = RtcpPacket::App(App {
         ssrc: 0x1234_5678,
         subtype: 5,
-        name: *b"RTPE",
+        name: *b"RTP@",
         data: vec![1, 2, 3, 4, 5, 6, 7, 8],
     });
     let enc = app.encode();
@@ -154,7 +154,7 @@ fn rtcp_bye_and_app() {
     match dec {
         RtcpPacket::App(a) => {
             assert_eq!(a.subtype, 5);
-            assert_eq!(&a.name, b"RTPE");
+            assert_eq!(&a.name, b"RTP@");
             assert_eq!(a.data, vec![1, 2, 3, 4, 5, 6, 7, 8]);
         }
         _ => panic!("expected APP"),

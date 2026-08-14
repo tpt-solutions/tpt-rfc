@@ -106,6 +106,12 @@ fn encode_usm(usm: &UsmSecurityParameters) -> Vec<u8> {
 
 fn decode_usm(content: &[u8]) -> Result<UsmSecurityParameters, SnmpError> {
     let mut r = BerReader::new(content);
+    // The encoded USM is a SEQUENCE; unwrap it to read its fields.
+    let (tag, inner) = r.read_tlv()?;
+    if tag != crate::ber::TAG_SEQUENCE {
+        return Err(SnmpError::Malformed);
+    }
+    let mut r = BerReader::new(inner);
     let (_, eid) = r.read_tlv()?;
     let (_, b) = r.read_tlv()?;
     let boots = crate::ber::decode_unsigned(b)? as u32;
@@ -220,7 +226,6 @@ impl V3Message {
             return Err(SnmpError::UnknownVersion(version));
         }
         let (_, gc) = inner.read_tlv()?;
-        eprintln!("DEBUG global read, inner empty? {}", inner.is_empty());
         let mut gr = BerReader::new(gc);
         let (_, idc) = gr.read_tlv()?;
         let msg_id = crate::ber::decode_signed(idc)?;
@@ -237,10 +242,8 @@ impl V3Message {
             return Err(SnmpError::UnsupportedSecurityModel(msg_security_model));
         }
         let (_, sc) = inner.read_tlv()?;
-        eprintln!("DEBUG secparams read, inner empty? {} sc.len={}", inner.is_empty(), sc.len());
         let usm = decode_usm(sc)?;
         let (dtag, dcontent) = inner.read_tlv()?;
-        eprintln!("DEBUG scoped read, dtag={:#x} len={}", dtag, dcontent.len());
         let data = if dtag == TAG_SEQUENCE {
             V3Data::Plain(decode_scoped(dcontent)?)
         } else {

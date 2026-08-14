@@ -1,0 +1,25 @@
+[package]
+name = "tpt-bgp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["bgp", "rfc4271", "rfc6793", "rfc4760", "routing"]
+categories = ["network-programming"]
+description = "Clean-room, dual-licensed BGP-4 (RFC 4271) implementation: message codec, path attributes (4-byte ASN RFC 6793, multiprotocol RFC 4760), the peer finite-state machine, and a pluggable RIB/decision-process"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

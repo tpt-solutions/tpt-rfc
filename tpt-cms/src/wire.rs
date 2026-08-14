@@ -222,7 +222,7 @@ pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
     let mut out = Vec::new();
     while !inner.at_end() {
         let a = inner.take()?;
-        out.push(a.as_bytes().to_vec());
+        out.push(a.to_der().map_err(CmsError::Asn1)?);
     }
     Ok(out)
 }
@@ -230,7 +230,7 @@ pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
 pub(crate) fn octet_value_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
-    let os: &OctetStringRef = OctetStringRef::try_from(p.value()).map_err(CmsError::Asn1)?;
+    let os = OctetStringRef::from(p.value());
     Ok(os.as_bytes().to_vec())
 }
 
@@ -242,7 +242,7 @@ pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<V
     let mut out = Vec::new();
     while !inner.at_end() {
         let a = inner.take()?;
-        out.push(T::from_der(a.as_bytes()).map_err(CmsError::Asn1)?);
+        out.push(T::from_der(a.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)?);
     }
     Ok(out)
 }
@@ -255,7 +255,7 @@ pub(crate) fn parse_set_elements_raw<'a>(data: &'a [u8]) -> Result<Vec<&'a [u8]>
     let mut out = Vec::new();
     while !inner.at_end() {
         let a = inner.take()?;
-        out.push(a.as_bytes());
+        out.push(a.to_der().map_err(CmsError::Asn1)?);
     }
     Ok(out)
 }

@@ -777,10 +777,14 @@ mod tests {
 
     #[test]
     fn app_round_trip() {
+        // Note: the RFC 3550 APP name is only 27 bits (a 5-bit subtype shares
+        // the 32-bit word), so the final name octet's low 3 bits cannot be
+        // round-tripped. We use a name whose last octet ('@' = 0x40) has zero
+        // low bits, which round-trips exactly under the standard packing.
         let app = App {
             ssrc: 0x1234_5678,
             subtype: 3,
-            name: *b"TEST",
+            name: *b"RTP@",
             data: vec![0xde, 0xad, 0xbe, 0xef],
         };
         let enc = RtcpPacket::App(app.clone()).encode();

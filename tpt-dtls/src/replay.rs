@@ -68,7 +68,7 @@ impl ReplayWindow {
             // so we never shift past all history).
             let new_base = seq + 1 - self.window as u64;
             let shift = (new_base - self.base).min(self.window as u64) as usize;
-            self.shift_left(shift);
+            self.window_slide(shift);
             self.base = new_base;
         }
 
@@ -82,34 +82,36 @@ impl ReplayWindow {
         Ok(true)
     }
 
-    /// Shift the bitmask left by `n` bit positions, dropping the lowest `n`
-    /// sequence numbers.
-    fn shift_left(&mut self, n: usize) {
+    /// Slide the bitmask forward (window base increases) by `n` bit
+    /// positions. Because a sequence `seq` maps to bit `seq - base`, sliding
+    /// the window forward requires shifting the bitmap **right** by `n`,
+    /// dropping the lowest `n` sequence numbers that fall out of the window.
+    fn window_slide(&mut self, n: usize) {
         if n == 0 {
             return;
         }
         let word_shift = n / 64;
         let bit_shift = n % 64;
-        if word_shift >= self.words.len() {
+        let len = self.words.len();
+        if word_shift >= len {
             for w in self.words.iter_mut() {
                 *w = 0;
             }
             return;
         }
         if bit_shift == 0 {
-            for i in 0..self.words.len() - word_shift {
+            for i in 0..len - word_shift {
                 self.words[i] = self.words[i + word_shift];
             }
         } else {
-            for i in 0..self.words.len() - word_shift - 1 {
-                let low = self.words[i + word_shift] << bit_shift;
-                let high = self.words[i + word_shift + 1] >> (64 - bit_shift);
+            for i in 0..len - word_shift - 1 {
+                let low = self.words[i + word_shift] >> bit_shift;
+                let high = self.words[i + word_shift + 1] << (64 - bit_shift);
                 self.words[i] = low | high;
             }
-            let last = self.words.len() - word_shift - 1;
-            self.words[last] = self.words[self.words.len() - 1] << bit_shift;
+            let last = len - word_shift - 1;
+            self.words[last] = self.words[len - 1] >> bit_shift;
         }
-        let len = self.words.len();
         for w in self.words.iter_mut().skip(len - word_shift) {
             *w = 0;
         }

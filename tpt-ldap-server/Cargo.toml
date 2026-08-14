@@ -1,0 +1,25 @@
+[package]
+name = "tpt-ldap-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["ldap", "rfc4511", "directory", "server", "protocol"]
+categories = ["network-programming", "encoding"]
+description = "Clean-room, dual-licensed LDAP server (RFC 4511) with a pluggable directory backend"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

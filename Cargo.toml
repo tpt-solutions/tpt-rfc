@@ -16,15 +16,18 @@ members = [
     "tpt-smtp",
     "tpt-netconf",
     "tpt-sieve",
-    "tpt-sip",
-    "tpt-rtp",
     "tpt-dtls",
+    "tpt-rtp",
+    "tpt-ocsp",
+    "tpt-bgp",
+    "tpt-radius",
+    "tpt-ldap-server",
 ]
 
 # `tpt-x25519` opts out of the parent workspace (it declares its own
 # `[workspace]`) so that it builds and tests independently. Exclude it
 # explicitly to avoid a "multiple workspace roots" conflict.
-exclude = ["tpt-x25519"]
+exclude = ["tpt-x25519", "tpt-ldap-server"]
 
 [workspace.package]
 version = "0.1.0"
