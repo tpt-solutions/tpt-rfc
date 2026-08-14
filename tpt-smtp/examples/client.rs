@@ -9,7 +9,7 @@
 //!
 //! Connects, issues `EHLO`, `MAIL`, `RCPT`, `DATA`, then `QUIT`.
 
-use std::io::{BufReader, Write};
+use std::io::BufReader;
 use std::net::TcpStream;
 
 use tpt_smtp::client::Client;

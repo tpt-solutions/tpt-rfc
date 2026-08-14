@@ -85,10 +85,7 @@ fn read_quoted(line: &[u8], start: usize) -> io::Result<(String, usize)> {
                 i += 2;
             }
             b'"' => {
-                return Ok((
-                    String::from_utf8_lossy(&s).into_owned(),
-                    i + 1,
-                ));
+                return Ok((String::from_utf8_lossy(&s).into_owned(), i + 1));
             }
             c => {
                 s.push(c);
@@ -107,10 +104,7 @@ fn read_atom(line: &[u8], start: usize) -> (String, usize) {
     while i < line.len() && is_atom_char(line[i]) {
         i += 1;
     }
-    (
-        String::from_utf8_lossy(&line[start..i]).into_owned(),
-        i,
-    )
+    (String::from_utf8_lossy(&line[start..i]).into_owned(), i)
 }
 
 fn parse_literal_spec(line: &[u8], start: usize) -> io::Result<(usize, bool, usize)> {
@@ -159,7 +153,7 @@ where
         }
         got_any = true;
         let mut i = 0usize;
-    let mut had_literal = false;
+        let mut had_literal = false;
         while i < line.len() {
             while i < line.len() && (line[i] == b' ' || line[i] == b'\t') {
                 i += 1;

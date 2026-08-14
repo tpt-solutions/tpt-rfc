@@ -137,7 +137,8 @@ pub fn auth_mac(proto: AuthProtocol, key: &[u8], message: &[u8]) -> [u8; 12] {
             out.copy_from_slice(&full[..12]);
         }
         AuthProtocol::Sha1 => {
-            let mut mac = HmacSha1::new_from_slice(key).expect("key length accepted");
+            let mut mac =
+                <HmacSha1 as hmac::Mac>::new_from_slice(key).expect("key length accepted");
             mac.update(message);
             let full = mac.finalize().into_bytes();
             out.copy_from_slice(&full[..12]);
@@ -150,7 +151,11 @@ pub fn auth_mac(proto: AuthProtocol, key: &[u8], message: &[u8]) -> [u8; 12] {
 /// AES-CFB-128 transform (RFC 3826 §3.1.3). Symmetric for encryption and
 /// decryption: `output = input XOR E(register)`, with the register fed by the
 /// previous ciphertext block.
-fn aes_cfb128(input: &[u8], key: &[u8; 16], iv: &[u8; 16]) -> Vec<u8> {
+/// AES-CFB-128 transform (RFC 3826 §3.1.3). The register is fed by the
+/// *transmitted ciphertext* block. `encrypt` selects whether `input` is
+/// plaintext (the produced `output` becomes the next register) or ciphertext
+/// (the `input` itself becomes the next register).
+fn aes_cfb128(input: &[u8], key: &[u8; 16], iv: &[u8; 16], encrypt: bool) -> Vec<u8> {
     let cipher = Aes128::new(key.into());
     let mut reg = *iv;
     let mut out = Vec::with_capacity(input.len());
@@ -163,11 +168,19 @@ fn aes_cfb128(input: &[u8], key: &[u8; 16], iv: &[u8; 16]) -> Vec<u8> {
             out.push(input[i + j] ^ ks[j]);
         }
         if take == 16 {
-            reg.copy_from_slice(&out[out.len() - 16..]);
+            if encrypt {
+                reg.copy_from_slice(&out[out.len() - 16..]);
+            } else {
+                reg.copy_from_slice(&input[i..i + 16]);
+            }
         } else {
             let mut newreg = [0u8; 16];
             newreg[..16 - take].copy_from_slice(&reg[take..]);
-            newreg[16 - take..].copy_from_slice(&out[out.len() - take..]);
+            if encrypt {
+                newreg[16 - take..].copy_from_slice(&out[out.len() - take..]);
+            } else {
+                newreg[16 - take..].copy_from_slice(&input[i..i + take]);
+            }
             reg = newreg;
         }
         i += take;
@@ -200,7 +213,7 @@ pub fn encrypt_scoped(
             iv[0..4].copy_from_slice(&boots.to_be_bytes());
             iv[4..8].copy_from_slice(&time.to_be_bytes());
             iv[8..16].copy_from_slice(salt);
-            aes_cfb128(plaintext, priv_key, &iv)
+            aes_cfb128(plaintext, priv_key, &iv, true)
         }
     }
 }
@@ -234,7 +247,7 @@ pub fn decrypt_scoped(
             iv[0..4].copy_from_slice(&boots.to_be_bytes());
             iv[4..8].copy_from_slice(&time.to_be_bytes());
             iv[8..16].copy_from_slice(salt);
-            Ok(aes_cfb128(ciphertext, priv_key, &iv))
+            Ok(aes_cfb128(ciphertext, priv_key, &iv, false))
         }
     }
 }
@@ -248,9 +261,9 @@ mod tests {
         let key = [0x11u8; 16];
         let iv = [0x22u8; 16];
         let pt = b"the quick brown fox scoped pdu";
-        let ct = aes_cfb128(pt, &key, &iv);
+        let ct = aes_cfb128(pt, &key, &iv, true);
         assert_ne!(ct, pt.to_vec());
-        assert_eq!(aes_cfb128(&ct, &key, &iv), pt.to_vec());
+        assert_eq!(aes_cfb128(&ct, &key, &iv, false), pt.to_vec());
     }
 
     #[test]

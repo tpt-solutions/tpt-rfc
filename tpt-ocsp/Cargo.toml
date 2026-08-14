@@ -1,0 +1,42 @@
+[package]
+name = "tpt-ocsp"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.74"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["rfc6960", "ocsp", "revocation", "pkix", "x509"]
+categories = ["cryptography"]
+description = "Clean-room, dual-licensed RFC 6960 OCSP — client request/verification and responder"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# ASN.1 DER + x509 parsing (RustCrypto, MIT/Apache-2.0). Pinned to the same
+# `der`/`spki`/`x509-cert` 0.8/0.8/0.3 line used across the workspace so the
+# `Decode`/`Sequence` trait impls line up.
+der = { version = "0.8", features = ["derive"] }
+spki = "0.8"
+const-oid = "0.10"
+x509-cert = { version = "0.3", features = ["builder"] }
+signature = "3"
+sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
+sha1 = "0.10"                                   # MIT/Apache-2.0
+rsa = "0.9"                                     # MIT/Apache-2.0
+ecdsa = { version = "0.17", features = ["spki"] } # MIT/Apache-2.0
+p256 = "0.14"                                   # MIT/Apache-2.0
+p384 = "0.14"                                   # MIT/Apache-2.0
+ed25519-compact = "2"                           # MIT
+getrandom = { version = "0.2", features = ["std"] }
+
+[dev-dependencies]
+hex = "0.4"
+rand_core = "0.6" # MIT/Apache-2.0 (test key generation)
+
+[package.metadata.docs.rs]
+all-features = true

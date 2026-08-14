@@ -157,8 +157,7 @@ fn valid_now() -> Validity {
 fn build_p256(profile: TestProfile, signer: &SigningKey, serial: u64) -> Certificate {
     let spki = SubjectPublicKeyInfoOwned::from_key(signer.verifying_key()).unwrap();
     let mut builder =
-        CertificateBuilder::new(profile, SerialNumber::from(serial),
-        validity, spki).unwrap();
+        CertificateBuilder::new(profile, SerialNumber::from(serial), validity, spki).unwrap();
     let wrapped = EcdsaSigner(signer.clone());
     builder.build::<_, EcdsaSig>(&wrapped).unwrap()
 }
@@ -437,4 +436,3 @@ fn intermediate_chain_is_validated() {
         .expect("3-cert chain should validate");
     assert_eq!(path.len(), 3);
 }
-

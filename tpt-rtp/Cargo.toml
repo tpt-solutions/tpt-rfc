@@ -1,0 +1,25 @@
+[package]
+name = "tpt-rtp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["rtp", "rtcp", "rfc3550", "rfc3551", "realtime", "streaming"]
+categories = ["network-programming", "multimedia"]
+description = "Clean-room, dual-licensed RTP (RFC 3550) and RTCP implementation with session statistics and RTCP scheduling"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

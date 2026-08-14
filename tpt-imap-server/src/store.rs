@@ -90,4 +90,3 @@ pub trait MailboxStore: Send + Sync + 'static {
 pub fn mailbox_exists<S: MailboxStore>(store: &S, user: &str, name: &str) -> bool {
     store.mailbox_status(user, name).is_ok()
 }
-

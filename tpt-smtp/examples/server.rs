@@ -20,6 +20,7 @@ use tpt_smtp::session::Extensions;
 
 fn main() -> std::io::Result<()> {
     let backend = Arc::new(MemoryBackend::new());
+    let backend: Arc<dyn tpt_smtp::backend::MailDelivery> = backend;
     let mut server = Server::with_hostname(backend, "tpt-smtp.example");
     server.set_extensions(Extensions {
         size: true,

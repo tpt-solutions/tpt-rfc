@@ -33,10 +33,7 @@ impl<S: MailboxStore> Server<S> {
 
     /// Bind to `addr`, serve in a background thread, and return the resolved
     /// local address plus the join handle. Useful for tests.
-    pub fn spawn(
-        self,
-        addr: impl ToSocketAddrs,
-    ) -> std::io::Result<(SocketAddr, JoinHandle<()>)> {
+    pub fn spawn(self, addr: impl ToSocketAddrs) -> std::io::Result<(SocketAddr, JoinHandle<()>)> {
         let listener = TcpListener::bind(addr)?;
         let local = listener.local_addr()?;
         let handle = thread::spawn(move || {

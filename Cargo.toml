@@ -12,9 +12,13 @@ members = [
     "tpt-ospf",
     "tpt-imap-server",
     "tpt-bfd",
+    "tpt-snmp",
     "tpt-smtp",
     "tpt-netconf",
     "tpt-sieve",
+    "tpt-sip",
+    "tpt-rtp",
+    "tpt-dtls",
 ]
 
 # `tpt-x25519` opts out of the parent workspace (it declares its own

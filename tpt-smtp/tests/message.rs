@@ -114,7 +114,7 @@ fn mime_quoted_printable_decodes() {
     );
     let msg = Message::parse(raw.as_bytes());
     let mime = msg.mime();
-    assert_eq!(mime.content_text(), "Hello World=test");
+    assert_eq!(mime.content_text(), "Hello World=test\r\n");
 }
 
 #[test]

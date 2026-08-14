@@ -125,13 +125,14 @@ impl<'a> Parser<'a> {
                     self.skip_until(b"?>");
                     self.pos += 2;
                     continue;
-                } else if self.peek(1) == Some(b'!') {
-                    if self.peek(2) == Some(b'-') && self.peek(3) == Some(b'-') {
-                        // Comment.
-                        self.skip_until(b"-->");
-                        self.pos += 3;
-                        continue;
-                    }
+                } else if self.peek(1) == Some(b'!')
+                    && self.peek(2) == Some(b'-')
+                    && self.peek(3) == Some(b'-')
+                {
+                    // Comment.
+                    self.skip_until(b"-->");
+                    self.pos += 3;
+                    continue;
                 }
             }
             break;
@@ -139,12 +140,8 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_ws(&mut self) {
-        while let Some(c) = self.peek(0) {
-            if c == b' ' || c == b'\t' || c == b'\r' || c == b'\n' {
-                self.pos += 1;
-            } else {
-                break;
-            }
+        while matches!(self.peek(0), Some(b' ' | b'\t' | b'\r' | b'\n')) {
+            self.pos += 1;
         }
     }
 
@@ -233,9 +230,7 @@ impl<'a> Parser<'a> {
             }
             self.pos += 1;
             self.skip_ws();
-            let quote = self
-                .peek(0)
-                .ok_or(XmlError::UnexpectedEof)?;
+            let quote = self.peek(0).ok_or(XmlError::UnexpectedEof)?;
             if quote != b'"' && quote != b'\'' {
                 return Err(XmlError::Malformed("expected quote in attribute".into()));
             }
@@ -409,7 +404,8 @@ mod tests {
 
     #[test]
     fn round_trips_simple() {
-        let doc = "<rpc message-id=\"1\"><get-config><source><running/></source></get-config></rpc>";
+        let doc =
+            "<rpc message-id=\"1\"><get-config><source><running/></source></get-config></rpc>";
         let root = parse_root(doc).unwrap();
         assert_eq!(root.name, "rpc");
         assert_eq!(root.attribute("message-id"), Some("1"));
@@ -437,13 +433,17 @@ mod tests {
     fn serialize_is_well_formed() {
         let mut el = Xml::new("rpc").attr("message-id", "1");
         let mut gc = Xml::new("get-config");
-        gc.children.push(Xml::new("source").child(Xml::new("running")));
+        gc.children
+            .push(Xml::new("source").child(Xml::new("running")));
         el.children.push(gc);
         let s = to_string(&el);
         assert!(s.contains("<rpc message-id=\"1\">"));
         assert!(s.contains("<running/>"));
         // Re-parse to confirm well-formedness.
         let reparsed = parse_root(&s).unwrap();
-        assert_eq!(reparsed.child_named("get-config").unwrap().local_name(), "get-config");
+        assert_eq!(
+            reparsed.child_named("get-config").unwrap().local_name(),
+            "get-config"
+        );
     }
 }

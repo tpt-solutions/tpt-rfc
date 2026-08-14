@@ -82,7 +82,10 @@ impl Default for Session {
 
 impl Session {
     /// Create a session bound to `backend` with the given server `hostname`.
-    pub fn with_hostname(backend: std::sync::Arc<dyn MailDelivery>, hostname: impl Into<String>) -> Self {
+    pub fn with_hostname(
+        backend: std::sync::Arc<dyn MailDelivery>,
+        hostname: impl Into<String>,
+    ) -> Self {
         Self {
             backend,
             state: State::Greeted,
@@ -125,7 +128,7 @@ impl Session {
     ) -> std::io::Result<()> {
         let greeting = Reply::service_ready(format!("{} SMTP tpt-smtp ready", self.hostname));
         self.write_reply(writer, &greeting)?;
-        self.state = State::Initial;
+        self.state = State::Greeted;
 
         let mut line = String::new();
         loop {
@@ -164,9 +167,7 @@ impl Session {
         let args = &cmd.args;
 
         // The only commands valid before HELO/EHLO are HELO, EHLO, and QUIT.
-        if self.state == State::Initial
-            && !matches!(verb.as_str(), "HELO" | "EHLO" | "QUIT")
-        {
+        if self.state == State::Greeted && !matches!(verb.as_str(), "HELO" | "EHLO" | "QUIT") {
             self.write_reply(writer, &Reply::bad_sequence())?;
             return Ok(false);
         }
@@ -227,7 +228,7 @@ impl Session {
             lines.push("AUTH PLAIN LOGIN".to_string());
         }
         lines.push("8BITMIME".to_string());
-        self.write_reply(writer, &Reply::new(250, lines.join("\r\n")))?;
+        self.write_reply(writer, &Reply { code: 250, lines })?;
         Ok(false)
     }
 
@@ -329,7 +330,10 @@ impl Session {
             let n = reader.read_line(&mut line)?;
             if n == 0 {
                 // EOF mid-message: treat as aborted.
-                self.write_reply(writer, &Reply::new(451, "Transaction aborted: connection closed"))?;
+                self.write_reply(
+                    writer,
+                    &Reply::new(451, "Transaction aborted: connection closed"),
+                )?;
                 self.reset_transaction();
                 return Ok(false);
             }
@@ -363,11 +367,7 @@ impl Session {
             }
         }
 
-        let envelope = Envelope::new(
-            self.reverse_path.clone(),
-            self.forward_paths.clone(),
-            body,
-        );
+        let envelope = Envelope::new(self.reverse_path.clone(), self.forward_paths.clone(), body);
         let result = self.backend.deliver(&envelope);
         self.reset_transaction();
         match result {
@@ -404,7 +404,10 @@ impl Session {
         }
         // RFC 5321 §3.5.2: servers may refuse VRFY; we report "cannot verify but
         // will accept" to avoid disclosing account info (252).
-        self.write_reply(writer, &Reply::new(252, format!("Cannot VRFY user, but will accept {}", args)))?;
+        self.write_reply(
+            writer,
+            &Reply::new(252, format!("Cannot VRFY user, but will accept {}", args)),
+        )?;
         Ok(false)
     }
 
@@ -413,16 +416,19 @@ impl Session {
             self.write_reply(writer, &Reply::syntax_error_params())?;
             return Ok(false);
         }
-        self.write_reply(writer, &Reply::new(252, format!("Cannot EXPN list, but will accept {}", args)))?;
+        self.write_reply(
+            writer,
+            &Reply::new(252, format!("Cannot EXPN list, but will accept {}", args)),
+        )?;
         Ok(false)
     }
 
     fn cmd_help<W: Write>(&mut self, writer: &mut W) -> std::io::Result<bool> {
-        let lines = [
-            "Supported commands:",
-            "HELO, EHLO, MAIL, RCPT, DATA, RSET, NOOP, QUIT, VRFY, EXPN, HELP",
+        let lines = vec![
+            "Supported commands:".to_string(),
+            "HELO, EHLO, MAIL, RCPT, DATA, RSET, NOOP, QUIT, VRFY, EXPN, HELP".to_string(),
         ];
-        self.write_reply(writer, &Reply::new(250, lines.join("\r\n")))?;
+        self.write_reply(writer, &Reply { code: 250, lines })?;
         Ok(false)
     }
 
@@ -469,7 +475,9 @@ impl Session {
 /// Map a [`DeliveryError`] onto the appropriate SMTP reply.
 fn delivery_to_reply(e: &DeliveryError) -> Reply {
     match e {
-        DeliveryError::NoSuchRecipient(r) => Reply::mailbox_unavailable(format!("No such recipient: {}", r)),
+        DeliveryError::NoSuchRecipient(r) => {
+            Reply::mailbox_unavailable(format!("No such recipient: {}", r))
+        }
         DeliveryError::Rejected(r) => Reply::new(554, format!("Transaction failed: {}", r)),
         DeliveryError::Temporary(r) => Reply::new(451, r.clone()),
         DeliveryError::Other(r) => Reply::new(554, r.clone()),

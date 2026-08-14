@@ -17,11 +17,11 @@ fn client_full_transaction() {
         "220 mail.example ESMTP ready\r\n",
         "250-mail.example greets client\r\n",
         "250 8BITMIME\r\n",
-        "250 OK\r\n",          // MAIL FROM
-        "250 OK\r\n",          // RCPT TO
+        "250 OK\r\n",               // MAIL FROM
+        "250 OK\r\n",               // RCPT TO
         "354 Start mail input\r\n", // DATA
-        "250 OK: queued\r\n",  // final
-        "221 Bye\r\n",         // QUIT
+        "250 OK: queued\r\n",       // final
+        "221 Bye\r\n",              // QUIT
     );
     let reader = Cursor::new(replies.as_bytes().to_vec());
     let writer: Cursor<Vec<u8>> = Cursor::new(Vec::new());
@@ -56,10 +56,7 @@ fn client_rejects_negative_greeting() {
 fn client_negative_data_reply_is_error() {
     let replies = concat!(
         "220 ready\r\n",
-        "250 ok\r\n",          // EHLO
-        "250 ok\r\n",          // MAIL FROM
-        "250 ok\r\n",          // RCPT TO
-        "554 transaction failed\r\n", // DATA rejected
+        "554 transaction failed\r\n", // DATA rejected (client only calls data())
     );
     let reader = Cursor::new(replies.as_bytes().to_vec());
     let writer: Cursor<Vec<u8>> = Cursor::new(Vec::new());

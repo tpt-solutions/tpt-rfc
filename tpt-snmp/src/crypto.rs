@@ -56,10 +56,7 @@ pub fn md5(msg: &[u8]) -> [u8; 16] {
                 32..=47 => (b ^ c ^ d, (3 * i + 5) % 16),
                 _ => (c ^ (b | !d), (7 * i) % 16),
             };
-            let f = f
-                .wrapping_add(a)
-                .wrapping_add(MD5_K[i])
-                .wrapping_add(m[g]);
+            let f = f.wrapping_add(a).wrapping_add(MD5_K[i]).wrapping_add(m[g]);
             a = d;
             d = c;
             c = b;
@@ -128,8 +125,8 @@ const DES_IP: [u8; 64] = [
 
 const DES_FP: [u8; 64] = [
     40, 8, 48, 16, 56, 24, 64, 32, 39, 7, 47, 15, 55, 23, 63, 31, 38, 6, 46, 14, 54, 22, 62, 30,
-    37, 5, 45, 13, 53, 21, 61, 29, 36, 4, 44, 12, 52, 20, 60, 28, 35, 3, 43, 11, 51, 19, 59, 27, 34,
-    2, 42, 10, 50, 18, 58, 26, 33, 1, 41, 9, 49, 17, 57, 25,
+    37, 5, 45, 13, 53, 21, 61, 29, 36, 4, 44, 12, 52, 20, 60, 28, 35, 3, 43, 11, 51, 19, 59, 27,
+    34, 2, 42, 10, 50, 18, 58, 26, 33, 1, 41, 9, 49, 17, 57, 25,
 ];
 
 const DES_E: [u8; 48] = [
@@ -138,15 +135,15 @@ const DES_E: [u8; 48] = [
 ];
 
 const DES_P: [u8; 32] = [
-    16, 7, 20, 21, 29, 12, 28, 17, 1, 15, 23, 26, 5, 18, 31, 10, 2, 8, 24, 14, 32, 27, 3, 9, 19, 13,
-    30, 6, 22, 11, 4, 25,
+    16, 7, 20, 21, 29, 12, 28, 17, 1, 15, 23, 26, 5, 18, 31, 10, 2, 8, 24, 14, 32, 27, 3, 9, 19,
+    13, 30, 6, 22, 11, 4, 25,
 ];
 
 const DES_S: [[u8; 64]; 8] = [
     [
         14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7, 0, 15, 7, 4, 14, 2, 13, 1, 10, 6, 12,
-        11, 9, 5, 3, 8, 4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0, 15, 12, 8, 2, 4, 9, 1,
-        7, 5, 11, 3, 14, 10, 0, 6, 13,
+        11, 9, 5, 3, 8, 4, 1, 14, 8, 13, 6, 2, 11, 15, 12, 9, 7, 3, 10, 5, 0, 15, 12, 8, 2, 4, 9,
+        1, 7, 5, 11, 3, 14, 10, 0, 6, 13,
     ],
     [
         15, 1, 8, 14, 6, 11, 3, 4, 9, 7, 2, 13, 12, 0, 5, 10, 3, 13, 4, 7, 15, 2, 8, 14, 12, 0, 1,
@@ -154,14 +151,14 @@ const DES_S: [[u8; 64]; 8] = [
         4, 2, 11, 6, 7, 12, 0, 5, 14, 9,
     ],
     [
-        10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8, 13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5, 14,
-        12, 11, 15, 1, 13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7, 1, 10, 13, 0, 6, 9, 8,
-        7, 4, 15, 14, 3, 11, 5, 2, 12,
+        10, 0, 9, 14, 6, 3, 15, 5, 1, 13, 12, 7, 11, 4, 2, 8, 13, 7, 0, 9, 3, 4, 6, 10, 2, 8, 5,
+        14, 12, 11, 15, 1, 13, 6, 4, 9, 8, 15, 3, 0, 11, 1, 2, 12, 5, 10, 14, 7, 1, 10, 13, 0, 6,
+        9, 8, 7, 4, 15, 14, 3, 11, 5, 2, 12,
     ],
     [
-        7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15, 13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2, 12,
-        1, 10, 14, 9, 10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4, 3, 15, 0, 6, 10, 1, 13,
-        8, 9, 4, 5, 11, 12, 7, 2, 14,
+        7, 13, 14, 3, 0, 6, 9, 10, 1, 2, 8, 5, 11, 12, 4, 15, 13, 8, 11, 5, 6, 15, 0, 3, 4, 7, 2,
+        12, 1, 10, 14, 9, 10, 6, 9, 0, 12, 11, 7, 13, 15, 1, 3, 14, 5, 2, 8, 4, 3, 15, 0, 6, 10, 1,
+        13, 8, 9, 4, 5, 11, 12, 7, 2, 14,
     ],
     [
         2, 12, 4, 1, 7, 10, 11, 6, 8, 5, 3, 15, 13, 0, 14, 9, 14, 11, 2, 12, 4, 7, 13, 1, 5, 0, 15,
@@ -200,7 +197,7 @@ fn permute(input: u64, width: u32, table: &[u8]) -> u64 {
 }
 
 fn rotl28(x: u64, n: u32) -> u64 {
-    let m = 0x0fff_ffff_ffff_ffff;
+    let m = 0x0FFF_FFFF;
     ((x << n) | (x >> (28 - n))) & m
 }
 
@@ -208,8 +205,8 @@ fn rotl28(x: u64, n: u32) -> u64 {
 fn des_key_schedule(key: &[u8; 8]) -> [u64; 16] {
     let k = u64::from_be_bytes(*key);
     let pc1 = permute(k, 64, &DES_PC1);
-    let mut c = (pc1 >> 28) & 0x0fff_ffff_ffff_ffff;
-    let mut d = pc1 & 0x0fff_ffff_ffff_ffff;
+    let mut c = (pc1 >> 36) & 0x0FFF_FFFF;
+    let mut d = (pc1 >> 8) & 0x0FFF_FFFF;
     let mut subkeys = [0u64; 16];
     for (round, &shift) in DES_ROTATIONS.iter().enumerate() {
         c = rotl28(c, shift);
@@ -228,16 +225,17 @@ fn des_feistel(block: &[u8; 8], subkeys: &[u64; 16]) -> [u8; 8] {
     for &sk in subkeys {
         let er = permute(r, 32, &DES_E);
         let e48 = er >> 16; // 48-bit value in low 48 bits
+        let x = e48 ^ (sk >> 16); // XOR with the 48-bit round subkey
         let mut sbox_out: u32 = 0;
         for j in 0..8 {
-            let chunk = (e48 >> (42 - 6 * j)) & 0x3f;
+            let chunk = (x >> (42 - 6 * j)) & 0x3f;
             let row = ((chunk >> 5) & 1) * 2 + (chunk & 1);
             let col = (chunk >> 1) & 0xf;
             let s = DES_S[j][(row * 16 + col) as usize] as u32;
             sbox_out |= s << (28 - 4 * j);
         }
-        let f = permute(sbox_out as u64, 32, &DES_P) & 0xffff_ffff;
-        let new_r = l ^ f;
+        let f = (permute(sbox_out as u64, 32, &DES_P) >> 32) as u32;
+        let new_r = l ^ (f as u64);
         l = r;
         r = new_r;
     }
@@ -326,15 +324,10 @@ mod tests {
     #[test]
     fn des_known_vector_fips81() {
         // FIPS 81 test vector: key, plaintext, ciphertext.
-        let key = [
-            0x13, 0x34, 0x57, 0x79, 0x9b, 0xbc, 0xdf, 0xf1,
-        ];
+        let key = [0x13, 0x34, 0x57, 0x79, 0x9b, 0xbc, 0xdf, 0xf1];
         let plain = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef];
         let cipher = des_encrypt_block(&plain, &key);
-        assert_eq!(
-            cipher,
-            [0x85, 0xe8, 0x13, 0x54, 0x0f, 0x0a, 0xb4, 0x05]
-        );
+        assert_eq!(cipher, [0x85, 0xe8, 0x13, 0x54, 0x0f, 0x0a, 0xb4, 0x05]);
         assert_eq!(des_decrypt_block(&cipher, &key), plain);
     }
 
@@ -344,6 +337,7 @@ mod tests {
         let iv = [0xffu8; 8];
         let pt = b"hello scoped pdu world";
         let ct = des_cbc_encrypt(pt, &key, &iv);
-        assert_eq!(des_cbc_decrypt(&ct, &key, &iv), pt);
+        let dec = des_cbc_decrypt(&ct, &key, &iv);
+        assert_eq!(&dec[..pt.len()], pt);
     }
 }

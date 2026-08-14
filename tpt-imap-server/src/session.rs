@@ -12,12 +12,11 @@ use crate::command::*;
 use crate::error::Result as StoreResult;
 use crate::proto::{self, Request, Token};
 use crate::store::MailboxStore;
-use base64::Engine;
 use crate::types::*;
+use base64::Engine;
 
 /// Advertised capabilities (RFC 9051 §6.1.1).
-pub const CAPABILITIES: &str =
-    "IMAP4rev2 IMAP4rev1 AUTH=PLAIN AUTH=LOGIN ID NAMESPACE IDLE";
+pub const CAPABILITIES: &str = "IMAP4rev2 IMAP4rev1 AUTH=PLAIN AUTH=LOGIN ID NAMESPACE IDLE";
 
 /// Protocol state of a session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -86,12 +85,7 @@ impl<S: MailboxStore> Session<S> {
         Ok(())
     }
 
-    fn dispatch<R, W>(
-        &mut self,
-        r: &mut R,
-        w: &mut W,
-        req: Request,
-    ) -> std::io::Result<()>
+    fn dispatch<R, W>(&mut self, r: &mut R, w: &mut W, req: Request) -> std::io::Result<()>
     where
         R: BufRead + Read,
         W: Write,
@@ -152,12 +146,7 @@ impl<S: MailboxStore> Session<S> {
         }
     }
 
-    fn cmd_login<W: Write>(
-        &mut self,
-        w: &mut W,
-        tag: &str,
-        args: &[Token],
-    ) -> std::io::Result<()> {
+    fn cmd_login<W: Write>(&mut self, w: &mut W, tag: &str, args: &[Token]) -> std::io::Result<()> {
         let user = match args.first().and_then(proto::token_str) {
             Some(u) => u.to_string(),
             None => return self.bad(w, tag, "LOGIN requires a user name"),
@@ -329,7 +318,11 @@ impl<S: MailboxStore> Session<S> {
         proto::write_untagged(w, "* FLAGS (\\Answered \\Flagged \\Deleted \\Seen \\Draft)")?;
         proto::write_untagged(
             w,
-            &format!("* OK [UIDVALIDITY {}] {}", status.uidvalidity, select_label(readonly)),
+            &format!(
+                "* OK [UIDVALIDITY {}] {}",
+                status.uidvalidity,
+                select_label(readonly)
+            ),
         )?;
         self.ok(
             w,
@@ -374,12 +367,7 @@ impl<S: MailboxStore> Session<S> {
         self.ok(w, tag, "LIST completed")
     }
 
-    fn cmd_status<W: Write>(
-        &self,
-        w: &mut W,
-        tag: &str,
-        args: &[Token],
-    ) -> std::io::Result<()> {
+    fn cmd_status<W: Write>(&self, w: &mut W, tag: &str, args: &[Token]) -> std::io::Result<()> {
         let name = match args.first().and_then(proto::token_str) {
             Some(n) => n.to_string(),
             None => return self.bad(w, tag, "STATUS requires a mailbox name"),
@@ -411,12 +399,7 @@ impl<S: MailboxStore> Session<S> {
         self.ok(w, tag, "STATUS completed")
     }
 
-    fn cmd_create<W: Write>(
-        &self,
-        w: &mut W,
-        tag: &str,
-        args: &[Token],
-    ) -> std::io::Result<()> {
+    fn cmd_create<W: Write>(&self, w: &mut W, tag: &str, args: &[Token]) -> std::io::Result<()> {
         let name = match args.first().and_then(proto::token_str) {
             Some(n) => n.to_string(),
             None => return self.bad(w, tag, "CREATE requires a mailbox name"),
@@ -427,12 +410,7 @@ impl<S: MailboxStore> Session<S> {
         }
     }
 
-    fn cmd_delete<W: Write>(
-        &self,
-        w: &mut W,
-        tag: &str,
-        args: &[Token],
-    ) -> std::io::Result<()> {
+    fn cmd_delete<W: Write>(&self, w: &mut W, tag: &str, args: &[Token]) -> std::io::Result<()> {
         let name = match args.first().and_then(proto::token_str) {
             Some(n) => n.to_string(),
             None => return self.bad(w, tag, "DELETE requires a mailbox name"),
@@ -443,12 +421,7 @@ impl<S: MailboxStore> Session<S> {
         }
     }
 
-    fn cmd_rename<W: Write>(
-        &self,
-        w: &mut W,
-        tag: &str,
-        args: &[Token],
-    ) -> std::io::Result<()> {
+    fn cmd_rename<W: Write>(&self, w: &mut W, tag: &str, args: &[Token]) -> std::io::Result<()> {
         let from = match args.first().and_then(proto::token_str) {
             Some(n) => n.to_string(),
             None => return self.bad(w, tag, "RENAME requires a source mailbox"),
@@ -485,12 +458,7 @@ impl<S: MailboxStore> Session<S> {
         }
     }
 
-    fn cmd_append<W: Write>(
-        &self,
-        w: &mut W,
-        tag: &str,
-        args: &[Token],
-    ) -> std::io::Result<()> {
+    fn cmd_append<W: Write>(&self, w: &mut W, tag: &str, args: &[Token]) -> std::io::Result<()> {
         if args.is_empty() {
             return self.bad(w, tag, "APPEND requires a mailbox name");
         }
@@ -504,11 +472,6 @@ impl<S: MailboxStore> Session<S> {
 
         // Optional (FLAGS) group.
         if matches!(args.get(i), Some(Token::LParen)) {
-            let f = match collect_flags(&args[i..]) {
-                Ok(v) => v,
-                Err(_) => return self.bad(w, tag, "invalid APPEND flags"),
-            };
-            flags = f.into_iter().collect();
             let mut depth = 0i32;
             let mut j = i;
             while j < args.len() {
@@ -517,7 +480,6 @@ impl<S: MailboxStore> Session<S> {
                     Token::RParen => {
                         depth -= 1;
                         if depth == 0 {
-                            i = j + 1;
                             break;
                         }
                     }
@@ -525,6 +487,12 @@ impl<S: MailboxStore> Session<S> {
                 }
                 j += 1;
             }
+            let f = match collect_flags(&args[i..=j]) {
+                Ok(v) => v,
+                Err(_) => return self.bad(w, tag, "invalid APPEND flags"),
+            };
+            flags = f.into_iter().collect();
+            i = j + 1;
         }
 
         // Optional internal date.
@@ -664,10 +632,13 @@ impl<S: MailboxStore> Session<S> {
             }
         }
         if needs_seen && !readonly && !flags.contains(&Flag::System(SystemFlag::Seen)) {
-            if let Ok(new) = self
-                .store
-                .set_flags(user, name, uid, FlagOp::Add, &[Flag::System(SystemFlag::Seen)])
-            {
+            if let Ok(new) = self.store.set_flags(
+                user,
+                name,
+                uid,
+                FlagOp::Add,
+                &[Flag::System(SystemFlag::Seen)],
+            ) {
                 flags = new;
             }
         }
@@ -687,9 +658,10 @@ impl<S: MailboxStore> Session<S> {
                 FetchItem::Size => {
                     parts.push(FetchPart::Text(format!("RFC822.SIZE {}", snap.data.len())))
                 }
-                FetchItem::Envelope => {
-                    parts.push(FetchPart::Text(format!("ENVELOPE {}", build_envelope(&snap.data))))
-                }
+                FetchItem::Envelope => parts.push(FetchPart::Text(format!(
+                    "ENVELOPE {}",
+                    build_envelope(&snap.data)
+                ))),
                 FetchItem::BodyStructure => parts.push(FetchPart::Text(format!(
                     "BODYSTRUCTURE {}",
                     build_bodystructure(body, false)
@@ -705,10 +677,7 @@ impl<S: MailboxStore> Session<S> {
                         Section::Text => ("BODY[TEXT]".to_string(), body.to_vec()),
                         Section::HeaderFields(fields) => {
                             let h = extract_header_fields(headers, fields);
-                            (
-                                format!("BODY[HEADER.FIELDS ({})]", fields.join(" ")),
-                                h,
-                            )
+                            (format!("BODY[HEADER.FIELDS ({})]", fields.join(" ")), h)
                         }
                     };
                     parts.push(FetchPart::Text(label));
@@ -779,10 +748,7 @@ impl<S: MailboxStore> Session<S> {
                 let seq = sel.uids.iter().position(|u| *u == uid).unwrap() as u32 + 1;
                 proto::write_untagged(
                     w,
-                    &format!(
-                        "{seq} FETCH (UID {uid} FLAGS ({}))",
-                        join_flags(&new_flags)
-                    ),
+                    &format!("{seq} FETCH (UID {uid} FLAGS ({}))", join_flags(&new_flags)),
                 )?;
             }
         }
@@ -955,12 +921,7 @@ impl<S: MailboxStore> Session<S> {
         self.ok(w, tag, "CLOSE completed")
     }
 
-    fn cmd_idle<R, W>(
-        &mut self,
-        r: &mut R,
-        w: &mut W,
-        tag: &str,
-    ) -> std::io::Result<()>
+    fn cmd_idle<R, W>(&mut self, r: &mut R, w: &mut W, tag: &str) -> std::io::Result<()>
     where
         R: BufRead + Read,
         W: Write,
@@ -1108,12 +1069,7 @@ fn extract_header_fields(headers: &[u8], fields: &[String]) -> Vec<u8> {
     out
 }
 
-fn eval_search(
-    criteria: &[SearchCriterion],
-    seq: u32,
-    count: u32,
-    msg: &MessageSnapshot,
-) -> bool {
+fn eval_search(criteria: &[SearchCriterion], seq: u32, count: u32, msg: &MessageSnapshot) -> bool {
     criteria.iter().all(|c| eval_one(c, seq, count, msg))
 }
 
@@ -1148,9 +1104,7 @@ fn eval_one(c: &SearchCriterion, seq: u32, _count: u32, msg: &MessageSnapshot) -
                 None => false,
             }
         }
-        SearchCriterion::Or(a, b) => {
-            eval_one(a, seq, _count, msg) || eval_one(b, seq, _count, msg)
-        }
+        SearchCriterion::Or(a, b) => eval_one(a, seq, _count, msg) || eval_one(b, seq, _count, msg),
         SearchCriterion::Not(a) => !eval_one(a, seq, _count, msg),
     }
 }

@@ -15,8 +15,8 @@ use tpt_ssh::session::EncryptedConn;
 use crate::error::{NetconfError, Result};
 use crate::framing::encode_message;
 use crate::message::{
-    rpc_reply_to_xml, DatastoreName, EditDefaultOp, Hello, Operation, Rpc, RpcError, RpcReply,
-    ReplyResult,
+    rpc_reply_to_xml, DatastoreName, EditDefaultOp, Hello, Operation, ReplyResult, Rpc, RpcError,
+    RpcReply,
 };
 use crate::xml::{parse_root, to_string, Xml};
 
@@ -119,7 +119,9 @@ impl Datastore for InMemoryDatastore {
         config: &Xml,
     ) -> Result<()> {
         if self.locked.contains(&target) {
-            return Err(NetconfError::Rpc("datastore is locked by another session".into()));
+            return Err(NetconfError::Rpc(
+                "datastore is locked by another session".into(),
+            ));
         }
         let store = self
             .stores
@@ -238,10 +240,12 @@ pub fn dispatch<S: Datastore>(rpc: &Rpc, store: &mut S) -> Result<RpcReply> {
             Ok(()) => ReplyResult::Ok,
             Err(e) => return Ok(error_to_reply(e, &mid)),
         },
-        Operation::CopyConfig { target, source } => match store.copy_config(target.clone(), source.clone()) {
-            Ok(()) => ReplyResult::Ok,
-            Err(e) => return Ok(error_to_reply(e, &mid)),
-        },
+        Operation::CopyConfig { target, source } => {
+            match store.copy_config(target.clone(), source.clone()) {
+                Ok(()) => ReplyResult::Ok,
+                Err(e) => return Ok(error_to_reply(e, &mid)),
+            }
+        }
         Operation::DeleteConfig { target } => match store.delete_config(target.clone()) {
             Ok(()) => ReplyResult::Ok,
             Err(e) => return Ok(error_to_reply(e, &mid)),
@@ -288,9 +292,11 @@ pub fn dispatch<S: Datastore>(rpc: &Rpc, store: &mut S) -> Result<RpcReply> {
 
 fn error_to_reply(e: NetconfError, mid: &str) -> RpcReply {
     let (error_type, tag, message) = match &e {
-        NetconfError::UnknownDatastore(d) => {
-            ("protocol", "invalid-value", format!("unknown datastore: {d}"))
-        }
+        NetconfError::UnknownDatastore(d) => (
+            "protocol",
+            "invalid-value",
+            format!("unknown datastore: {d}"),
+        ),
         NetconfError::XmlParse(_) => ("rpc", "malformed-message", e.to_string()),
         NetconfError::MissingMessageId => ("rpc", "missing-attribute", e.to_string()),
         NetconfError::Rpc(m) => ("application", "operation-failed", m.clone()),
@@ -338,7 +344,12 @@ where
         match parse_channel_message(&payload)? {
             ChannelMessage::OpenSession { sender, .. } => {
                 channel = Some(sender);
-                conn.send(&encode_open_confirm(sender, 0, DEFAULT_WINDOW, DEFAULT_MAX_PACKET));
+                conn.send(&encode_open_confirm(
+                    sender,
+                    0,
+                    DEFAULT_WINDOW,
+                    DEFAULT_MAX_PACKET,
+                ));
                 pump(conn);
             }
             ChannelMessage::Request {

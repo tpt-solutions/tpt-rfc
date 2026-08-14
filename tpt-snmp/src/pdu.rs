@@ -3,9 +3,9 @@
 
 //! SNMP PDUs and the community-string (v1/v2c) message wrapper.
 
-use crate::ber::{BerReader, BerWriter, TAG_IPADDRESS, TAG_OCTET_STRING, TAG_SEQUENCE, TAG_TIMETICKS};
+use crate::ber::{BerReader, BerWriter, TAG_IPADDRESS, TAG_SEQUENCE, TAG_TIMETICKS};
 use crate::error::SnmpError;
-use crate::oid::{ObjectIdentifier, read_oid, write_oid};
+use crate::oid::{read_oid, write_oid, ObjectIdentifier};
 use crate::value::{SnmpValue, VarBind, VarBindList};
 
 /// SNMP protocol version. `V3` is carried by [`crate::v3::V3Message`] instead.
@@ -292,13 +292,7 @@ impl Message {
 
 /// Helper used by the agent to produce a response PDU for a request.
 pub(crate) fn response_for(request: &Pdu, varbinds: VarBindList) -> Pdu {
-    Pdu::new(
-        PduType::GetResponse,
-        request.request_id,
-        0,
-        0,
-        varbinds,
-    )
+    Pdu::new(PduType::GetResponse, request.request_id, 0, 0, varbinds)
 }
 
 /// Build a `noSuchObject`-valued varbind for a missing OID (SNMPv2 semantics).
@@ -338,7 +332,7 @@ mod tests {
         let bulk = Pdu::new(
             PduType::GetBulkRequest,
             7,
-            0, // non-repeaters
+            0,  // non-repeaters
             10, // max-repetitions
             VarBindList(vec![]),
         );

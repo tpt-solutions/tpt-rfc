@@ -62,7 +62,11 @@ pub fn resolve_sequence(set: &RangeSet, count: u32) -> Vec<u32> {
         if start == 0 || end == 0 || count == 0 {
             continue;
         }
-        let (lo, hi) = if start <= end { (start, end) } else { (end, start) };
+        let (lo, hi) = if start <= end {
+            (start, end)
+        } else {
+            (end, start)
+        };
         for n in lo..=hi.min(count) {
             out.push(n);
         }
@@ -124,10 +128,7 @@ pub enum FetchItem {
     Envelope,
     BodyStructure,
     BodyStructureSimple,
-    Body {
-        peek: bool,
-        section: Section,
-    },
+    Body { peek: bool, section: Section },
 }
 
 /// Parse a FETCH command's arguments: the leading sequence set and the item
@@ -209,13 +210,31 @@ fn parse_one_item(tokens: &[Token], i: usize) -> Result<(FetchItem, usize)> {
         "UID" => (FetchItem::Uid, next),
         "INTERNALDATE" => (FetchItem::InternalDate, next),
         "RFC822.SIZE" => (FetchItem::Size, next),
-        "RFC822" => (FetchItem::Body { peek: false, section: Section::Whole }, next),
-        "RFC822.HEADER" => (FetchItem::Body { peek: true, section: Section::Header }, next),
+        "RFC822" => (
+            FetchItem::Body {
+                peek: false,
+                section: Section::Whole,
+            },
+            next,
+        ),
+        "RFC822.HEADER" => (
+            FetchItem::Body {
+                peek: true,
+                section: Section::Header,
+            },
+            next,
+        ),
         "ENVELOPE" => (FetchItem::Envelope, next),
         "BODYSTRUCTURE" => (FetchItem::BodyStructure, next),
         "BODY" if matches!(tokens.get(next), Some(Token::LBracket)) => {
             let (section, ni) = parse_section(tokens, next)?;
-            (FetchItem::Body { peek: false, section }, ni)
+            (
+                FetchItem::Body {
+                    peek: false,
+                    section,
+                },
+                ni,
+            )
         }
         "BODY" => (FetchItem::BodyStructureSimple, next),
         s if s.starts_with("BODY") && matches!(tokens.get(next), Some(Token::LBracket)) => {
@@ -378,11 +397,7 @@ pub fn parse_search(args: &[Token], uid_mode: bool) -> Result<Vec<SearchCriterio
     Ok(out)
 }
 
-fn parse_one_search(
-    args: &[Token],
-    i: usize,
-    uid_mode: bool,
-) -> Result<(SearchCriterion, usize)> {
+fn parse_one_search(args: &[Token], i: usize, uid_mode: bool) -> Result<(SearchCriterion, usize)> {
     let tok = args.get(i).ok_or(ImapError::InvalidArguments)?;
     let s = match tok {
         Token::Atom(s) => s.clone(),
@@ -427,10 +442,7 @@ fn parse_one_search(
         "OR" => {
             let (a, i2) = parse_one_search(args, next, uid_mode)?;
             let (b, i3) = parse_one_search(args, i2, uid_mode)?;
-            return Ok((
-                SearchCriterion::Or(Box::new(a), Box::new(b)),
-                i3,
-            ));
+            return Ok((SearchCriterion::Or(Box::new(a), Box::new(b)), i3));
         }
         _ => {
             // Bare sequence set.

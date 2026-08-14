@@ -6,10 +6,10 @@
 use crate::ber::{
     BerReader, BerWriter, TAG_COUNTER32, TAG_COUNTER64, TAG_END_OF_MIB_VIEW, TAG_GAUGE32,
     TAG_INTEGER, TAG_IPADDRESS, TAG_NO_SUCH_INSTANCE, TAG_NO_SUCH_OBJECT, TAG_OBJECT_IDENTIFIER,
-    TAG_OPAQUE, TAG_OCTET_STRING, TAG_TIMETICKS,
+    TAG_OCTET_STRING, TAG_OPAQUE, TAG_TIMETICKS,
 };
 use crate::error::BerError;
-use crate::oid::{write_oid, ObjectIdentifier, read_oid};
+use crate::oid::{read_oid, write_oid, ObjectIdentifier};
 
 /// A single SNMP value, one of the SMI application syntaxes (RFC 2578 §7.1,
 /// RFC 3416 §6).

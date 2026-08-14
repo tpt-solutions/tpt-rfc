@@ -9,8 +9,8 @@
 //! third-party Sieve implementation source is copied.
 
 use tpt_sieve::{
-    evaluate, parse, run, Action, AddressPart, Comparator, FinalActions, InMemoryMessage, MatchType,
-    Test,
+    evaluate, parse, run, Action, AddressPart, Comparator, FinalActions, InMemoryMessage,
+    MatchType, Test,
 };
 
 fn msg() -> InMemoryMessage {
@@ -375,7 +375,10 @@ fn ast_inspection() {
             panic!("expected address test");
         }
         assert_eq!(ifc.block.len(), 1);
-        assert!(matches!(ifc.block[0], tpt_sieve::Command::Action(Action::Discard)));
+        assert!(matches!(
+            ifc.block[0],
+            tpt_sieve::Command::Action(Action::Discard)
+        ));
     } else {
         panic!("expected if command");
     }

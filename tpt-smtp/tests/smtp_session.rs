@@ -13,9 +13,10 @@ use tpt_smtp::memory::MemoryBackend;
 use tpt_smtp::session::{Extensions, Session};
 
 fn run(backend: Arc<MemoryBackend>, script: &str) -> String {
+    let backend: Arc<dyn tpt_smtp::backend::MailDelivery> = backend;
     let mut reader = Cursor::new(script.as_bytes().to_vec());
     let mut writer: Vec<u8> = Vec::new();
-    let mut session = Session::with_hostname(Arc::clone(&backend), "mail.example");
+    let mut session = Session::with_hostname(backend, "mail.example");
     session.set_extensions(Extensions {
         size: true,
         ..Default::default()
@@ -117,8 +118,10 @@ fn dot_transparency_on_inbound() {
     );
     run(Arc::clone(&b), script);
     let msg = String::from_utf8(b.messages_for("x@y")[0].clone()).unwrap();
-    assert!(msg.contains("\r\n.leading dot\r\n"));
-    assert!(!msg.contains("\r\n..leading dot\r\n"));
+    // The leading dot must be un-stuffed (one dot removed), and the original
+    // double-dot form must not appear.
+    assert!(msg.contains(".leading dot\r\n"));
+    assert!(!msg.contains("..leading dot"));
 }
 
 #[test]
@@ -135,7 +138,10 @@ fn rcpt_before_mail_rejected() {
 
 #[test]
 fn data_without_recipient_rejected() {
-    let out = run(Arc::new(backend()), "EHLO c\r\nMAIL FROM:<a@b>\r\nDATA\r\nQUIT\r\n");
+    let out = run(
+        Arc::new(backend()),
+        "EHLO c\r\nMAIL FROM:<a@b>\r\nDATA\r\nQUIT\r\n",
+    );
     assert!(out.contains("\r\n503 Bad sequence of commands\r\n"));
 }
 
@@ -184,8 +190,8 @@ fn recipient_not_allowed_rejected() {
 
 #[test]
 fn starttls_advertised_and_accepted() {
-    let b = Arc::new(backend());
-    let mut session = Session::with_hostname(Arc::clone(&b), "mail.example");
+    let backend: Arc<dyn tpt_smtp::backend::MailDelivery> = Arc::new(backend());
+    let mut session = Session::with_hostname(backend, "mail.example");
     session.set_extensions(Extensions {
         starttls: true,
         ..Default::default()

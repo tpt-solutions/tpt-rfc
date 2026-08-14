@@ -101,7 +101,7 @@ impl Lexer {
             return false;
         }
         for (i, nch) in need.iter().enumerate() {
-            if self.chars[self.pos + i].to_ascii_lowercase() != nch.to_ascii_lowercase() {
+            if !self.chars[self.pos + i].eq_ignore_ascii_case(nch) {
                 return false;
             }
         }
@@ -179,7 +179,10 @@ impl Lexer {
         loop {
             match self.peek() {
                 None => {
-                    return Err(SieveError::Lex(self.pos, "unterminated quoted string".into()));
+                    return Err(SieveError::Lex(
+                        self.pos,
+                        "unterminated quoted string".into(),
+                    ));
                 }
                 Some('"') => {
                     self.pos += 1;
@@ -268,7 +271,10 @@ impl Lexer {
                 self.pos += 1;
             }
             if !saw_newline {
-                return Err(SieveError::Lex(self.pos, "unterminated multi-line string".into()));
+                return Err(SieveError::Lex(
+                    self.pos,
+                    "unterminated multi-line string".into(),
+                ));
             }
             if self.peek() == Some('\r') {
                 self.pos += 1;
@@ -280,11 +286,7 @@ impl Lexer {
                 break;
             }
             // Dot-stuffing: a line beginning with a single dot has it removed.
-            let processed = if line.starts_with('.') {
-                line[1..].to_string()
-            } else {
-                line
-            };
+            let processed = line.strip_prefix('.').unwrap_or(&line).to_string();
             out.push_str(&processed);
             out.push('\n');
         }

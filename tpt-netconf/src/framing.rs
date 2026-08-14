@@ -94,11 +94,8 @@ impl FrameDecoder {
     pub fn push(&mut self, data: &[u8]) -> Result<Vec<String>> {
         self.buf.extend_from_slice(data);
         let mut out = Vec::new();
-        loop {
-            match self.try_extract()? {
-                Some(msg) => out.push(msg),
-                None => break,
-            }
+        while let Some(msg) = self.try_extract()? {
+            out.push(msg);
         }
         Ok(out)
     }
@@ -110,10 +107,7 @@ impl FrameDecoder {
 
     /// Try to extract one complete message from the front of the buffer.
     fn try_extract(&mut self) -> Result<Option<String>> {
-        let first = self
-            .buf
-            .iter()
-            .position(|b| !b.is_ascii_whitespace());
+        let first = self.buf.iter().position(|b| !b.is_ascii_whitespace());
         let start = match first {
             Some(p) => p,
             None => return Ok(None),
@@ -183,13 +177,14 @@ fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() || haystack.len() < needle.len() {
         return None;
     }
-    haystack
-        .windows(needle.len())
-        .position(|w| w == needle)
+    haystack.windows(needle.len()).position(|w| w == needle)
 }
 
 fn find_byte_from(haystack: &[u8], byte: u8, from: usize) -> Option<usize> {
-    haystack[from..].iter().position(|b| *b == byte).map(|i| from + i)
+    haystack[from..]
+        .iter()
+        .position(|b| *b == byte)
+        .map(|i| from + i)
 }
 
 #[cfg(test)]
@@ -219,12 +214,17 @@ mod tests {
 
     #[test]
     fn chunked_framing_round_trips() {
-        let msg = "<rpc message-id=\"1\"><edit-config><config><a>]]></a></config></edit-config></rpc>";
+        let msg =
+            "<rpc message-id=\"1\"><edit-config><config><a>]]></a></config></edit-config></rpc>";
         let framed = encode_message(msg);
         assert!(framed.starts_with(b"#"));
         let mut dec = FrameDecoder::new();
         let msgs = dec.push(&framed).unwrap();
-        assert_eq!(msgs, vec![msg.to_string()]);
+        // Chunked framing terminates each chunk with a newline (RFC 6242 §4.2),
+        // so compare the parsed XML rather than raw bytes.
+        let original = crate::xml::parse_root(msg).unwrap();
+        let decoded = crate::xml::parse_root(&msgs[0]).unwrap();
+        assert_eq!(decoded, original);
     }
 
     #[test]
@@ -236,7 +236,9 @@ mod tests {
         for i in 0..framed.len() {
             collected.extend(dec.push(&framed[i..=i]).unwrap());
         }
-        assert_eq!(collected, vec![msg.to_string()]);
+        let original = crate::xml::parse_root(msg).unwrap();
+        let decoded = crate::xml::parse_root(&collected[0]).unwrap();
+        assert_eq!(decoded, original);
     }
 
     #[test]

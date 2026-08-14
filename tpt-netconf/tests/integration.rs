@@ -67,15 +67,17 @@ fn full_netconf_session_over_ssh() {
         ReplyResult::Data(data) => {
             assert!(data.children.iter().any(|c| c.local_name() == "system"));
             let sys = data.child_named("system").unwrap();
-            assert_eq!(sys.child_named("hostname").unwrap().text_content(), "router-a");
+            assert_eq!(
+                sys.child_named("hostname").unwrap().text_content(),
+                "router-a"
+            );
         }
         other => panic!("expected data, got {other:?}"),
     }
 
     // edit-config: add an interface node (merge).
-    let cfg = Xml::new("config").child(
-        Xml::new("interfaces").child(Xml::new("interface").text("eth0")),
-    );
+    let cfg =
+        Xml::new("config").child(Xml::new("interfaces").child(Xml::new("interface").text("eth0")));
     let edit = nc
         .rpc(
             &mut client_conn,
@@ -101,8 +103,13 @@ fn full_netconf_session_over_ssh() {
         .unwrap();
     match &reply.result {
         ReplyResult::Data(data) => {
-            let ifaces = data.child_named("interfaces").expect("interfaces present after edit");
-            assert_eq!(ifaces.child_named("interface").unwrap().text_content(), "eth0");
+            let ifaces = data
+                .child_named("interfaces")
+                .expect("interfaces present after edit");
+            assert_eq!(
+                ifaces.child_named("interface").unwrap().text_content(),
+                "eth0"
+            );
         }
         other => panic!("expected data, got {other:?}"),
     }

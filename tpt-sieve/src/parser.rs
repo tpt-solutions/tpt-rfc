@@ -104,13 +104,13 @@ impl Parser {
         let mut else_block = None;
         loop {
             match self.peek() {
-                Some(Token::Ident(n)) if n.to_ascii_lowercase() == "elsif" => {
+                Some(Token::Ident(n)) if n.eq_ignore_ascii_case("elsif") => {
                     self.next();
                     let t = self.parse_test()?;
                     let b = self.parse_block()?;
                     elsif.push((t, b));
                 }
-                Some(Token::Ident(n)) if n.to_ascii_lowercase() == "else" => {
+                Some(Token::Ident(n)) if n.eq_ignore_ascii_case("else") => {
                     self.next();
                     let b = self.parse_block()?;
                     else_block = Some(b);
@@ -152,9 +152,8 @@ impl Parser {
                             self.next(); // consume the action identifier
                             let action = self.parse_action(&lower)?;
                             if self.next() != Some(Token::Semicolon) {
-                                return self.err(format!(
-                                    "action `{lower}` must be terminated with `;`"
-                                ));
+                                return self
+                                    .err(format!("action `{lower}` must be terminated with `;`"));
                             }
                             cmds.push(Command::Action(action));
                         }
@@ -195,18 +194,24 @@ impl Parser {
             Some(Token::LBracket) => {
                 self.next();
                 let mut v = Vec::new();
-                loop {
-                    match self.next() {
-                        Some(Token::String(s)) => v.push(s),
-                        _ => return self.err("expected a string inside `[ ... ]`"),
-                    }
+                while let Some(Token::String(s)) = self.next() {
+                    v.push(s);
                     match self.next() {
                         Some(Token::Comma) => continue,
-                        Some(Token::RBracket) => break,
+                        Some(Token::RBracket) => return Ok(v),
                         _ => return self.err("expected `,` or `]` in string list"),
                     }
                 }
-                Ok(v)
+                // The loop exited on a non-string token. A well-formed list ends
+                // with `]`, which the inner match already returned for; reaching
+                // here means a stray token or an empty list `[]`.
+                match self.peek() {
+                    Some(Token::RBracket) => {
+                        self.next();
+                        Ok(v)
+                    }
+                    _ => self.err("expected `]` to close string list"),
+                }
             }
             Some(Token::String(s)) => {
                 let s = s.clone();
@@ -326,29 +331,26 @@ impl Parser {
     fn parse_common_tags(&mut self) -> SieveResult<(Comparator, MatchType)> {
         let mut comparator = Comparator::AsciiCasemap;
         let mut match_type = MatchType::Is;
-        loop {
-            match self.peek() {
-                Some(Token::Tag(t)) => match t.as_str() {
-                    ":comparator" => {
-                        self.next();
-                        let c = self.parse_string_list()?;
-                        comparator = parse_comparator(&c)?;
-                    }
-                    ":is" => {
-                        self.next();
-                        match_type = MatchType::Is;
-                    }
-                    ":contains" => {
-                        self.next();
-                        match_type = MatchType::Contains;
-                    }
-                    ":matches" => {
-                        self.next();
-                        match_type = MatchType::Matches;
-                    }
-                    other => return self.err(format!("unknown tag `{other}`")),
-                },
-                _ => break,
+        while let Some(Token::Tag(t)) = self.peek().cloned() {
+            match t.as_str() {
+                ":comparator" => {
+                    self.next();
+                    let c = self.parse_string_list()?;
+                    comparator = parse_comparator(&c)?;
+                }
+                ":is" => {
+                    self.next();
+                    match_type = MatchType::Is;
+                }
+                ":contains" => {
+                    self.next();
+                    match_type = MatchType::Contains;
+                }
+                ":matches" => {
+                    self.next();
+                    match_type = MatchType::Matches;
+                }
+                other => return self.err(format!("unknown tag `{other}`")),
             }
         }
         Ok((comparator, match_type))
@@ -358,41 +360,38 @@ impl Parser {
         let mut address_part = AddressPart::All;
         let mut comparator = Comparator::AsciiCasemap;
         let mut match_type = MatchType::Is;
-        loop {
-            match self.peek() {
-                Some(Token::Tag(t)) => match t.as_str() {
-                    ":localpart" => {
-                        self.next();
-                        address_part = AddressPart::LocalPart;
-                    }
-                    ":domain" => {
-                        self.next();
-                        address_part = AddressPart::DomainPart;
-                    }
-                    ":all" => {
-                        self.next();
-                        address_part = AddressPart::All;
-                    }
-                    ":comparator" => {
-                        self.next();
-                        let c = self.parse_string_list()?;
-                        comparator = parse_comparator(&c)?;
-                    }
-                    ":is" => {
-                        self.next();
-                        match_type = MatchType::Is;
-                    }
-                    ":contains" => {
-                        self.next();
-                        match_type = MatchType::Contains;
-                    }
-                    ":matches" => {
-                        self.next();
-                        match_type = MatchType::Matches;
-                    }
-                    other => return self.err(format!("unknown tag `{other}`")),
-                },
-                _ => break,
+        while let Some(Token::Tag(t)) = self.peek().cloned() {
+            match t.as_str() {
+                ":localpart" => {
+                    self.next();
+                    address_part = AddressPart::LocalPart;
+                }
+                ":domain" => {
+                    self.next();
+                    address_part = AddressPart::DomainPart;
+                }
+                ":all" => {
+                    self.next();
+                    address_part = AddressPart::All;
+                }
+                ":comparator" => {
+                    self.next();
+                    let c = self.parse_string_list()?;
+                    comparator = parse_comparator(&c)?;
+                }
+                ":is" => {
+                    self.next();
+                    match_type = MatchType::Is;
+                }
+                ":contains" => {
+                    self.next();
+                    match_type = MatchType::Contains;
+                }
+                ":matches" => {
+                    self.next();
+                    match_type = MatchType::Matches;
+                }
+                other => return self.err(format!("unknown tag `{other}`")),
             }
         }
         Ok((address_part, comparator, match_type))
@@ -402,7 +401,15 @@ impl Parser {
 fn is_test_name(s: &str) -> bool {
     matches!(
         s.to_ascii_lowercase().as_str(),
-        "allof" | "anyof" | "not" | "exists" | "true" | "false" | "size" | "header" | "address"
+        "allof"
+            | "anyof"
+            | "not"
+            | "exists"
+            | "true"
+            | "false"
+            | "size"
+            | "header"
+            | "address"
             | "envelope"
     )
 }

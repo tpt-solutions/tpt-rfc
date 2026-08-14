@@ -310,29 +310,29 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 22 — `tpt-smtp` (RFC 5321/5322 SMTP + Internet Message Format/MIME)
 
-- [ ] Note: only `mailin`/`mailin-embedded` (MIT OR Apache-2.0) are confirmed MIT-chain, and both are thin/fragmented — `samotop`'s core server crate is **Apache-2.0 only** (only its `samotop-delivery` sub-crate is dual), so it does NOT count despite earlier notes; this gap is larger than previously stated, closer to "no solid cohesive option" than "fragmented but covered"
-- [ ] Read RFC 5321 (SMTP) and RFC 5322 (IMF) in full; write `SPEC-NOTES.md` covering envelope commands, extensions (ESMTP), message header/body syntax
-- [ ] Design crate architecture: wire codec (commands/replies + IMF parser) + client + server, pluggable message-store/relay trait for the server
-- [ ] Implement client: connection, EHLO/HELO, MAIL/RCPT/DATA, STARTTLS negotiation hook, AUTH extension hook
-- [ ] Implement server: command parsing/state machine, pluggable delivery backend, STARTTLS/AUTH extension points
-- [ ] Implement IMF/MIME parsing and generation (headers, multipart bodies, encoding)
-- [ ] Provide a reference in-memory mailbox/relay backend for testing/examples
-- [ ] Interop-test against real SMTP clients/servers (e.g. swaks, Postfix)
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-smtp`
-- [ ] Mark crate "spec-complete" once client+server pass interop testing
+- [x] Note: only `mailin`/`mailin-embedded` (MIT OR Apache-2.0) are confirmed MIT-chain, and both are thin/fragmented — `samotop`'s core server crate is **Apache-2.0 only** (only its `samotop-delivery` sub-crate is dual), so it does NOT count despite earlier notes; this gap is larger than previously stated, closer to "no solid cohesive option" than "fragmented but covered"
+- [x] Read RFC 5321 (SMTP) and RFC 5322 (IMF) in full; write `SPEC-NOTES.md` covering envelope commands, extensions (ESMTP), message header/body syntax
+- [x] Design crate architecture: wire codec (commands/replies + IMF parser) + client + server, pluggable message-store/relay trait for the server
+- [x] Implement client: connection, EHLO/HELO, MAIL/RCPT/DATA, STARTTLS negotiation hook, AUTH extension hook
+- [x] Implement server: command parsing/state machine, pluggable delivery backend, STARTTLS/AUTH extension points
+- [x] Implement IMF/MIME parsing and generation (headers, multipart bodies, encoding)
+- [x] Provide a reference in-memory mailbox/relay backend for testing/examples
+- [ ] Interop-test against real SMTP clients/servers (e.g. `swaks`, Postfix) (BLOCKED: no SMTP peer in this environment; verified by the in-crate session/client harnesses instead)
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-smtp` (pending platform-wide launch)
+- [ ] Mark crate "spec-complete" once client+server pass interop testing (interop blocked; session/client harnesses pass)
 
 ## Phase 23 — `tpt-sieve` (RFC 5228 Sieve mail filtering)
 
-- [ ] Note: `sieve-rs` (Stalwart Labs) is comprehensive but AGPL-3.0-licensed (commercial license required to avoid copyleft) — not usable as a dependency for this dual MIT/Apache-2.0 platform; full scope below stands
-- [ ] Read RFC 5228 in full; write `SPEC-NOTES.md` covering script grammar, tests, actions, control structures
-- [ ] Implement Sieve script parser/lexer
-- [ ] Implement evaluation engine against a pluggable message-context trait (so it composes with `tpt-smtp`/`tpt-imap-server`)
-- [ ] Implement core required tests/actions (fileinto, redirect, keep, discard, header/address/envelope tests)
-- [ ] Source official Sieve test suite examples from the RFC and wire into test harness
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-sieve`
-- [ ] Mark crate "spec-complete" once parser+engine pass the RFC test suite
+- [x] Note: `sieve-rs` (Stalwart Labs) is comprehensive but AGPL-3.0-licensed (commercial license required to avoid copyleft) — not usable as a dependency for this dual MIT/Apache-2.0 platform; full scope below stands
+- [x] Read RFC 5228 in full; write `SPEC-NOTES.md` covering script grammar, tests, actions, control structures
+- [x] Implement Sieve script parser/lexer
+- [x] Implement evaluation engine against a pluggable message-context trait (so it comumes with `tpt-smtp`/`tpt-imap-server`)
+- [x] Implement core required tests/actions (fileinto, redirect, keep, discard, header/address/envelope tests)
+- [x] Source official Sieve test suite examples from the RFC and wire into test harness
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-sieve` (BLOCKED: no crates.io credentials in this environment)
+- [x] Mark crate "spec-complete" once parser+engine pass the RFC test suite
 
 ## Phase 24 — `tpt-snmp` (RFC 3411 et al. SNMP)
 
@@ -349,16 +349,16 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 25 — `tpt-netconf` (RFC 6241/7950 NETCONF/YANG)
 
-- [ ] Note: `rustnetconf`/`netconf-rs`/`yang-rs` cover the client+YANG-parsing side reasonably well (license for `rustnetconf` unconfirmed — verify before depending on it); narrow this phase's focus to the *server* side regardless
-- [ ] Read RFC 6241 (NETCONF protocol) and RFC 7950 (YANG 1.1) in full; write `SPEC-NOTES.md`
-- [ ] Implement NETCONF transport framing over SSH (reusing `tpt-ssh` subsystem support) including `]]>]]>` and chunked framing
-- [ ] Implement NETCONF RPC operations: get, get-config, edit-config, copy-config, delete-config, lock/unlock, close-session
-- [ ] Implement YANG data model parsing sufficient to validate/serialize configuration payloads (or scope to XML-only initially, document rationale)
-- [ ] Implement capability exchange (`hello` message, capability negotiation)
-- [ ] Interop-test against a real NETCONF server (e.g. sysrepo, a vendor device/simulator)
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-netconf`
-- [ ] Mark crate "spec-complete" once core RPC operations pass interop testing
+- [x] Note: `rustnetconf`/`netconf-rs`/`yang-rs` cover the client+YANG-parsing side reasonably well (license for `rustnetconf` unconfirmed — verify before depending on it); narrow this phase's focus to the *server* side regardless
+- [x] Read RFC 6241 (NETCONF protocol) and RFC 7950 (YANG 1.1) in full; write `SPEC-NOTES.md`
+- [x] Implement NETCONF transport framing over SSH (reusing `tpt-ssh` subsystem support) including `]]>]]>` and chunked framing — also added `subsystem` channel-request support to `tpt-ssh` (needed by NETCONF, RFC 4254 §6.2)
+- [x] Implement NETCONF RPC operations: get, get-config, edit-config, copy-config, delete-config, lock/unlock, close-session
+- [x] Implement YANG data model parsing sufficient to validate/serialize configuration payloads (scoped to XML-only with documented rationale in `SPEC-NOTES.md`)
+- [x] Implement capability exchange (`hello` message, capability negotiation)
+- [ ] Interop-test against a real NETCONF server (e.g. sysrepo, a vendor device/simulator) (BLOCKED: no NETCONF peer available in this environment; verified by the in-crate SSH integration harness in `tests/integration.rs`)
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-netconf` (pending platform-wide launch)
+- [ ] Mark crate "spec-complete" once core RPC operations pass interop testing (interop-test blocked; in-crate SSH integration harness passes)
 
 ## Phase 26 — `tpt-dtls` (RFC 9147 DTLS 1.3)
 
@@ -374,16 +374,16 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 27 — `tpt-sip` (RFC 3261 SIP)
 
-- [ ] Note: `rsipstack` (MIT) claims full RFC 3261 compliance with a complete transaction state machine already — verify its real-world maturity/interop before committing to a from-scratch build; this may not be a gap at all
-- [ ] Read RFC 3261 in full; write `SPEC-NOTES.md` covering message syntax, transactions, dialogs, core methods (INVITE/ACK/BYE/CANCEL/REGISTER/OPTIONS)
-- [ ] Design crate architecture: wire codec (reuse a dual-licensed SIP message parser if solid, else clean-room) + transaction layer + dialog layer + transport-agnostic (UDP/TCP/TLS)
-- [ ] Implement transaction state machines (client/server, INVITE and non-INVITE per RFC 3261 §17)
-- [ ] Implement dialog management and core methods (REGISTER, INVITE/ACK/BYE, CANCEL, OPTIONS)
-- [ ] Implement SDP offer/answer integration points (bring-your-own SDP body, or minimal SDP per RFC 8866)
-- [ ] Interop-test against a real SIP stack (e.g. Asterisk, FreeSWITCH, or a SIP softphone)
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-sip`
-- [ ] Mark crate "spec-complete" once transaction/dialog layers pass interop testing
+- [x] Note: `rsipstack` (MIT) claims full RFC 3261 compliance with a complete transaction state machine already — verify its real-world maturity/interop before committing to a from-scratch build; this may not be a gap at all
+- [x] Read RFC 3261 in full; write `SPEC-NOTES.md` covering message syntax, transactions, dialogs, core methods (INVITE/ACK/BYE/CANCEL/REGISTER/OPTIONS)
+- [x] Design crate architecture: wire codec (clean-room; no third-party SIP dependency) + transaction layer + dialog layer + transport-agnostic (UDP/TCP/TLS)
+- [x] Implement transaction state machines (client/server, INVITE and non-INVITE per RFC 3261 §17)
+- [x] Implement dialog management and core methods (REGISTER, INVITE/ACK/BYE, CANCEL, OPTIONS)
+- [x] Implement SDP offer/answer integration points (bring-your-own SDP body, or minimal SDP per RFC 8866)
+- [ ] Interop-test against a real SIP stack (e.g. Asterisk, FreeSWITCH, or a SIP softphone) (BLOCKED: no SIP stack available in this environment; verified by the in-crate FSM/dialog/URI/round-trip/UDP test harness instead)
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-sip` (BLOCKED: no crates.io credentials in this environment)
+- [ ] Mark crate "spec-complete" once transaction/dialog layers pass interop testing (interop-test blocked; in-crate harness passes)
 
 ## Phase 28 — `tpt-rtp` (RFC 3550/3551 RTP/RTCP)
 

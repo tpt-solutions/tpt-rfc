@@ -439,9 +439,15 @@ fn parse_rpc_error(el: &Xml) -> RpcError {
             .child_named("error-severity")
             .map(|e| e.text_content().trim().to_string())
             .unwrap_or_else(|| "error".into()),
-        error_message: el.child_named("error-message").map(|e| e.text_content().to_string()),
-        error_app_tag: el.child_named("error-app-tag").map(|e| e.text_content().to_string()),
-        error_path: el.child_named("error-path").map(|e| e.text_content().to_string()),
+        error_message: el
+            .child_named("error-message")
+            .map(|e| e.text_content().to_string()),
+        error_app_tag: el
+            .child_named("error-app-tag")
+            .map(|e| e.text_content().to_string()),
+        error_path: el
+            .child_named("error-path")
+            .map(|e| e.text_content().to_string()),
         error_info: el.child_named("error-info").cloned(),
     }
 }
@@ -459,7 +465,8 @@ pub fn hello_to_xml(hello: &Hello) -> Xml {
     }
     root.children.push(caps);
     if let Some(sid) = hello.session_id {
-        root.children.push(Xml::new("session-id").text(sid.to_string()));
+        root.children
+            .push(Xml::new("session-id").text(sid.to_string()));
     }
     root
 }
@@ -489,9 +496,8 @@ fn operation_to_xml(op: &Operation) -> Xml {
         } => {
             let mut el = Xml::new("edit-config");
             el.children.push(target.to_target_element("target"));
-            el.children.push(
-                Xml::new("default-operation").text(default_op.as_str().to_string()),
-            );
+            el.children
+                .push(Xml::new("default-operation").text(default_op.as_str().to_string()));
             el.children.push(config.clone());
             el
         }
@@ -532,9 +538,12 @@ pub fn rpc_reply_to_xml(reply: &RpcReply) -> Xml {
 
 fn rpc_error_to_xml(err: &RpcError) -> Xml {
     let mut el = Xml::new("rpc-error");
-    el.children.push(Xml::new("error-type").text(err.error_type.clone()));
-    el.children.push(Xml::new("error-tag").text(err.error_tag.clone()));
-    el.children.push(Xml::new("error-severity").text(err.error_severity.clone()));
+    el.children
+        .push(Xml::new("error-type").text(err.error_type.clone()));
+    el.children
+        .push(Xml::new("error-tag").text(err.error_tag.clone()));
+    el.children
+        .push(Xml::new("error-severity").text(err.error_severity.clone()));
     if let Some(m) = &err.error_message {
         el.children.push(Xml::new("error-message").text(m.clone()));
     }

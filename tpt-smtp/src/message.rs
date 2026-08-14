@@ -108,7 +108,10 @@ impl Message {
 
     /// The (decoded) value of the first matching header, if present.
     pub fn header(&self, name: &str) -> Option<String> {
-        self.header_values(name).into_iter().next().map(decode_header)
+        self.header_values(name)
+            .into_iter()
+            .next()
+            .map(decode_header)
     }
 
     /// All (decoded) values of the matching headers.
@@ -149,7 +152,7 @@ impl Message {
     /// in display names.
     pub fn addresses(&self, name: &str) -> Vec<Address> {
         match self.header_values(name).into_iter().next() {
-            Some(v) => parse_addresses(&v),
+            Some(v) => parse_addresses(v),
             None => Vec::new(),
         }
     }
@@ -291,7 +294,14 @@ fn find_group_colon(chars: &[char], start: usize) -> Option<usize> {
                     j += 1;
                 }
             }
-            ':' if depth == 0 => return Some(j),
+            ':' if depth == 0 => {
+                // Only treat as a group label if the label (chars[start..j])
+                // is not itself an address (contains no `@` or `<`).
+                let label: String = chars[start..j].iter().collect();
+                if !label.contains('@') && !label.contains('<') {
+                    return Some(j);
+                }
+            }
             _ => {}
         }
         j += 1;
@@ -334,35 +344,37 @@ fn parse_one_mailbox(chars: &[char], start: usize) -> Option<(Address, usize)> {
             i = end + 1;
         }
     } else {
-        // Read a run of display-name chars until we hit '<' or end.
+        // Scan for a display name followed by '<'. If no '<' is found the
+        // scanned text is the bare address itself, so do not advance `i`.
         let save = i;
-        while i < chars.len() && chars[i] != '<' {
-            if chars[i] == ',' {
+        let mut j = i;
+        while j < chars.len() && chars[j] != '<' {
+            if chars[j] == ',' || chars[j] == ';' {
                 break;
             }
-            i += 1;
+            j += 1;
         }
-        if i > save && (i == chars.len() || chars[i] == '<') {
-            let name: String = chars[save..i].iter().collect();
+        if j < chars.len() && chars[j] == '<' {
+            let name: String = chars[save..j].iter().collect();
             let name = name.trim();
             if !name.is_empty() && !name.contains('@') {
                 display = Some(decode_header(name));
             }
+            i = j; // advance to the '<'
         }
+        // else: leave `i` at `save` for the bare-address parse below.
     }
 
     // Angle address <local@domain> or bare local@domain.
     let addr: String;
     let next;
     if i < chars.len() && chars[i] == '<' {
-        let end = chars[i + 1..].iter().position(|c| *c == '>').map(|p| i + 1 + p);
-        match end {
-            Some(end) => {
-                addr = chars[i + 1..end].iter().collect();
-                next = end + 1;
-            }
-            None => return None,
-        }
+        let end = chars[i + 1..]
+            .iter()
+            .position(|c| *c == '>')
+            .map(|p| i + 1 + p)?;
+        addr = chars[i + 1..end].iter().collect();
+        next = end + 1;
     } else {
         // Bare address up to a comma, ';', or whitespace.
         let save = i;
@@ -435,11 +447,11 @@ pub fn decode_header(value: &str) -> String {
 }
 
 fn decode_encoded_word(s: &str) -> Option<(String, &str)> {
-    // s starts with "=?". Find "? encoding ? text ?=".
+    // s starts with "=?". Structure: =?charset?encoding?text?=
     let s = s.strip_prefix("=?")?;
     let (charset, rest) = s.split_once("?")?;
     let (encoding, rest) = rest.split_once("?")?;
-    let rest = rest.strip_prefix('?')?;
+    // `rest` now holds `text?=` (no further separator to strip).
     let (text, rest) = rest.split_once("?=")?;
     let _ = charset;
     let decoded = match encoding.to_ascii_uppercase().as_str() {
@@ -469,10 +481,10 @@ fn decode_q(text: &str) -> String {
                     continue;
                 }
                 out.push(bytes[i]);
-                i += 1;
             }
             b => out.push(b),
         }
+        i += 1;
     }
     String::from_utf8_lossy(&out).into_owned()
 }
@@ -649,7 +661,9 @@ fn decode_transfer_encoding(body: &[u8], cte: &str) -> Vec<u8> {
                 .filter(|b| !(**b == b'\r' || **b == b'\n' || **b == b' ' || **b == b'\t'))
                 .map(|b| *b as char)
                 .collect();
-            BASE64.decode(text.as_bytes()).unwrap_or_else(|_| body.to_vec())
+            BASE64
+                .decode(text.as_bytes())
+                .unwrap_or_else(|_| body.to_vec())
         }
         "quoted-printable" => decode_quoted_printable(body),
         _ => body.to_vec(),
@@ -679,10 +693,10 @@ fn decode_quoted_printable(body: &[u8]) -> Vec<u8> {
                     }
                 }
                 out.push(body[i]);
-                i += 1;
             }
             b => out.push(b),
         }
+        i += 1;
     }
     out
 }
@@ -781,7 +795,8 @@ impl MessageBuilder {
         }
         let mut out = head.into_bytes();
         out.extend_from_slice(b"\r\n");
-        let body = self.body.replace('\n', "\r\n");
+        // Normalize line endings to CRLF without double-encoding existing CRLF.
+        let body = self.body.replace("\r\n", "\n").replace('\n', "\r\n");
         out.extend_from_slice(body.as_bytes());
         // Ensure the body ends with CRLF.
         if !out.ends_with(b"\r\n") {

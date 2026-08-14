@@ -54,7 +54,10 @@ impl Client {
             if n == 0 {
                 break;
             }
-            let line = line.trim_end_matches('\n').trim_end_matches('\r').to_string();
+            let line = line
+                .trim_end_matches('\n')
+                .trim_end_matches('\r')
+                .to_string();
             if line.is_empty() {
                 continue;
             }
@@ -70,7 +73,9 @@ impl Client {
         self.tag += 1;
         let tag = format!("a{}", self.tag);
         self.stream
-            .write_all(format!("{tag} APPEND {mailbox} ({flags}) {{{}}}\r\n", data.len()).as_bytes())
+            .write_all(
+                format!("{tag} APPEND {mailbox} ({flags}) {{{}}}\r\n", data.len()).as_bytes(),
+            )
             .unwrap();
         self.stream.flush().unwrap();
         let mut cont = String::new();
@@ -91,7 +96,10 @@ impl Client {
         self.stream.flush().unwrap();
         let mut cont = String::new();
         self.reader.read_line(&mut cont).unwrap();
-        assert!(cont.starts_with('+'), "expected + continuation, got {cont:?}");
+        assert!(
+            cont.starts_with('+'),
+            "expected + continuation, got {cont:?}"
+        );
         (tag, cont)
     }
 
@@ -107,7 +115,9 @@ fn setup() -> (Client, JoinHandle<()>) {
     store.add_mailbox("alice", "INBOX").unwrap();
     let m1 = b"From: a@example.com\r\nSubject: First\r\n\r\nBody one\r\n".to_vec();
     let m2 = b"From: b@example.com\r\nSubject: Second\r\n\r\nBody two\r\n".to_vec();
-    store.add_message("alice", "INBOX", m1, HashSet::new(), 0).unwrap();
+    store
+        .add_message("alice", "INBOX", m1, HashSet::new(), 0)
+        .unwrap();
     let seen: HashSet<Flag> = [Flag::System(SystemFlag::Seen)].into_iter().collect();
     store.add_message("alice", "INBOX", m2, seen, 0).unwrap();
     let (addr, handle) = Server::new(store).spawn("127.0.0.1:0").unwrap();
@@ -162,10 +172,7 @@ fn append_and_status() {
     let r = c.append("INBOX", "", &data);
     assert!(r.last().unwrap().contains("OK"), "append: {r:?}");
     let r = c.cmd("STATUS INBOX (MESSAGES)");
-    assert!(
-        r.iter().any(|l| l.contains("MESSAGES 3")),
-        "status: {r:?}"
-    );
+    assert!(r.iter().any(|l| l.contains("MESSAGES 3")), "status: {r:?}");
 }
 
 #[test]
@@ -201,10 +208,7 @@ fn search_all() {
     c.cmd("LOGIN alice secret");
     c.cmd("SELECT INBOX");
     let r = c.cmd("SEARCH ALL");
-    assert!(
-        r.iter().any(|l| l.starts_with("* SEARCH")),
-        "search: {r:?}"
-    );
+    assert!(r.iter().any(|l| l.starts_with("* SEARCH")), "search: {r:?}");
 }
 
 #[test]
@@ -229,10 +233,7 @@ fn authenticate_plain() {
     let creds = format!("\0alice\0secret");
     let b64 = base64::engine::general_purpose::STANDARD.encode(creds);
     let r = c.cmd(&format!("AUTHENTICATE PLAIN {b64}"));
-    assert!(
-        r.last().unwrap().contains("OK"),
-        "plain auth failed: {r:?}"
-    );
+    assert!(r.last().unwrap().contains("OK"), "plain auth failed: {r:?}");
 }
 
 #[test]

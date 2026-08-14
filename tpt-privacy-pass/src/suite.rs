@@ -7,15 +7,15 @@
 //! `hash2curve` (RFC 9380 `hash_to_curve`) and `sha2`.
 
 use core::num::NonZeroU16;
-use elliptic_curve::bigint::{U256, U384, U512, U768};
+use elliptic_curve::bigint::{U512, U768};
 use elliptic_curve::ff::PrimeField;
 use elliptic_curve::{
-    sec1::{EncodedPoint, FromEncodedPoint, ToEncodedPoint},
+    sec1::{FromSec1Point, Sec1Point, ToSec1Point},
     CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint,
 };
 use hash2curve::{ExpandMsg, ExpandMsgXmd, Expander, GroupDigest};
-use p256::NistP256;
-use p384::NistP384;
+pub use p256::NistP256;
+pub use p384::NistP384;
 use sha2::{Digest, Sha256, Sha384};
 
 use crate::error::OprfError;
@@ -38,7 +38,7 @@ pub type Scalar<C> = elliptic_curve::Scalar<C>;
 pub trait Suite: GroupDigest + CurveArithmetic + PrimeCurve {
     /// The protocol hash function (`Hash` in RFC 9497): SHA-256 for
     /// P-256 and SHA-384 for P-384. Also used as the expand-message hash.
-    type Hash: Digest + Default + FixedOutput + BlockSizeUser + HashMarker;
+    type Hash: Digest + Default;
 
     /// Ciphersuite identifier string, e.g. `"P256-SHA256"`.
     const SUITE_ID: &'static str;
@@ -92,8 +92,9 @@ impl Suite for NistP256 {
     const L: usize = 48;
 
     fn hash_to_scalar(input: &[u8], dst: &[u8]) -> Scalar<Self> {
-        let expander = ExpandMsgXmd::<Sha256>::expand_message(&[input], &[dst], u16_len(Self::L as u16))
-            .expect("expand_message");
+        let expander =
+            ExpandMsgXmd::<Sha256>::expand_message(&[input], &[dst], u16_len(Self::L as u16))
+                .expect("expand_message");
         let mut buf = [0u8; 48];
         expander.fill_bytes(&mut buf).expect("expand_message fill");
         let wide = U512::from_be_slice(&buf);
@@ -103,7 +104,8 @@ impl Suite for NistP256 {
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
-        <Self as GroupDigest>::hash_from_bytes(&[input], &[dst]).map_err(|_| OprfError::InvalidElement)
+        <Self as GroupDigest>::hash_from_bytes(&[input], &[dst])
+            .map_err(|_| OprfError::InvalidElement)
     }
 }
 
@@ -120,8 +122,9 @@ impl Suite for NistP384 {
     const L: usize = 72;
 
     fn hash_to_scalar(input: &[u8], dst: &[u8]) -> Scalar<Self> {
-        let expander = ExpandMsgXmd::<Sha384>::expand_message(&[input], &[dst], u16_len(Self::L as u16))
-            .expect("expand_message");
+        let expander =
+            ExpandMsgXmd::<Sha384>::expand_message(&[input], &[dst], u16_len(Self::L as u16))
+                .expect("expand_message");
         let mut buf = [0u8; 72];
         expander.fill_bytes(&mut buf).expect("expand_message fill");
         let wide = U768::from_be_slice(&buf);
@@ -131,7 +134,8 @@ impl Suite for NistP384 {
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
-        <Self as GroupDigest>::hash_from_bytes(&[input], &[dst]).map_err(|_| OprfError::InvalidElement)
+        <Self as GroupDigest>::hash_from_bytes(&[input], &[dst])
+            .map_err(|_| OprfError::InvalidElement)
     }
 }
 
@@ -157,7 +161,7 @@ pub(crate) fn deserialize_scalar<C: Suite + ?Sized>(b: &[u8]) -> Result<Scalar<C
 /// Serialize a group element using the compressed SEC1 encoding
 /// (`SerializeElement` in RFC 9497 §2.1).
 pub(crate) fn serialize_element<C: Suite + ?Sized>(p: &Point<C>) -> Vec<u8> {
-    p.to_encoded_point(true).as_bytes().to_vec()
+    p.to_sec1_point(true).as_bytes().to_vec()
 }
 
 /// Deserialize a group element, rejecting wrong-length, invalid, or
@@ -166,8 +170,8 @@ pub(crate) fn deserialize_element<C: Suite + ?Sized>(b: &[u8]) -> Result<Point<C
     if b.len() != C::NE {
         return Err(OprfError::InvalidElement);
     }
-    let ep = EncodedPoint::<C>::from_bytes(b).map_err(|_| OprfError::InvalidElement)?;
-    let pt = Point::<C>::from_encoded_point(&ep);
+    let ep = Sec1Point::<C>::from_bytes(b).map_err(|_| OprfError::InvalidElement)?;
+    let pt = Point::<C>::from_sec1_point(&ep);
     let pt = Option::from(pt).ok_or(OprfError::InvalidElement)?;
     if bool::from(pt.is_identity()) {
         return Err(OprfError::InvalidElement);

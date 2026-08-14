@@ -1,0 +1,25 @@
+[package]
+name = "tpt-sip"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["sip", "rfc3261", "voip", "session-initiation-protocol", "protocol"]
+categories = ["network-programming"]
+description = "Clean-room, dual-licensed SIP (RFC 3261) implementation: message codec, URI, transaction state machines, dialogs, and a UDP transport"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

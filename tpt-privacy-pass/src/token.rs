@@ -14,8 +14,8 @@ use crate::oprf::*;
 use crate::suite::*;
 use sha2::{Digest, Sha256};
 
-type ScalarE<C> = ScalarE<C>;
-type PointE<C> = PointE<C>;
+type ScalarE<C> = Scalar<C>;
+type PointE<C> = Point<C>;
 
 /// Token type `0x0001`: VOPRF(P-384, SHA-384), privately verifiable
 /// (RFC 9578 §5 / §8.2.1 — the only token type with official IETF test

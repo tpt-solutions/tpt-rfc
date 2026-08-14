@@ -94,7 +94,9 @@ fn handle(
     let mut read_half = BufReader::new(stream.try_clone()?);
     let mut write_half = stream;
     let mut session = Session::with_hostname(backend, hostname);
-    session.set_extensions(extensions).set_max_message(max_message);
+    session
+        .set_extensions(extensions)
+        .set_max_message(max_message);
     session.run(&mut read_half, &mut write_half)?;
     write_half.flush()?;
     if let Some(peer) = peer {

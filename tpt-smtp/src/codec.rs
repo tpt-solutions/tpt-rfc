@@ -85,7 +85,7 @@ fn strip_keyword(args: &str) -> &str {
 /// argument text after the parameter (trimmed), or empty.
 pub fn take_param(args: &str) -> Option<(String, String, String)> {
     let args = args.trim_start();
-    let end = args.find(|c: char| c == ' ' || c == '\t');
+    let end = args.find([' ', '\t']);
     let (first, rest) = match end {
         Some(e) => (&args[..e], &args[e..]),
         None => (args, ""),

@@ -20,7 +20,12 @@ use crate::error::{SieveError, SieveResult};
 /// was not declared with `require`, or if an unsupported comparator is used.
 pub fn evaluate<C: MessageContext>(script: &Script, ctx: &C) -> SieveResult<ActionSet> {
     let mut state = EvalState::default();
-    run_block(&mut state, script, ctx, &script.commands)?;
+    let mut ev = Evaluator {
+        state: &mut state,
+        script,
+        ctx,
+    };
+    ev.run_block(&script.commands)?;
     Ok(state.actions)
 }
 
@@ -30,150 +35,148 @@ struct EvalState {
     stopped: bool,
 }
 
-fn run_block<C: MessageContext>(
-    state: &mut EvalState,
-    script: &Script,
-    ctx: &C,
-    cmds: &[Command],
-) -> SieveResult<()> {
-    for cmd in cmds {
-        if state.stopped {
-            break;
+struct Evaluator<'a, C: MessageContext> {
+    state: &'a mut EvalState,
+    script: &'a Script,
+    ctx: &'a C,
+}
+
+impl<'a, C: MessageContext> Evaluator<'a, C> {
+    fn run_block(&mut self, cmds: &[Command]) -> SieveResult<()> {
+        for cmd in cmds {
+            if self.state.stopped {
+                break;
+            }
+            match cmd {
+                Command::Require(_) => {}
+                Command::Action(a) => self.exec_action(a)?,
+                Command::If(ifc) => {
+                    if self.eval_test(&ifc.test)? {
+                        self.run_block(&ifc.block)?;
+                    } else {
+                        let mut matched = false;
+                        for (t, b) in &ifc.elsif {
+                            if self.state.stopped {
+                                break;
+                            }
+                            if self.eval_test(t)? {
+                                matched = true;
+                                self.run_block(b)?;
+                                break;
+                            }
+                        }
+                        if !matched {
+                            if let Some(b) = &ifc.else_block {
+                                self.run_block(b)?;
+                            }
+                        }
+                    }
+                }
+            }
         }
-        match cmd {
-            Command::Require(_) => {}
-            Command::Action(a) => exec_action(state, script, a)?, // ctx not needed
-            Command::If(ifc) => {
-                if eval_test(state, script, ctx, &ifc.test)? {
-                    run_block(state, script, ctx, &ifc.block)?;
+        Ok(())
+    }
+
+    fn exec_action(&mut self, a: &Action) -> SieveResult<()> {
+        match a {
+            Action::Keep => self.state.actions.keep_explicit = true,
+            Action::Discard => self.state.actions.discard = true,
+            Action::Stop => self.state.stopped = true,
+            Action::Redirect(addr) => self.state.actions.redirect.push(addr.clone()),
+            Action::FileInto(folder) => {
+                if !self.script.capabilities.contains("fileinto") {
+                    return Err(SieveError::MissingCapability("fileinto".to_string()));
+                }
+                self.state.actions.fileinto.push(folder.clone());
+            }
+        }
+        Ok(())
+    }
+
+    fn eval_test(&mut self, t: &Test) -> SieveResult<bool> {
+        match t {
+            Test::AllOf(subs) => {
+                for s in subs {
+                    if !self.eval_test(s)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            Test::AnyOf(subs) => {
+                for s in subs {
+                    if self.eval_test(s)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            Test::Not(s) => Ok(!self.eval_test(s)?),
+            Test::Exists(names) => {
+                for n in names {
+                    if self.ctx.header_values(n).is_empty() {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+            Test::True => Ok(true),
+            Test::False => Ok(false),
+            Test::Size { over, amount } => {
+                let s = self.ctx.size();
+                Ok(if *over {
+                    s > *amount as usize
                 } else {
-                    let mut matched = false;
-                    for (t, b) in &ifc.elsif {
-                        if state.stopped {
-                            break;
-                        }
-                        if eval_test(state, script, ctx, t)? {
-                            matched = true;
-                            run_block(state, script, ctx, b)?;
-                            break;
-                        }
-                    }
-                    if !matched {
-                        if let Some(b) = &ifc.else_block {
-                            run_block(state, script, ctx, b)?;
-                        }
-                    }
+                    s < *amount as usize
+                })
+            }
+            Test::Header(h) => Ok(self.eval_header(h)),
+            Test::Address(a) => Ok(self.eval_address(a)),
+            Test::Envelope(e) => {
+                if !self.script.capabilities.contains("envelope") {
+                    return Err(SieveError::MissingCapability("envelope".to_string()));
+                }
+                Ok(self.eval_envelope(e))
+            }
+        }
+    }
+
+    fn eval_header(&self, h: &HeaderTest) -> bool {
+        let mut sources = Vec::new();
+        for name in &h.names {
+            for v in self.ctx.header_values(name) {
+                sources.push(v);
+            }
+        }
+        any_match(&sources, &h.keys, h.comparator, h.match_type)
+    }
+
+    fn eval_address(&self, a: &AddressTest) -> bool {
+        let mut sources = Vec::new();
+        for name in &a.headers {
+            for v in self.ctx.header_values(name) {
+                for (local, domain) in extract_addresses(&v) {
+                    let s = match a.address_part {
+                        AddressPart::All => format!("{}@{}", local, domain),
+                        AddressPart::LocalPart => local,
+                        AddressPart::DomainPart => domain,
+                    };
+                    sources.push(s);
                 }
             }
         }
+        any_match(&sources, &a.keys, a.comparator, a.match_type)
     }
-    Ok(())
-}
 
-fn exec_action(state: &mut EvalState, script: &Script, a: &Action) -> SieveResult<()> {
-    match a {
-        Action::Keep => state.actions.keep_explicit = true,
-        Action::Discard => state.actions.discard = true,
-        Action::Stop => state.stopped = true,
-        Action::Redirect(addr) => state.actions.redirect.push(addr.clone()),
-        Action::FileInto(folder) => {
-            if !script.capabilities.contains("fileinto") {
-                return Err(SieveError::MissingCapability("fileinto".to_string()));
+    fn eval_envelope(&self, e: &EnvelopeTest) -> bool {
+        let mut sources = Vec::new();
+        for part in &e.parts {
+            for v in self.ctx.envelope_values(part) {
+                sources.push(v);
             }
-            state.actions.fileinto.push(folder.clone());
         }
+        any_match(&sources, &e.keys, e.comparator, e.match_type)
     }
-    Ok(())
-}
-
-fn eval_test<C: MessageContext>(
-    state: &mut EvalState,
-    script: &Script,
-    ctx: &C,
-    t: &Test,
-) -> SieveResult<bool> {
-    match t {
-        Test::AllOf(subs) => {
-            for s in subs {
-                if !eval_test(state, script, ctx, s)? {
-                    return Ok(false);
-                }
-            }
-            Ok(true)
-        }
-        Test::AnyOf(subs) => {
-            for s in subs {
-                if eval_test(state, script, ctx, s)? {
-                    return Ok(true);
-                }
-            }
-            Ok(false)
-        }
-        Test::Not(s) => Ok(!eval_test(state, script, ctx, s)?),
-        Test::Exists(names) => {
-            for n in names {
-                if ctx.header_values(n).is_empty() {
-                    return Ok(false);
-                }
-            }
-            Ok(true)
-        }
-        Test::True => Ok(true),
-        Test::False => Ok(false),
-        Test::Size { over, amount } => {
-            let s = ctx.size();
-            Ok(if *over {
-                s > *amount as usize
-            } else {
-                s < *amount as usize
-            })
-        }
-        Test::Header(h) => Ok(eval_header(ctx, h)),
-        Test::Address(a) => Ok(eval_address(ctx, a)),
-        Test::Envelope(e) => {
-            if !script.capabilities.contains("envelope") {
-                return Err(SieveError::MissingCapability("envelope".to_string()));
-            }
-            Ok(eval_envelope(ctx, e))
-        }
-    }
-}
-
-fn eval_header<C: MessageContext>(ctx: &C, h: &HeaderTest) -> bool {
-    let mut sources = Vec::new();
-    for name in &h.names {
-        for v in ctx.header_values(name) {
-            sources.push(v);
-        }
-    }
-    any_match(&sources, &h.keys, h.comparator, h.match_type)
-}
-
-fn eval_address<C: MessageContext>(ctx: &C, a: &AddressTest) -> bool {
-    let mut sources = Vec::new();
-    for name in &a.headers {
-        for v in ctx.header_values(name) {
-            for (local, domain) in extract_addresses(&v) {
-                let s = match a.address_part {
-                    AddressPart::All => format!("{}@{}", local, domain),
-                    AddressPart::LocalPart => local,
-                    AddressPart::DomainPart => domain,
-                };
-                sources.push(s);
-            }
-        }
-    }
-    any_match(&sources, &a.keys, a.comparator, a.match_type)
-}
-
-fn eval_envelope<C: MessageContext>(ctx: &C, e: &EnvelopeTest) -> bool {
-    let mut sources = Vec::new();
-    for part in &e.parts {
-        for v in ctx.envelope_values(part) {
-            sources.push(v);
-        }
-    }
-    any_match(&sources, &e.keys, e.comparator, e.match_type)
 }
 
 fn any_match(
@@ -212,48 +215,36 @@ fn string_matches(comparator: Comparator, mt: MatchType, value: &str, key: &str)
 }
 
 /// Wildcard match for Sieve `:matches` (`*` = zero or more, `?` = exactly one).
+///
+/// This is the canonical iterative backtracking matcher: a single `*` records a
+/// backtrack point and absorbs any amount of text.
 fn glob_match(text: &str, pattern: &str) -> bool {
     let t: Vec<char> = text.chars().collect();
     let p: Vec<char> = pattern.chars().collect();
     let (mut ti, mut pi) = (0usize, 0usize);
     let (mut star_t, mut star_p): (Option<usize>, Option<usize>) = (None, None);
-    loop {
-        if pi >= p.len() {
-            // The pattern is exhausted. If a `*` was in play it absorbs any
-            // remaining text; otherwise only an exact-length match succeeds.
-            return star_p.is_some() || ti >= t.len();
-        }
-        match p[pi] {
-            '*' => {
-                star_p = Some(pi);
-                star_t = Some(ti);
-                pi += 1;
-            }
-            '?' => {
-                if ti >= t.len() {
-                    return false;
-                }
-                ti += 1;
-                pi += 1;
-            }
-            c => {
-                if ti >= t.len() || t[ti] != c {
-                    match (star_p, star_t) {
-                        (Some(sp), Some(mut st)) => {
-                            st += 1;
-                            star_t = Some(st);
-                            ti = st;
-                            pi = sp + 1;
-                        }
-                        _ => return false,
-                    }
-                } else {
-                    ti += 1;
-                    pi += 1;
-                }
-            }
+    while ti < t.len() {
+        if pi < p.len() && p[pi] == '*' {
+            star_p = Some(pi);
+            star_t = Some(ti);
+            pi += 1;
+        } else if pi < p.len() && (p[pi] == '?' || p[pi] == t[ti]) {
+            ti += 1;
+            pi += 1;
+        } else if let (Some(sp), Some(st)) = (star_p, star_t) {
+            let st = st + 1;
+            star_t = Some(st);
+            ti = st;
+            pi = sp + 1;
+        } else {
+            return false;
         }
     }
+    // A trailing `*` matches any remaining text; anything else must be gone.
+    while pi < p.len() && p[pi] == '*' {
+        pi += 1;
+    }
+    pi == p.len()
 }
 
 /// Extract `(local-part, domain)` pairs from a header field value.

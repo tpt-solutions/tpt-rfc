@@ -63,11 +63,9 @@ pub mod xml;
 
 pub use error::{NetconfError, Result};
 pub use message::{
-    DatastoreName, EditDefaultOp, Hello, Operation, Rpc, RpcError, RpcReply, ReplyResult,
+    DatastoreName, EditDefaultOp, Hello, Operation, ReplyResult, Rpc, RpcError, RpcReply,
 };
-pub use server::{
-    dispatch, serve_ssh_session, Datastore, InMemoryDatastore,
-};
+pub use server::{dispatch, serve_ssh_session, Datastore, InMemoryDatastore};
 pub use xml::{parse_root, to_string, Xml};
 
 /// The NETCONF base namespace (RFC 6241 §3.1).

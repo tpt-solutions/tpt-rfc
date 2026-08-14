@@ -18,7 +18,7 @@ use tpt_ssh::session::EncryptedConn;
 use crate::error::{NetconfError, Result};
 use crate::framing::encode_message;
 use crate::message::{
-    hello_to_xml, parse_hello, parse_rpc_reply, rpc_to_xml, Operation, Rpc, RpcReply,
+    hello_to_xml, parse_hello, parse_rpc_reply, rpc_to_xml, Hello, Operation, Rpc, RpcReply,
 };
 use crate::xml::to_string;
 
@@ -77,9 +77,9 @@ impl NetconfSshClient {
             next_id: 1,
             decoder: crate::framing::FrameDecoder::new(),
         };
-        let hello = client
-            .read_message(conn, pump)?
-            .ok_or_else(|| NetconfError::CapabilityExchange("server closed before <hello>".into()))?;
+        let hello = client.read_message(conn, pump)?.ok_or_else(|| {
+            NetconfError::CapabilityExchange("server closed before <hello>".into())
+        })?;
         let h = parse_hello(&hello).map_err(|e| NetconfError::CapabilityExchange(e.to_string()))?;
         if !h.capabilities.iter().any(|c| {
             c == crate::message::NETCONF_BASE_NS_1_0 || c == crate::message::NETCONF_BASE_NS_1_1
@@ -88,6 +88,17 @@ impl NetconfSshClient {
                 "server did not advertise a NETCONF base capability".into(),
             ));
         }
+
+        // Send our own <hello> (RFC 6241 §8.1 requires both peers to exchange
+        // capabilities before any <rpc>).
+        let client_hello = Hello {
+            capabilities: vec![crate::message::NETCONF_BASE_NS_1_0.to_string()],
+            session_id: None,
+        };
+        let framed = encode_message(&to_string(&hello_to_xml(&client_hello)));
+        conn.send(&encode_channel_data(client.channel, &framed));
+        pump(conn);
+
         Ok(client)
     }
 
@@ -168,5 +179,7 @@ impl NetconfSshClient {
 
 /// Build a server `<hello>` XML string (convenience for examples/logging).
 pub fn server_hello_string(session_id: u32) -> String {
-    to_string(&hello_to_xml(&crate::message::Hello::server_default(session_id)))
+    to_string(&hello_to_xml(&crate::message::Hello::server_default(
+        session_id,
+    )))
 }

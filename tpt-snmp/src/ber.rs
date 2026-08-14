@@ -15,8 +15,6 @@ use crate::error::BerError;
 pub const TAG_INTEGER: u8 = 0x02;
 /// Universal tag for `OCTET STRING`.
 pub const TAG_OCTET_STRING: u8 = 0x04;
-/// Universal tag for `NULL`.
-pub const TAG_NULL: u8 = 0x05;
 /// Universal tag for `OBJECT IDENTIFIER`.
 pub const TAG_OBJECT_IDENTIFIER: u8 = 0x06;
 /// Universal tag/constructed bit for `SEQUENCE`/`SEQUENCE OF`.
@@ -58,11 +56,6 @@ impl BerWriter {
     /// Consume the writer, returning the accumulated bytes.
     pub fn into_bytes(self) -> Vec<u8> {
         self.out
-    }
-
-    /// Current length of the buffered output (used to compute field offsets).
-    pub fn len(&self) -> usize {
-        self.out.len()
     }
 
     /// Append already-encoded BER bytes verbatim.
@@ -113,22 +106,6 @@ impl BerWriter {
     /// Write a non-negative INTEGER value (used for Counters/Gauges/TimeTicks).
     pub fn write_unsigned(&mut self, tag: u8, v: u64) {
         self.write_tlv(tag, &encode_unsigned(v));
-    }
-}
-
-/// Number of bytes the definite-length encoding of `n` occupies.
-pub(crate) fn length_field_size(n: usize) -> usize {
-    if n < 128 {
-        1
-    } else {
-        let mut l = n;
-        let mut count = 1;
-        while l >= 256 {
-            l >>= 8;
-            count += 1;
-        }
-        // one more byte for the final sub-length < 256, plus the leading 0x80 form byte
-        1 + count
     }
 }
 
@@ -256,11 +233,6 @@ impl<'a> BerReader<'a> {
         }
         Ok(len)
     }
-
-    /// Read a TLV and return its tag and inner content (without consuming the inner content).
-    pub fn read_sequence(&mut self) -> Result<(u8, &'a [u8]), BerError> {
-        self.read_tlv()
-    }
 }
 
 #[cfg(test)]
@@ -269,7 +241,19 @@ mod tests {
 
     #[test]
     fn integer_roundtrip() {
-        for v in [0i64, 1, -1, 127, 128, -128, 255, -256, 65535, i64::MIN / 2, i64::MAX] {
+        for v in [
+            0i64,
+            1,
+            -1,
+            127,
+            128,
+            -128,
+            255,
+            -256,
+            65535,
+            i64::MIN / 2,
+            i64::MAX,
+        ] {
             let mut w = BerWriter::new();
             w.write_integer(v);
             let bytes = w.into_bytes();

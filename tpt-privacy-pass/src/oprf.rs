@@ -68,7 +68,12 @@ pub fn blind_evaluate<C: Suite>(sk: &ScalarE<C>, blinded: &PointE<C>) -> PointE<
 }
 
 /// Client-side finalization (`Finalize` in RFC 9497 §3.3.1).
-pub fn finalize<C: Suite>(input: &[u8], blind: &ScalarE<C>, evaluated: &PointE<C>, mode: u8) -> Vec<u8> {
+pub fn finalize<C: Suite>(
+    input: &[u8],
+    blind: &ScalarE<C>,
+    evaluated: &PointE<C>,
+    mode: u8,
+) -> Vec<u8> {
     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
     let unblinded = serialize_element::<C>(&n);
     finalize_hash::<C>(input, &unblinded, None, mode)
@@ -96,7 +101,14 @@ pub fn blind_evaluate_voprf<C: Suite>(
     blinded: &PointE<C>,
 ) -> (PointE<C>, Proof<C>) {
     let evaluated = *blinded * *sk;
-    let proof = generate_proof::<C>(sk, &PointE::<C>::GENERATOR, pk, &[*blinded], &[evaluated], 0x01);
+    let proof = generate_proof::<C>(
+        sk,
+        &PointE::<C>::GENERATOR,
+        pk,
+        &[*blinded],
+        &[evaluated],
+        0x01,
+    );
     (evaluated, proof)
 }
 
@@ -111,7 +123,14 @@ pub fn finalize_voprf<C: Suite>(
     pk: &PointE<C>,
     proof: &Proof<C>,
 ) -> Result<Vec<u8>, OprfError> {
-    if !verify_proof::<C>(&PointE::<C>::GENERATOR, pk, &[*blinded], &[*evaluated], proof, 0x01) {
+    if !verify_proof::<C>(
+        &PointE::<C>::GENERATOR,
+        pk,
+        &[*blinded],
+        &[*evaluated],
+        proof,
+        0x01,
+    ) {
         return Err(OprfError::ProofVerification);
     }
     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
@@ -147,7 +166,10 @@ pub fn blind_poprf<C: Suite>(
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
     let t = PointE::<C>::GENERATOR * m;
     let tweaked = t + *pk;
-    assert!(!bool::from(tweaked.is_identity()), "tweaked key is identity");
+    assert!(
+        !bool::from(tweaked.is_identity()),
+        "tweaked key is identity"
+    );
     let dst = dst_group::<C>(0x02);
     let ie = C::hash_to_group(input, &dst).expect("hash_to_group");
     let blinded_element = ie * *blind;
@@ -168,7 +190,14 @@ pub fn blind_evaluate_poprf<C: Suite>(
     let t_inv = Option::from(t.invert()).expect("t invertible");
     let evaluated = *blinded * t_inv;
     let tweaked_key = PointE::<C>::GENERATOR * t;
-    let proof = generate_proof::<C>(&t, &PointE::<C>::GENERATOR, &tweaked_key, &[*evaluated], &[*blinded], 0x02);
+    let proof = generate_proof::<C>(
+        &t,
+        &PointE::<C>::GENERATOR,
+        &tweaked_key,
+        &[*evaluated],
+        &[*blinded],
+        0x02,
+    );
     (evaluated, proof)
 }
 
@@ -183,7 +212,14 @@ pub fn finalize_poprf<C: Suite>(
     info: &[u8],
     tweaked: &PointE<C>,
 ) -> Result<Vec<u8>, OprfError> {
-    if !verify_proof::<C>(&PointE::<C>::GENERATOR, tweaked, &[*evaluated], &[*blinded], proof, 0x02) {
+    if !verify_proof::<C>(
+        &PointE::<C>::GENERATOR,
+        tweaked,
+        &[*evaluated],
+        &[*blinded],
+        proof,
+        0x02,
+    ) {
         return Err(OprfError::ProofVerification);
     }
     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
@@ -211,7 +247,12 @@ pub fn evaluate_poprf<C: Suite>(sk: &ScalarE<C>, input: &[u8], info: &[u8]) -> V
 
 /// The `hashInput` hash used by every `Finalize` / `Evaluate` (RFC 9497
 /// §3.3). POPRF (`mode == 0x02`) additionally binds `info`.
-fn finalize_hash<C: Suite>(input: &[u8], unblinded: &[u8], info: Option<&[u8]>, mode: u8) -> Vec<u8> {
+fn finalize_hash<C: Suite>(
+    input: &[u8],
+    unblinded: &[u8],
+    info: Option<&[u8]>,
+    mode: u8,
+) -> Vec<u8> {
     let mut h = C::Hash::new();
     h.update(len_prefixed(input));
     if mode == 0x02 {
@@ -313,7 +354,12 @@ fn compute_composites_fast<C: Suite>(
 }
 
 /// `ComputeComposites` (RFC 9497 §2.2.2) — verifier side.
-fn compute_composites<C: Suite>(b: &PointE<C>, c: &[PointE<C>], d: &[PointE<C>], mode: u8) -> (PointE<C>, PointE<C>) {
+fn compute_composites<C: Suite>(
+    b: &PointE<C>,
+    c: &[PointE<C>],
+    d: &[PointE<C>],
+    mode: u8,
+) -> (PointE<C>, PointE<C>) {
     let seed = seed_for::<C>(b, mode);
     let mut m = PointE::<C>::IDENTITY;
     let mut z = PointE::<C>::IDENTITY;
@@ -338,7 +384,10 @@ fn seed_for<C: Suite>(b: &PointE<C>, mode: u8) -> Vec<u8> {
     seed_transcript.extend_from_slice(&bm);
     seed_transcript.extend_from_slice(&(seed_dst.len() as u16).to_be_bytes());
     seed_transcript.extend_from_slice(&seed_dst);
-    C::Hash::new().chain_update(&seed_transcript).finalize().to_vec()
+    C::Hash::new()
+        .chain_update(&seed_transcript)
+        .finalize()
+        .to_vec()
 }
 
 /// Build one `Composite` transcript entry (RFC 9497 §2.2).

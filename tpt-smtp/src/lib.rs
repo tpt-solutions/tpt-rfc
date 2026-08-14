@@ -39,7 +39,8 @@
 //! use std::io::Cursor;
 //!
 //! let backend = Arc::new(MemoryBackend::new());
-//! let mut session = Session::new(Arc::clone(&backend));
+//! let backend: Arc<dyn tpt_smtp::backend::MailDelivery> = backend;
+//! let mut session = Session::new(backend);
 //! session.set_extensions(Extensions { size: true, ..Default::default() });
 //!
 //! let input = "EHLO client\r\nMAIL FROM:<alice@example.com>\r\nQUIT\r\n";

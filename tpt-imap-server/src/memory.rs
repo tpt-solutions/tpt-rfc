@@ -141,7 +141,8 @@ impl MailboxStore for InMemoryStore {
             .collect();
 
         // RFC 9051: INBOX is always listable, even if not present in storage.
-        let inbox_match = combined.eq_ignore_ascii_case("INBOX") || match_wildcard("INBOX", &combined);
+        let inbox_match =
+            combined.eq_ignore_ascii_case("INBOX") || match_wildcard("INBOX", &combined);
         if inbox_match && !out.iter().any(|e| e.name.eq_ignore_ascii_case("INBOX")) {
             out.push(ListEntry {
                 name: "INBOX".to_string(),
@@ -168,10 +169,13 @@ impl MailboxStore for InMemoryStore {
                 delimiter: DELIM.to_string(),
             })
             .collect();
-        let inbox_match = combined.eq_ignore_ascii_case("INBOX") || match_wildcard("INBOX", &combined);
+        let inbox_match =
+            combined.eq_ignore_ascii_case("INBOX") || match_wildcard("INBOX", &combined);
         if inbox_match
             && !out.iter().any(|e| e.name.eq_ignore_ascii_case("INBOX"))
-            && mbs.values().any(|mb| mb.name.eq_ignore_ascii_case("INBOX") && mb.subscribed)
+            && mbs
+                .values()
+                .any(|mb| mb.name.eq_ignore_ascii_case("INBOX") && mb.subscribed)
         {
             out.push(ListEntry {
                 name: "INBOX".to_string(),
@@ -253,11 +257,7 @@ impl MailboxStore for InMemoryStore {
     fn unsubscribe(&self, username: &str, name: &str) -> Result<()> {
         let mut g = self.inner.lock().unwrap();
         let name = canonical(name);
-        if let Some(mb) = g
-            .mailboxes
-            .get_mut(username)
-            .and_then(|m| m.get_mut(&name))
-        {
+        if let Some(mb) = g.mailboxes.get_mut(username).and_then(|m| m.get_mut(&name)) {
             mb.subscribed = false;
         }
         Ok(())
@@ -289,7 +289,8 @@ impl MailboxStore for InMemoryStore {
     fn messages(&self, username: &str, name: &str) -> Result<Vec<MessageSnapshot>> {
         let g = self.inner.lock().unwrap();
         let mb = get_mailbox(&g, username, name)?;
-        Ok(mb.messages
+        Ok(mb
+            .messages
             .iter()
             .map(|m| MessageSnapshot {
                 uid: m.uid,
@@ -340,10 +341,14 @@ impl MailboxStore for InMemoryStore {
         let removed: Vec<u32> = mb
             .messages
             .iter()
-            .filter(|m| target.contains(&m.uid) && m.flags.contains(&Flag::System(SystemFlag::Deleted)))
+            .filter(|m| {
+                target.contains(&m.uid) && m.flags.contains(&Flag::System(SystemFlag::Deleted))
+            })
             .map(|m| m.uid)
             .collect();
-        mb.messages.retain(|m| !(target.contains(&m.uid) && m.flags.contains(&Flag::System(SystemFlag::Deleted))));
+        mb.messages.retain(|m| {
+            !(target.contains(&m.uid) && m.flags.contains(&Flag::System(SystemFlag::Deleted)))
+        });
         Ok(removed)
     }
 
