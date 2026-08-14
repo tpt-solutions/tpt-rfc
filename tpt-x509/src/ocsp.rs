@@ -64,11 +64,7 @@ pub fn build_request(params: &RequestParams) -> Result<Vec<u8>, der::Error> {
 
     let tbs_request = if let Some(nonce) = &params.nonce {
         // requestExtensions [2] EXPLICIT Extensions
-        let nonce_ext = der_seq(&[
-            &NONCE_OID.to_vec(),
-            &der_bool_false(),
-            &octet_string(nonce),
-        ]);
+        let nonce_ext = der_seq(&[&NONCE_OID.to_vec(), &der_bool_false(), &octet_string(nonce)]);
         let extensions = der_seq(&[&nonce_ext]);
         let explicit = der_explicit_ctx(2, &extensions);
         der_seq(&[&request_list, &explicit])

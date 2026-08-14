@@ -120,9 +120,9 @@ fn demand_mode_suppresses_periodic() {
     establish(&mut a, &mut b);
     assert!(a.is_up() && b.is_up());
 
-    let pkt_a = a.next_periodic_packet().unwrap();
-    assert!(pkt_a.demand, "D bit should be set in demand mode");
-    // Remote is also Up+demand, so `a` must not send periodic packets.
+    // Both ends Up + demand requested: the D bit is set, and periodic
+    // transmission is suppressed because the remote also requested it.
+    assert!(a.demand_bit(), "D bit should be set in demand mode");
     assert!(a.next_periodic_packet().is_none());
 }
 

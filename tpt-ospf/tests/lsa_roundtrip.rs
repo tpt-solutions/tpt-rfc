@@ -3,7 +3,7 @@
 
 //! Round-trip tests for LSA header/body encode/decode.
 
-use tpt_ospf::lsa::{Ip4, Lsa, LsaHeader, NetworkLsa, RawLsa, RouterLsa, RouterLink};
+use tpt_ospf::lsa::{Ip4, Lsa, LsaHeader, NetworkLsa, RawLsa, RouterLink, RouterLsa};
 use tpt_ospf::wire::OspfVersion;
 
 fn ip(a: u8, b: u8, c: u8, d: u8) -> Ip4 {

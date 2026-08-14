@@ -33,7 +33,11 @@ fn recover_x(y: &FieldElement, sign: u8) -> Option<FieldElement> {
     let den = curve_d().mul(&y2).add(&one);
     let x2 = y2.sub(&one).mul(&den.invert());
     if x2.is_zero() {
-        return if sign != 0 { None } else { Some(FieldElement::ZERO) };
+        return if sign != 0 {
+            None
+        } else {
+            Some(FieldElement::ZERO)
+        };
     }
     let mut x = x2.pow(&EXP_P_PLUS3_DIV8);
     if !x.square().ct_eq(&x2) {

@@ -75,7 +75,9 @@ pub(crate) struct Scalar {
 impl Scalar {
     /// Reduce an already-built 4-limb value modulo `L`.
     pub(crate) fn from_limbs_mod_l(limbs: [u64; 4]) -> Scalar {
-        Scalar { limbs: mod_l(&limbs) }
+        Scalar {
+            limbs: mod_l(&limbs),
+        }
     }
 
     /// Interpret a 64-byte little-endian hash as an integer and reduce mod `L`.
@@ -86,7 +88,9 @@ impl Scalar {
             b.copy_from_slice(&hash[i * 8..i * 8 + 8]);
             limbs[i] = u64::from_le_bytes(b);
         }
-        Scalar { limbs: mod_l(&limbs) }
+        Scalar {
+            limbs: mod_l(&limbs),
+        }
     }
 
     /// Canonical parse of a 32-byte little-endian scalar; rejects values `>= L`.

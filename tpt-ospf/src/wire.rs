@@ -254,7 +254,8 @@ impl OspfPacket {
                 actual: bytes.len(),
             });
         }
-        let packet_type = PacketType::from_u8(bytes[1]).ok_or(DecodeError::UnknownPacketType(bytes[1]))?;
+        let packet_type =
+            PacketType::from_u8(bytes[1]).ok_or(DecodeError::UnknownPacketType(bytes[1]))?;
         let declared = u16::from_be_bytes([bytes[2], bytes[3]]) as usize;
         if declared != bytes.len() {
             return Err(DecodeError::LengthMismatch {
@@ -364,7 +365,8 @@ fn decode_hello(version: OspfVersion, b: &[u8]) -> Result<HelloPacket> {
             interface_id = r.u32()?;
             router_priority = r.u8()?;
             options = r.u8()?; // low byte of the 24-bit options field
-            r.u8()?; // discard the remaining 2 bytes of options
+            r.u8()?; // discard the second reserved options byte
+            r.u8()?; // discard the third reserved options byte
             hello_interval = r.u16()?;
             dead = r.u32()?;
             dr = r.ip()?;
@@ -446,7 +448,7 @@ fn decode_dbd(version: OspfVersion, b: &[u8]) -> Result<DbdPacket> {
 fn encode_lsr(version: OspfVersion, reqs: &[LinkStateRequest], buf: &mut Vec<u8>) {
     for req in reqs {
         match version {
-            OspfVersion::V2 => buf.extend_from_slice(&req.lsa_type.to_be_bytes()),
+            OspfVersion::V2 => buf.extend_from_slice(&(req.lsa_type as u32).to_be_bytes()),
             OspfVersion::V3 => {
                 buf.extend_from_slice(&0u16.to_be_bytes()); // reserved
                 buf.extend_from_slice(&req.lsa_type.to_be_bytes());
@@ -572,7 +574,12 @@ impl<'a> Reader<'a> {
         if self.remaining() < 4 {
             return Err(DecodeError::TruncatedBody);
         }
-        let v = [self.d[self.off], self.d[self.off + 1], self.d[self.off + 2], self.d[self.off + 3]];
+        let v = [
+            self.d[self.off],
+            self.d[self.off + 1],
+            self.d[self.off + 2],
+            self.d[self.off + 3],
+        ];
         self.off += 4;
         Ok(v)
     }

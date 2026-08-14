@@ -8,8 +8,8 @@ use x509_cert::Certificate;
 
 use crate::cert::{cert_issuer_der, cert_serial_bytes};
 use crate::crypto::{
-    aes_key_unwrap, aes_key_wrap, cms_ecdh_kdf, public_key_from_spki, ContentEncryption, HashAlgorithm,
-    KeyWrap, PublicKey,
+    aes_key_unwrap, aes_key_wrap, cms_ecdh_kdf, public_key_from_spki, ContentEncryption,
+    HashAlgorithm, KeyWrap, PublicKey,
 };
 use crate::error::{CmsError, Result};
 use crate::oids;
@@ -18,8 +18,8 @@ use crate::wire;
 use p256::SecretKey as P256Secret;
 use p384::SecretKey as P384Secret;
 use rand_core::OsRng;
-use rsa::Oaep;
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
+use rsa::Oaep;
 use rsa::RsaPrivateKey;
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,9 @@ pub fn build_enveloped_data(
     recipients: &[RecipientSpec],
 ) -> Result<Vec<u8>> {
     if recipients.is_empty() {
-        return Err(CmsError::Crypto("at least one recipient is required".into()));
+        return Err(CmsError::Crypto(
+            "at least one recipient is required".into(),
+        ));
     }
     let mut rng = OsRng;
 
@@ -206,7 +208,12 @@ fn open_key_trans(key: &RsaPrivateKey, kt: &ParsedKeyTrans) -> Result<Vec<u8>> {
 // Key agreement (ECDH)
 // ---------------------------------------------------------------------------
 
-fn build_key_agree(rng: &mut OsRng, cert: &Certificate, cek: &[u8], wrap: KeyWrap) -> Result<Vec<u8>> {
+fn build_key_agree(
+    rng: &mut OsRng,
+    cert: &Certificate,
+    cek: &[u8],
+    wrap: KeyWrap,
+) -> Result<Vec<u8>> {
     let spki = cert.tbs_certificate().subject_public_key_info();
     let pk = public_key_from_spki(spki)?;
     let (curve_oid, recipient_sec1, is_p256) = match pk {
@@ -227,20 +234,14 @@ fn build_key_agree(rng: &mut OsRng, cert: &Certificate, cek: &[u8], wrap: KeyWra
         let eph = p256::ecdh::EphemeralSecret::random(rng);
         let recip = p256::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        let zz = eph
-            .diffie_hellman(&recip)
-            .raw_secret_bytes()
-            .to_vec();
+        let zz = eph.diffie_hellman(&recip).raw_secret_bytes().to_vec();
         let pubk = eph.public_key().to_sec1_bytes().to_vec();
         (zz, pubk)
     } else {
         let eph = p384::ecdh::EphemeralSecret::random(rng);
         let recip = p384::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        let zz = eph
-            .diffie_hellman(&recip)
-            .raw_secret_bytes()
-            .to_vec();
+        let zz = eph.diffie_hellman(&recip).raw_secret_bytes().to_vec();
         let pubk = eph.public_key().to_sec1_bytes().to_vec();
         (zz, pubk)
     };
@@ -259,7 +260,10 @@ fn build_key_agree(rng: &mut OsRng, cert: &Certificate, cek: &[u8], wrap: KeyWra
     let wrapped_cek = aes_key_wrap(&kek, cek)?;
 
     let originator_pub = wire::sequence(&[
-        wire::algorithm_identifier(&oids::oid(oids::EC_PUBLIC_KEY), Some(&wire::oid_der(&curve_oid))),
+        wire::algorithm_identifier(
+            &oids::oid(oids::EC_PUBLIC_KEY),
+            Some(&wire::oid_der(&curve_oid)),
+        ),
         wire::bit_string(&eph_sec1),
     ]);
     // originator [0] EXPLICIT { originatorKey [1] EXPLICIT OriginatorPublicKey }
@@ -296,8 +300,10 @@ fn open_key_agree_p384(secret: &P384Secret, ka: &ParsedKeyAgree) -> Result<Vec<u
 
 /// Derive the KEK from the ECDH shared secret and unwrap the CEK.
 fn unwrap_cek(zz: &[u8], ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
-    let wrap = KeyWrap::from_oid(&ObjectIdentifier::from_der(&ka.key_wrap_alg_der)
-        .map_err(|e| CmsError::Crypto(e.to_string()))?)?;
+    let wrap = KeyWrap::from_oid(
+        &ObjectIdentifier::from_der(&ka.key_wrap_alg_der)
+            .map_err(|e| CmsError::Crypto(e.to_string()))?,
+    )?;
     let hash = match ka.key_agree_oid.to_string().as_str() {
         oids::DH_SINGLE_PASS_STD_SHA256 => HashAlgorithm::Sha256,
         oids::DH_SINGLE_PASS_STD_SHA384 => HashAlgorithm::Sha384,
@@ -370,7 +376,7 @@ fn parse_enveloped_data(content_der: &[u8]) -> Result<ParsedEnvelopedData> {
     let mut c = wire::Cursor::new(seq.value());
 
     let _version = c.take()?; // INTEGER
-    // originatorInfo [0] IMPLICIT SET OF (optional, skipped if present).
+                              // originatorInfo [0] IMPLICIT SET OF (optional, skipped if present).
     if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(0)) {
         c.take()?;
     }
@@ -411,11 +417,15 @@ fn parse_recipient_info(der: &[u8]) -> Result<ParsedRecipientInfo> {
     if any.tag() == wire::ctx_tag(0) {
         let inner = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
         wire::ensure_tag(inner.tag(), Tag::Sequence)?;
-        Ok(ParsedRecipientInfo::KeyTrans(parse_key_trans(inner.value())))
+        Ok(ParsedRecipientInfo::KeyTrans(parse_key_trans(
+            inner.value(),
+        )))
     } else if any.tag() == wire::ctx_tag(1) {
         let inner = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
         wire::ensure_tag(inner.tag(), Tag::Sequence)?;
-        Ok(ParsedRecipientInfo::KeyAgree(parse_key_agree(inner.value())))
+        Ok(ParsedRecipientInfo::KeyAgree(parse_key_agree(
+            inner.value(),
+        )))
     } else {
         Err(wire::unexpected_tag(any.tag(), wire::ctx_tag(0)))
     }

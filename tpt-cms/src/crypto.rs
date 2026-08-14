@@ -100,8 +100,8 @@ impl ContentEncryption {
 
     pub fn encrypt(&self, key: &[u8], iv: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
-        use cbc::{Decryptor, Encryptor};
         use block_padding::Pkcs7;
+        use cbc::{Decryptor, Encryptor};
         match self {
             ContentEncryption::Aes128Cbc => {
                 let enc = Encryptor::<aes::Aes128>::new(key.into(), iv.into());
@@ -120,8 +120,8 @@ impl ContentEncryption {
 
     pub fn decrypt(&self, key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
-        use cbc::{Decryptor, Encryptor};
         use block_padding::Pkcs7;
+        use cbc::{Decryptor, Encryptor};
         let pt = match self {
             ContentEncryption::Aes128Cbc => {
                 let dec = Decryptor::<aes::Aes128>::new(key.into(), iv.into());
@@ -187,7 +187,9 @@ impl KeyWrap {
 /// RFC 3394 AES key wrap. `kek` length selects AES-128/192/256.
 pub(crate) fn aes_key_wrap(kek: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
     if plaintext.len() % 8 != 0 || plaintext.is_empty() {
-        return Err(CmsError::Crypto("key wrap input must be a multiple of 8 bytes".into()));
+        return Err(CmsError::Crypto(
+            "key wrap input must be a multiple of 8 bytes".into(),
+        ));
     }
     let n = plaintext.len() / 8;
     let mut r: Vec<[u8; 8]> = Vec::with_capacity(n);
@@ -275,7 +277,7 @@ pub(crate) fn aes_key_unwrap(kek: &[u8], wrapped: &[u8]) -> Result<Vec<u8>> {
 }
 
 fn aes_block(kek: &[u8], block: &[u8; 16]) -> Result<[u8; 16]> {
-    use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
+    use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
     let mut buf = GenericArray::clone_from_slice(block);
     let cipher = match kek.len() {
         16 => aes::Aes128::new(GenericArray::from_slice(kek)),
@@ -290,7 +292,7 @@ fn aes_block(kek: &[u8], block: &[u8; 16]) -> Result<[u8; 16]> {
 }
 
 fn aes_block_decrypt(kek: &[u8], block: &[u8; 16]) -> Result<[u8; 16]> {
-    use aes::cipher::{BlockDecrypt, KeyInit, generic_array::GenericArray};
+    use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
     let mut buf = GenericArray::clone_from_slice(block);
     let cipher = match kek.len() {
         16 => aes::Aes128::new(GenericArray::from_slice(kek)),
@@ -368,10 +370,14 @@ pub(crate) fn cms_ecdh_kdf(
 // Signing / verification key abstractions
 // ===========================================================================
 
-use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey};
-use p384::ecdsa::{Signature as P384Signature, SigningKey as P384SigningKey, VerifyingKey as P384VerifyingKey};
-use rsa::pkcs1v15::{Pkcs1v15Sign, Pkcs1v15Encrypt};
+use p256::ecdsa::{
+    Signature as P256Signature, SigningKey as P256SigningKey, VerifyingKey as P256VerifyingKey,
+};
+use p384::ecdsa::{
+    Signature as P384Signature, SigningKey as P384SigningKey, VerifyingKey as P384VerifyingKey,
+};
 use rsa::pkcs1::RsaPublicKey as RsaPub;
+use rsa::pkcs1v15::{Pkcs1v15Encrypt, Pkcs1v15Sign};
 use rsa::{Oaep, RsaPrivateKey, RsaPublicKey};
 
 /// A private signing key usable for SignedData.
@@ -398,7 +404,9 @@ impl SigningKey {
         match self {
             SigningKey::EcdsaP256(key) => {
                 if hash != HashAlgorithm::Sha256 {
-                    return Err(CmsError::Crypto("ECDSA P-256 must be used with SHA-256".into()));
+                    return Err(CmsError::Crypto(
+                        "ECDSA P-256 must be used with SHA-256".into(),
+                    ));
                 }
                 let sig: P256Signature = key
                     .sign_prehash(digest)
@@ -407,7 +415,9 @@ impl SigningKey {
             }
             SigningKey::EcdsaP384(key) => {
                 if hash != HashAlgorithm::Sha384 {
-                    return Err(CmsError::Crypto("ECDSA P-384 must be used with SHA-384".into()));
+                    return Err(CmsError::Crypto(
+                        "ECDSA P-384 must be used with SHA-384".into(),
+                    ));
                 }
                 let sig: P384Signature = key
                     .sign_prehash(digest)
@@ -461,11 +471,7 @@ impl SigningKey {
 /// Extract the public key from an `x509_cert` SubjectPublicKeyInfo.
 pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfoRef<'_>) -> Result<PublicKey> {
     let alg = spki.algorithm.oid.to_string();
-    let params_der = spki
-        .algorithm
-        .parameters
-        .as_ref()
-        .map(|p| p.value.to_vec());
+    let params_der = spki.algorithm.parameters.as_ref().map(|p| p.value.to_vec());
     let key_bytes = spki.subject_public_key.as_bytes();
     match alg.as_str() {
         oids::RSA_ENCRYPTION => {
@@ -477,8 +483,8 @@ pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfoRef<'_>) -> 
             Ok(PublicKey::Rsa(pubkey))
         }
         oids::EC_PUBLIC_KEY => {
-            let curve = params_der
-                .ok_or_else(|| CmsError::Crypto("EC key missing curve OID".into()))?;
+            let curve =
+                params_der.ok_or_else(|| CmsError::Crypto("EC key missing curve OID".into()))?;
             let full = wire::tlv(0x06, &curve);
             let curve_oid = ObjectIdentifier::from_der(&full)
                 .map_err(|e| CmsError::Crypto(format!("EC curve OID: {e}")))?;

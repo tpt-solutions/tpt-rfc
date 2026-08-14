@@ -3,8 +3,8 @@
 use std::net::IpAddr;
 
 use der::{Decode, Encode};
-use x509_cert::ext::pkix::name::GeneralName;
 use x509_cert::ext::pkix::constraints::name::GeneralSubtree;
+use x509_cert::ext::pkix::name::GeneralName;
 
 use crate::{
     cert::{subject_alt_name, subject_der},

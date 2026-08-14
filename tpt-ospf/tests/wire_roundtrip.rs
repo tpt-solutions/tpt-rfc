@@ -3,7 +3,7 @@
 
 //! Round-trip and checksum tests for the OSPF packet codec (OSPFv2 + OSPFv3).
 
-use tpt_ospf::lsa::{Ip4, Lsa, LsaHeader, NetworkLsa, RouterLsa, RouterLink};
+use tpt_ospf::lsa::{Ip4, Lsa, LsaHeader, NetworkLsa, RouterLink, RouterLsa};
 use tpt_ospf::wire::{
     DbdPacket, HelloPacket, LinkStateRequest, LsAckPacket, LsuPacket, OspfPacket, OspfVersion,
     PacketBody, PacketType,
@@ -105,7 +105,11 @@ fn lsu() -> OspfPacket {
         v: false,
         e: false,
         b: false,
-        links: vec![RouterLink::point_to_point(ip(10, 0, 0, 2), ip(10, 0, 0, 1), 10)],
+        links: vec![RouterLink::point_to_point(
+            ip(10, 0, 0, 2),
+            ip(10, 0, 0, 1),
+            10,
+        )],
     };
     rl.header.sequence_number = 0x8000_0001;
     let mut nl = NetworkLsa {
@@ -114,6 +118,10 @@ fn lsu() -> OspfPacket {
         attached_routers: vec![ip(10, 0, 0, 1), ip(10, 0, 0, 2)],
     };
     nl.header.sequence_number = 0x8000_0002;
+    // The encode path computes the LSA length; set it here so the original
+    // matches the decoded copy (which reads the real length off the wire).
+    rl.header.length = 34; // header(20) + flags(1) + nlinks(1) + 1 link(12)
+    nl.header.length = 32; // header(20) + mask(4) + 2 attached routers(8)
     OspfPacket {
         version: OspfVersion::V2,
         packet_type: PacketType::Lsu,

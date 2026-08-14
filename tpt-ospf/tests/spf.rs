@@ -3,7 +3,7 @@
 
 //! Dijkstra SPF tests over hand-verified topologies.
 
-use tpt_ospf::lsa::{Ip4, NetworkLsa, RouterLsa, RouterLink};
+use tpt_ospf::lsa::{Ip4, NetworkLsa, RouterLink, RouterLsa};
 use tpt_ospf::spf::Spf;
 
 fn ip(a: u8, b: u8, c: u8, d: u8) -> Ip4 {
@@ -49,7 +49,11 @@ fn point_to_point_chain() {
         v: false,
         e: false,
         b: false,
-        links: vec![RouterLink::point_to_point(ip(10, 0, 0, 3), ip(10, 0, 0, 4), 10)],
+        links: vec![RouterLink::point_to_point(
+            ip(10, 0, 0, 3),
+            ip(10, 0, 0, 4),
+            10,
+        )],
     });
 
     let table = spf.calculate().unwrap();
@@ -65,10 +69,22 @@ fn point_to_point_chain() {
     assert_eq!(table.cost_to(ip(10, 0, 0, 4)), Some(30));
 
     // The tree is built in increasing-cost order: A, B, C, D.
-    assert_eq!(table.tree_order(), &[ip(10, 0, 0, 1), ip(10, 0, 0, 2), ip(10, 0, 0, 3), ip(10, 0, 0, 4)]);
+    assert_eq!(
+        table.tree_order(),
+        &[
+            ip(10, 0, 0, 1),
+            ip(10, 0, 0, 2),
+            ip(10, 0, 0, 3),
+            ip(10, 0, 0, 4)
+        ]
+    );
 
     // Stub network on A is reachable directly.
-    let stub = table.stub_routes().iter().find(|s| s.network == ip(192, 168, 1, 0)).unwrap();
+    let stub = table
+        .stub_routes()
+        .iter()
+        .find(|s| s.network == ip(192, 168, 1, 0))
+        .unwrap();
     assert_eq!(stub.cost, 1);
     assert_eq!(stub.next_hop, ip(10, 0, 0, 1));
 }

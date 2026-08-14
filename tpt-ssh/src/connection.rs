@@ -130,12 +130,15 @@ pub enum ChannelMessage {
     Request {
         /// Our channel number.
         recipient: u32,
-        /// Request type (e.g. `exec`, `shell`, `exit-status`).
+        /// Request type (e.g. `exec`, `shell`, `subsystem`, `exit-status`).
         kind: String,
         /// Whether the sender wants a success/failure reply.
         want_reply: bool,
         /// For `exec`/`shell`: the command string.
         command: Option<String>,
+        /// For `subsystem` (RFC 4254 §6.2, used by NETCONF per RFC 6242): the
+        /// subsystem name (e.g. `netconf`).
+        subsystem: Option<String>,
         /// For `exit-status`: the exit code.
         exit_status: Option<u32>,
     },
@@ -250,6 +253,19 @@ pub fn encode_request_exit_status(recipient: u32, code: u32) -> Vec<u8> {
     w.into_inner()
 }
 
+/// Encode a `subsystem` channel request (RFC 4254 §6.2), used by NETCONF
+/// (RFC 6242) and other protocols to multiplex a named application protocol
+/// over a session channel.
+pub fn encode_request_subsystem(recipient: u32, subsystem: &str, want_reply: bool) -> Vec<u8> {
+    let mut w = Writer::new();
+    w.write_byte(SSH_MSG_CHANNEL_REQUEST);
+    w.write_u32(recipient);
+    w.write_string(b"subsystem");
+    w.write_bool(want_reply);
+    w.write_string(subsystem.as_bytes());
+    w.into_inner()
+}
+
 /// Encode `SSH_MSG_CHANNEL_SUCCESS` / `SSH_MSG_CHANNEL_FAILURE`.
 pub fn encode_channel_success(recipient: u32) -> Vec<u8> {
     let mut w = Writer::new();
@@ -342,10 +358,17 @@ pub fn parse_channel_message(payload: &[u8]) -> Result<ChannelMessage, Error> {
                 .map_err(|_| Error::Kex("bad utf8".into()))?;
             let want_reply = r.read_bool().map_err(Error::Wire)?;
             let mut command = None;
+            let mut subsystem = None;
             let mut exit_status = None;
             match kind.as_str() {
                 "exec" | "shell" => {
                     command = Some(
+                        String::from_utf8(r.read_string().map_err(Error::Wire)?.to_vec())
+                            .map_err(|_| Error::Kex("bad utf8".into()))?,
+                    );
+                }
+                "subsystem" => {
+                    subsystem = Some(
                         String::from_utf8(r.read_string().map_err(Error::Wire)?.to_vec())
                             .map_err(|_| Error::Kex("bad utf8".into()))?,
                     );
@@ -360,6 +383,7 @@ pub fn parse_channel_message(payload: &[u8]) -> Result<ChannelMessage, Error> {
                 kind,
                 want_reply,
                 command,
+                subsystem,
                 exit_status,
             })
         }

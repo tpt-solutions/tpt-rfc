@@ -65,8 +65,6 @@ pub mod session;
 pub mod transport;
 
 pub use error::BfdError;
-pub use packet::{
-    AuthSection, AuthType, ControlPacket, Diagnostic, SessionState,
-};
+pub use packet::{AuthSection, AuthType, ControlPacket, Diagnostic, SessionState};
 pub use session::{AuthConfig, PacketResult, Role, Session, SessionConfig};
 pub use transport::UdpTransport;

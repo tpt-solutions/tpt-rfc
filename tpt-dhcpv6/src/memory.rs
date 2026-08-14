@@ -9,7 +9,10 @@ use std::net::Ipv6Addr;
 use std::time::{Duration, Instant};
 
 use crate::error::LeaseError;
-use crate::lease::{AcquireRequest, IaAddressLease, IaLease, IaPrefixLease, LeaseStore, DEFAULT_T1_FRACTION, DEFAULT_T2_FRACTION};
+use crate::lease::{
+    AcquireRequest, IaAddressLease, IaLease, IaPrefixLease, LeaseStore, DEFAULT_T1_FRACTION,
+    DEFAULT_T2_FRACTION,
+};
 use crate::options::{Duid, IaKind};
 
 /// Configuration for a managed address/prefix pool.
@@ -86,7 +89,8 @@ impl MemoryLeaseStore {
     }
 
     fn in_addr_pool(&self, n: u128) -> bool {
-        n >= u128::from(self.config.address_pool_start) && n <= u128::from(self.config.address_pool_end)
+        n >= u128::from(self.config.address_pool_start)
+            && n <= u128::from(self.config.address_pool_end)
     }
 
     fn in_pd_pool(&self, n: u128) -> bool {
@@ -198,7 +202,15 @@ impl MemoryLeaseStore {
             preferred_lifetime: dur,
             valid_lifetime: dur,
         };
-        make_ia_lease(client_id, iaid, kind, vec![addr_lease], Vec::new(), now, dur)
+        make_ia_lease(
+            client_id,
+            iaid,
+            kind,
+            vec![addr_lease],
+            Vec::new(),
+            now,
+            dur,
+        )
     }
 
     fn make_prefix_lease(
@@ -216,7 +228,15 @@ impl MemoryLeaseStore {
             preferred_lifetime: dur,
             valid_lifetime: dur,
         };
-        make_ia_lease(client_id, iaid, IaKind::Pd, Vec::new(), vec![prefix_lease], now, dur)
+        make_ia_lease(
+            client_id,
+            iaid,
+            IaKind::Pd,
+            Vec::new(),
+            vec![prefix_lease],
+            now,
+            dur,
+        )
     }
 
     fn refresh(&self, lease: &IaLease, now: Instant) -> IaLease {
@@ -312,23 +332,13 @@ impl LeaseStore for MemoryLeaseStore {
         Ok(renewed)
     }
 
-    fn release(
-        &mut self,
-        client_id: &Duid,
-        iaid: u32,
-        kind: IaKind,
-    ) -> Result<(), LeaseError> {
+    fn release(&mut self, client_id: &Duid, iaid: u32, kind: IaKind) -> Result<(), LeaseError> {
         let key: LeaseKey = (client_id.clone(), iaid, kind);
         self.leases.remove(&key);
         Ok(())
     }
 
-    fn decline(
-        &mut self,
-        client_id: &Duid,
-        iaid: u32,
-        kind: IaKind,
-    ) -> Result<(), LeaseError> {
+    fn decline(&mut self, client_id: &Duid, iaid: u32, kind: IaKind) -> Result<(), LeaseError> {
         let key: LeaseKey = (client_id.clone(), iaid, kind);
         let lease = self.leases.remove(&key).ok_or(LeaseError::NoLease)?;
         let probation = Instant::now() + self.config.lease_duration;

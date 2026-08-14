@@ -114,7 +114,8 @@ impl Dhcpv6Message {
 
     /// Whether the Rapid Commit option (14) is present.
     pub fn rapid_commit(&self) -> bool {
-        self.find_option(crate::options::OPTION_RAPID_COMMIT).is_some()
+        self.find_option(crate::options::OPTION_RAPID_COMMIT)
+            .is_some()
     }
 
     /// Encode the message to its on-the-wire byte form.
@@ -137,7 +138,8 @@ impl Dhcpv6Message {
                 actual: bytes.len(),
             });
         }
-        let msg_type = MessageType::from_u8(bytes[0]).ok_or(DecodeError::BadMessageType(bytes[0]))?;
+        let msg_type =
+            MessageType::from_u8(bytes[0]).ok_or(DecodeError::BadMessageType(bytes[0]))?;
         let transaction_id = [bytes[1], bytes[2], bytes[3]];
         let options = crate::options::parse_options(&bytes[HEADER_LEN..]);
         Ok(Dhcpv6Message {

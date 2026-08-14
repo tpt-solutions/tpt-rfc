@@ -23,6 +23,7 @@ p384 = { version = "0.14", default-features = false, features = ["hash2curve", "
 elliptic-curve = { version = "0.14", default-features = false, features = ["arithmetic", "alloc"] } # MIT/Apache-2.0
 hash2curve = "0.14" # MIT/Apache-2.0 — RFC 9380 hash_to_curve (SSWU) for P-256/P-384
 sha2 = "0.11"       # MIT/Apache-2.0 — hashing (Sha256/Sha384)
+digest = "0.11"     # MIT/Apache-2.0 — hashing traits used by the above
 getrandom = { version = "0.3", features = ["std"] } # MIT/Apache-2.0 — CSPRNG for blind/key generation
 thiserror = { workspace = true }
 

@@ -146,8 +146,14 @@ impl Client {
         [(x >> 16) as u8, (x >> 8) as u8, x as u8]
     }
 
-    fn base_request(&self, mtype: MessageType, include_server_id: bool, include_ia: bool) -> Dhcpv6Message {
+    fn base_request(
+        &self,
+        mtype: MessageType,
+        include_server_id: bool,
+        include_ia: bool,
+    ) -> Dhcpv6Message {
         let mut msg = Dhcpv6Message::new(mtype);
+        msg.transaction_id = self.xid;
         msg.set_option(Dhcpv6Option::ClientId(self.duid.clone()));
         if include_server_id {
             if let Some(srv) = &self.selected_server {
@@ -188,7 +194,10 @@ impl Client {
                 options,
             }));
         }
-        msg.set_option(Dhcpv6Option::Oro(vec![OPTION_DNS_SERVERS, OPTION_DOMAIN_SEARCH]));
+        msg.set_option(Dhcpv6Option::Oro(vec![
+            OPTION_DNS_SERVERS,
+            OPTION_DOMAIN_SEARCH,
+        ]));
         msg
     }
 
@@ -211,10 +220,10 @@ impl Client {
     }
 
     /// Request only stateless configuration (DNS etc.) via INFORMATION-REQUEST.
-    /// Transitions to `Bound` after a successful REPLY (no addresses are granted).
+    /// Transitions to `Requesting` after a successful REPLY (no addresses are granted).
     pub fn information_request(&mut self) -> Dhcpv6Message {
         self.xid = self.alloc_xid();
-        self.state = ClientState::Selecting;
+        self.state = ClientState::Requesting;
         self.base_request(MessageType::InformationRequest, false, false)
     }
 

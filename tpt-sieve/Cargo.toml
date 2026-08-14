@@ -1,0 +1,28 @@
+# Copyright 2026 TPT Solutions
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "tpt-sieve"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["sieve", "rfc5228", "email", "filter", "mail"]
+categories = ["email", "network-programming", "parser-implementations"]
+description = "Clean-room, dual-licensed Sieve mail filtering (RFC 5228) with a parser and a pluggable evaluation engine"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

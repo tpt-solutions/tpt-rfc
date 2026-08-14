@@ -511,7 +511,8 @@ impl Dhcpv6Option {
             }
             OPTION_IAADDR if data.len() >= 24 => {
                 let address = Ipv6Addr::from(<[u8; 16]>::try_from(&data[0..16]).unwrap());
-                let preferred_lifetime = u32::from_be_bytes([data[16], data[17], data[18], data[19]]);
+                let preferred_lifetime =
+                    u32::from_be_bytes([data[16], data[17], data[18], data[19]]);
                 let valid_lifetime = u32::from_be_bytes([data[20], data[21], data[22], data[23]]);
                 Dhcpv6Option::IaAddr(IaAddress {
                     address,
@@ -552,7 +553,9 @@ impl Dhcpv6Option {
                 let mut servers = Vec::with_capacity(data.len() / 16);
                 let mut i = 0;
                 while i + 16 <= data.len() {
-                    servers.push(Ipv6Addr::from(<[u8; 16]>::try_from(&data[i..i + 16]).unwrap()));
+                    servers.push(Ipv6Addr::from(
+                        <[u8; 16]>::try_from(&data[i..i + 16]).unwrap(),
+                    ));
                     i += 16;
                 }
                 Dhcpv6Option::DnsServers(servers)

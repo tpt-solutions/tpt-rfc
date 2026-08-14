@@ -55,7 +55,7 @@ pub mod spf;
 pub mod wire;
 
 pub use error::{DecodeError, OspfError, Result};
-pub use lsa::{Ip4, Lsa, LsaHeader, RouterLsa, RouterLink};
+pub use lsa::{Ip4, Lsa, LsaHeader, RouterLink, RouterLsa};
 pub use neighbor::{NeighborState, NeighborTable};
 pub use spf::{Route, RoutingTable, Spf, StubRoute};
 pub use wire::{

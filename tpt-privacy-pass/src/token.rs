@@ -12,11 +12,10 @@
 use crate::error::{OprfError, TokenError};
 use crate::oprf::*;
 use crate::suite::*;
-use elliptic_curve::scalar::ScalarPrimitive;
 use sha2::{Digest, Sha256};
 
-type Scalar<C> = ScalarPrimitive<C>;
-type Point<C> = <C as CurveArithmetic>::ProjectivePoint;
+type ScalarE<C> = ScalarE<C>;
+type PointE<C> = PointE<C>;
 
 /// Token type `0x0001`: VOPRF(P-384, SHA-384), privately verifiable
 /// (RFC 9578 §5 / §8.2.1 — the only token type with official IETF test
@@ -48,7 +47,7 @@ pub fn challenge_digest(challenge: &[u8]) -> [u8; 32] {
 
 /// `SHA-256(SerializeElement(pkI))` — the issuer key identifier
 /// (`token_key_id` in RFC 9578 §5.5).
-pub fn issuer_key_id<C: Suite>(pk: &Point<C>) -> [u8; 32] {
+pub fn issuer_key_id<C: Suite>(pk: &PointE<C>) -> [u8; 32] {
     let bytes = serialize_element::<C>(pk);
     let mut h = Sha256::new();
     h.update(&bytes);
@@ -108,7 +107,11 @@ impl TokenRequest {
         let token_type = u16::from_be_bytes([b[0], b[1]]);
         let truncated_key_id = b[2];
         let blinded_msg = b[3..].to_vec();
-        Ok(TokenRequest { token_type, truncated_key_id, blinded_msg })
+        Ok(TokenRequest {
+            token_type,
+            truncated_key_id,
+            blinded_msg,
+        })
     }
 }
 
@@ -138,7 +141,10 @@ impl TokenResponse {
         }
         let evaluate_msg = b[..C::NE].to_vec();
         let evaluate_proof = b[C::NE..].to_vec();
-        Ok(TokenResponse { evaluate_msg, evaluate_proof })
+        Ok(TokenResponse {
+            evaluate_msg,
+            evaluate_proof,
+        })
     }
 }
 
@@ -183,7 +189,13 @@ impl Token {
         let mut token_key_id = [0u8; 32];
         token_key_id.copy_from_slice(&b[66..98]);
         let authenticator = b[98..].to_vec();
-        Ok(Token { token_type, nonce, challenge_digest, token_key_id, authenticator })
+        Ok(Token {
+            token_type,
+            nonce,
+            challenge_digest,
+            token_key_id,
+            authenticator,
+        })
     }
 }
 
@@ -203,9 +215,9 @@ pub struct VoprfState<C: Suite> {
     /// Issuer key id.
     pub token_key_id: [u8; 32],
     /// Blinding scalar (secret).
-    pub blind: Scalar<C>,
+    pub blind: ScalarE<C>,
     /// Blinded element (echoed in finalization).
-    pub blinded_element: Point<C>,
+    pub blinded_element: PointE<C>,
 }
 
 /// Build a `TokenRequest` for a VOPRF token type (RFC 9578 §5.1).
@@ -214,7 +226,7 @@ pub fn create_token_request<C: Suite>(
     challenge: &[u8],
     nonce: &[u8; 32],
     token_key_id: &[u8; 32],
-    blind: &Scalar<C>,
+    blind: &ScalarE<C>,
 ) -> Result<(TokenRequest, VoprfState<C>), TokenError> {
     let cd = challenge_digest(challenge);
     let ti = token_input(token_type, nonce, &cd, token_key_id);
@@ -237,8 +249,8 @@ pub fn create_token_request<C: Suite>(
 
 /// Issuer-side response to a `TokenRequest` (RFC 9578 §5.2).
 pub fn issuer_respond<C: Suite>(
-    sk: &Scalar<C>,
-    pk: &Point<C>,
+    sk: &ScalarE<C>,
+    pk: &PointE<C>,
     req: &TokenRequest,
 ) -> Result<TokenResponse, TokenError> {
     let blinded = deserialize_element::<C>(&req.blinded_msg).map_err(TokenError::Oprf)?;
@@ -254,14 +266,25 @@ pub fn issuer_respond<C: Suite>(
 pub fn finalize_token<C: Suite>(
     state: &VoprfState<C>,
     resp: &TokenResponse,
-    pk: &Point<C>,
+    pk: &PointE<C>,
 ) -> Result<Token, TokenError> {
     let evaluated = deserialize_element::<C>(&resp.evaluate_msg).map_err(TokenError::Oprf)?;
     let proof = deserialize_proof::<C>(&resp.evaluate_proof).map_err(TokenError::Oprf)?;
-    let ti = token_input(state.token_type, &state.nonce, &state.challenge_digest, &state.token_key_id);
-    let authenticator =
-        finalize_voprf::<C>(&ti, &state.blind, &evaluated, &state.blinded_element, pk, &proof)
-            .map_err(TokenError::Oprf)?;
+    let ti = token_input(
+        state.token_type,
+        &state.nonce,
+        &state.challenge_digest,
+        &state.token_key_id,
+    );
+    let authenticator = finalize_voprf::<C>(
+        &ti,
+        &state.blind,
+        &evaluated,
+        &state.blinded_element,
+        pk,
+        &proof,
+    )
+    .map_err(TokenError::Oprf)?;
     Ok(Token {
         token_type: state.token_type,
         nonce: state.nonce,
@@ -272,11 +295,16 @@ pub fn finalize_token<C: Suite>(
 }
 
 /// Verify a redeemed `Token` against the issuer private key (RFC 9578 §5.4).
-pub fn verify_token<C: Suite>(sk: &Scalar<C>, token: &Token) -> Result<(), TokenError> {
+pub fn verify_token<C: Suite>(sk: &ScalarE<C>, token: &Token) -> Result<(), TokenError> {
     if token.authenticator.len() != C::NH {
         return Err(TokenError::Malformed);
     }
-    let ti = token_input(token.token_type, &token.nonce, &token.challenge_digest, &token.token_key_id);
+    let ti = token_input(
+        token.token_type,
+        &token.nonce,
+        &token.challenge_digest,
+        &token.token_key_id,
+    );
     let expected = evaluate::<C>(sk, &ti, 0x01);
     if expected.to_vec() == token.authenticator {
         Ok(())
@@ -304,11 +332,11 @@ pub struct PoprfState<C: Suite> {
     /// Public metadata bound as the POPRF `info`.
     pub metadata: Vec<u8>,
     /// Blinding scalar (secret).
-    pub blind: Scalar<C>,
+    pub blind: ScalarE<C>,
     /// Blinded element.
-    pub blinded_element: Point<C>,
+    pub blinded_element: PointE<C>,
     /// Tweaked public key (secret, derived client-side).
-    pub tweaked_key: Point<C>,
+    pub tweaked_key: PointE<C>,
 }
 
 /// Build a `TokenRequest` for a public-metadata (POPRF) token type. The
@@ -318,8 +346,8 @@ pub fn create_token_request_poprf<C: Suite>(
     challenge: &[u8],
     nonce: &[u8; 32],
     token_key_id: &[u8; 32],
-    pk: &Point<C>,
-    blind: &Scalar<C>,
+    pk: &PointE<C>,
+    blind: &ScalarE<C>,
     metadata: &[u8],
 ) -> Result<(TokenRequest, PoprfState<C>), TokenError> {
     let cd = challenge_digest(challenge);
@@ -345,7 +373,7 @@ pub fn create_token_request_poprf<C: Suite>(
 
 /// Issuer-side response to a public-metadata `TokenRequest`.
 pub fn issuer_respond_poprf<C: Suite>(
-    sk: &Scalar<C>,
+    sk: &ScalarE<C>,
     req: &TokenRequest,
     metadata: &[u8],
 ) -> Result<TokenResponse, TokenError> {
@@ -364,7 +392,12 @@ pub fn finalize_token_poprf<C: Suite>(
 ) -> Result<Token, TokenError> {
     let evaluated = deserialize_element::<C>(&resp.evaluate_msg).map_err(TokenError::Oprf)?;
     let proof = deserialize_proof::<C>(&resp.evaluate_proof).map_err(TokenError::Oprf)?;
-    let ti = token_input(state.token_type, &state.nonce, &state.challenge_digest, &state.token_key_id);
+    let ti = token_input(
+        state.token_type,
+        &state.nonce,
+        &state.challenge_digest,
+        &state.token_key_id,
+    );
     let authenticator = finalize_poprf::<C>(
         &ti,
         &state.blind,
@@ -387,14 +420,19 @@ pub fn finalize_token_poprf<C: Suite>(
 /// Verify a redeemed public-metadata `Token` (the metadata must be supplied
 /// to recompute the POPRF).
 pub fn verify_token_poprf<C: Suite>(
-    sk: &Scalar<C>,
+    sk: &ScalarE<C>,
     token: &Token,
     metadata: &[u8],
 ) -> Result<(), TokenError> {
     if token.authenticator.len() != C::NH {
         return Err(TokenError::Malformed);
     }
-    let ti = token_input(token.token_type, &token.nonce, &token.challenge_digest, &token.token_key_id);
+    let ti = token_input(
+        token.token_type,
+        &token.nonce,
+        &token.challenge_digest,
+        &token.token_key_id,
+    );
     let expected = evaluate_poprf::<C>(sk, &ti, metadata);
     if expected.to_vec() == token.authenticator {
         Ok(())

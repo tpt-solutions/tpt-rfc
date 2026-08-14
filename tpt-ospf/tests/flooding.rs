@@ -3,7 +3,7 @@
 
 //! Link-state database flooding / LSA-recency tests (RFC 2328 §13).
 
-use tpt_ospf::database::{compare_lsa, LinkStateDatabase, ReceiveAction, LsaOrdering};
+use tpt_ospf::database::{compare_lsa, LinkStateDatabase, LsaOrdering, ReceiveAction};
 use tpt_ospf::lsa::{Ip4, Lsa, LsaHeader, RouterLsa};
 use tpt_ospf::wire::OspfVersion;
 

@@ -1,0 +1,34 @@
+[package]
+name = "tpt-snmp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["snmp", "rfc3411", "rfc3414", "rfc3416", "network", "protocol"]
+categories = ["network-programming", "encoding"]
+description = "Clean-room, dual-licensed SNMP v1/v2c/v3 agent + manager (RFCs 3411-3418) with USM auth and privacy"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# HMAC + SHA-1 used for HMAC-SHA-96 USM authentication (RFC 3414 §7). Both
+# RustCrypto crates are dual-licensed MIT/Apache-2.0, consistent with the
+# platform's clean-room / reuse-primitive policy. MD5 (HMAC-MD5-96) and DES
+# (CBC-DES privacy) are implemented clean-room inside this crate; AES-CFB-128
+# privacy (RFC 3826) reuses the dual-licensed `aes` block-cipher primitive.
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+aes = "0.8"
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

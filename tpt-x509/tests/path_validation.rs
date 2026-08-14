@@ -9,29 +9,30 @@ use std::time::{Duration, SystemTime};
 
 use const_oid::ObjectIdentifier;
 use der::asn1::Ia5String;
-use signature::{Error as SigError, Keypair, Signer};
 use flagset::FlagSet;
 use p256::ecdsa::SigningKey;
+use signature::{Error as SigError, Keypair, Signer};
 use spki::{
     AlgorithmIdentifier, DynSignatureAlgorithmIdentifier, EncodePublicKey,
     SignatureBitStringEncoding, SubjectPublicKeyInfoOwned,
 };
 use x509_cert::spki::SubjectPublicKeyInfo;
 use x509_cert::{
-    builder::{Builder, CertificateBuilder},
     builder::profile::BuilderProfile,
+    builder::{Builder, CertificateBuilder},
     ext::{
-        pkix::{
-            BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages, NameConstraints, SubjectAltName,
-        },
         pkix::constraints::name::GeneralSubtree,
         pkix::name::GeneralName,
-        ToExtension, Extension,
+        pkix::{
+            BasicConstraints, ExtendedKeyUsage, KeyUsage, KeyUsages, NameConstraints,
+            SubjectAltName,
+        },
+        Extension, ToExtension,
     },
-    Certificate,
     name::Name,
     serial_number::SerialNumber,
     time::Validity,
+    Certificate,
 };
 
 use tpt_x509::{
@@ -71,8 +72,12 @@ impl Keypair for EcdsaSigner {
 }
 
 impl DynSignatureAlgorithmIdentifier for EcdsaSigner {
-    fn signature_algorithm_identifier(&self) -> der::Result<spki::AlgorithmIdentifier<der::asn1::Any>> {
-        self.0.signature_algorithm_identifier().map_err(spki::Error::from)
+    fn signature_algorithm_identifier(
+        &self,
+    ) -> der::Result<spki::AlgorithmIdentifier<der::asn1::Any>> {
+        self.0
+            .signature_algorithm_identifier()
+            .map_err(spki::Error::from)
     }
 }
 
@@ -149,19 +154,11 @@ fn valid_now() -> Validity {
     Validity::from_now(Duration::new(3600 * 24 * 365 * 10, 0)).unwrap()
 }
 
-fn build_p256(
-    profile: TestProfile,
-    signer: &SigningKey,
-    serial: u64,
-) -> Certificate {
+fn build_p256(profile: TestProfile, signer: &SigningKey, serial: u64) -> Certificate {
     let spki = SubjectPublicKeyInfoOwned::from_key(signer.verifying_key()).unwrap();
-    let mut builder = CertificateBuilder::new(
-        profile,
-        SerialNumber::from(serial),
-        valid_now(),
-        spki,
-    )
-    .unwrap();
+    let mut builder =
+        CertificateBuilder::new(profile, SerialNumber::from(serial),
+        validity, spki).unwrap();
     let wrapped = EcdsaSigner(signer.clone());
     builder.build::<_, EcdsaSig>(&wrapped).unwrap()
 }
@@ -218,7 +215,9 @@ fn valid_root_leaf_chain() {
         ..Default::default()
     };
     let validator = PathValidator::new(config);
-    let path = validator.validate(&leaf).expect("valid chain should validate");
+    let path = validator
+        .validate(&leaf)
+        .expect("valid chain should validate");
     assert_eq!(path.len(), 2);
 }
 
@@ -242,7 +241,12 @@ fn issuer_missing_ca_bit_is_rejected() {
         valid_now(),
     );
     let leaf = build_p256(
-        leaf_profile("CN=leaf,O=TPT,C=US", "CN=Bad Root,O=TPT,C=US", vec![], "leaf.example.com"),
+        leaf_profile(
+            "CN=leaf,O=TPT,C=US",
+            "CN=Bad Root,O=TPT,C=US",
+            vec![],
+            "leaf.example.com",
+        ),
         &leaf_key,
         2,
         valid_now(),
@@ -428,9 +432,9 @@ fn intermediate_chain_is_validated() {
         ..Default::default()
     };
     let validator = PathValidator::new(config);
-    let path = validator.validate(&leaf).expect("3-cert chain should validate");
+    let path = validator
+        .validate(&leaf)
+        .expect("3-cert chain should validate");
     assert_eq!(path.len(), 3);
 }
-
-
 

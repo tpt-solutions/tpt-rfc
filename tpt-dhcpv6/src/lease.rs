@@ -116,24 +116,14 @@ pub trait LeaseStore: Send + Sync {
     ) -> Result<IaLease, LeaseError>;
 
     /// Release the IA for `(client_id, iaid, kind)` (client sent RELEASE).
-    fn release(
-        &mut self,
-        client_id: &Duid,
-        iaid: u32,
-        kind: IaKind,
-    ) -> Result<(), LeaseError>;
+    fn release(&mut self, client_id: &Duid, iaid: u32, kind: IaKind) -> Result<(), LeaseError>;
 
     /// Mark the IA for `(client_id, iaid, kind)` as declined (client sent
     /// DECLINE).
     ///
     /// Declined resources are removed from the active pool and held out of
     /// allocation for a probation period.
-    fn decline(
-        &mut self,
-        client_id: &Duid,
-        iaid: u32,
-        kind: IaKind,
-    ) -> Result<(), LeaseError>;
+    fn decline(&mut self, client_id: &Duid, iaid: u32, kind: IaKind) -> Result<(), LeaseError>;
 
     /// Return a snapshot of the IA for `(client_id, iaid, kind)`, if active.
     fn lease_for(&self, client_id: &Duid, iaid: u32, kind: IaKind) -> Option<IaLease>;

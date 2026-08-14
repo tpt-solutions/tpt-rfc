@@ -1,0 +1,31 @@
+# Copyright 2026 TPT Solutions
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "tpt-smtp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["smtp", "rfc5321", "rfc5322", "email", "mail"]
+categories = ["network-programming", "email"]
+description = "Clean-room, dual-licensed SMTP client/server (RFC 5321) and Internet Message Format / MIME (RFC 5322) library"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# Dual-licensed (MIT OR Apache-2.0) Base64, used for MIME
+# `Content-Transfer-Encoding: base64` decoding and RFC 2047 `B` encoded words.
+base64 = "0.22"
+
+[dev-dependencies]
+base64 = "0.22"
+
+[package.metadata.docs.rs]
+all-features = true

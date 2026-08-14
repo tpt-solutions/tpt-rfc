@@ -1,0 +1,26 @@
+[package]
+name = "tpt-netconf"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["netconf", "rfc6241", "rfc7950", "yang", "network-management"]
+categories = ["network-programming", "encoding"]
+description = "Clean-room, dual-licensed NETCONF server (RFC 6241) over SSH (RFC 6242), with capability exchange, RPC operations, and a pluggable datastore"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+tpt-ssh = { path = "../tpt-ssh" }
+
+[dev-dependencies]
+hex = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true

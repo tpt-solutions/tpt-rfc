@@ -24,8 +24,8 @@ thiserror = "1"
 aes = "0.8"          # MIT/Apache-2.0 — AES block cipher (used for CBC-CTS)
  hmac = "0.12"        # MIT/Apache-2.0 — HMAC for checksums / PBKDF2 PRF
 sha1 = "0.10"        # MIT/Apache-2.0 — SHA-1 (RFC 3962 HMAC + PBKDF2 PRF)
-sha2 = "0.11"        # MIT/Apache-2.0 — SHA-256/384 (RFC 8009 enctypes)
-getrandom = { version = "0.3", features = ["std"] } # MIT/Apache-2.0 — confounder
+sha2 = "0.10"        # MIT/Apache-2.0 — SHA-256/384 (RFC 8009 enctypes)
+getrandom = "0.2"     # MIT/Apache-2.0 — confounder
 subtle = "2"         # MIT/Apache-2.0 — constant-time comparison for MAC/auth checks
 der = "0.8"          # MIT/Apache-2.0 — DER codec for ASN.1 wire structures
 spki = "0.8"         # MIT/Apache-2.0 — SubjectPublicKeyInfo (PKINIT hook)

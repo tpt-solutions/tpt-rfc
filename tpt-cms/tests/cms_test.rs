@@ -19,8 +19,8 @@ use spki::{
 use x509_cert::builder::profile::BuilderProfile;
 use x509_cert::builder::{Builder, CertificateBuilder};
 use x509_cert::ext::pkix::{BasicConstraints, KeyUsage, KeyUsages};
-use x509_cert::ext::ToExtension;
 use x509_cert::ext::Extension;
+use x509_cert::ext::ToExtension;
 use x509_cert::name::Name;
 use x509_cert::serial_number::SerialNumber;
 use x509_cert::time::Validity;
@@ -231,7 +231,10 @@ fn signed_data_multi_signer() {
     let der = build_signed_data(
         &ObjectIdentifier::new_unwrap(ID_DATA),
         &content,
-        &[CmsSigner::new(k1, c1.clone()), CmsSigner::new(k2, c2.clone())],
+        &[
+            CmsSigner::new(k1, c1.clone()),
+            CmsSigner::new(k2, c2.clone()),
+        ],
         &[],
     )
     .unwrap();
@@ -248,10 +251,7 @@ fn enveloped_data_rsa_round_trip() {
     let der = build_enveloped_data(
         &plaintext,
         ContentEncryption::Aes256Cbc,
-        &[RecipientSpec::KeyTransRsa {
-            cert,
-            oaep: false,
-        }],
+        &[RecipientSpec::KeyTransRsa { cert, oaep: false }],
     )
     .unwrap();
     let opened =
@@ -275,7 +275,10 @@ fn enveloped_data_ecdh_round_trip() {
     .unwrap();
     let opened = open_enveloped_data(
         &der,
-        &[RecipientPrivateKey::EcdhP256(p256_secret(&key), cert_for_open)],
+        &[RecipientPrivateKey::EcdhP256(
+            p256_secret(&key),
+            cert_for_open,
+        )],
     )
     .unwrap();
     assert_eq!(opened, plaintext);

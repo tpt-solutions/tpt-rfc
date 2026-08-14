@@ -10,12 +10,11 @@ members = [
     "tpt-cms",
     "tpt-dhcpv6",
     "tpt-ospf",
-    # Future-phase crates remain scaffolded in the repo but are excluded from the
-    # active workspace until their manifests are complete. Re-add each as its
-    # phase is implemented:
-    #     "tpt-imap-server", "tpt-dhcp", "tpt-doh", "tpt-pop3", "tpt-jmap",
-    # "tpt-http-cache", "tpt-tsp", "tpt-http-sig",
+    "tpt-imap-server",
     "tpt-bfd",
+    "tpt-smtp",
+    "tpt-netconf",
+    "tpt-sieve",
 ]
 
 # `tpt-x25519` opts out of the parent workspace (it declares its own

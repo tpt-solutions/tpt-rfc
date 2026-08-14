@@ -16,8 +16,8 @@ pub fn parse_der(der: &[u8]) -> Result<CertificateList, der::Error> {
 
 /// Parse a PEM-encoded CRL (`-----BEGIN X509 CRL-----`).
 pub fn parse_pem(pem: &[u8]) -> Result<CertificateList, der::Error> {
-    let der = pem_to_der(pem)
-        .ok_or_else(|| der::Error::new(der::ErrorKind::Failed, Length::ZERO))?;
+    let der =
+        pem_to_der(pem).ok_or_else(|| der::Error::new(der::ErrorKind::Failed, Length::ZERO))?;
     CertificateList::from_der(&der)
 }
 

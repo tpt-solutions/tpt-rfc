@@ -167,30 +167,65 @@ pub fn transition(state: NeighborState, event: NeighborEvent) -> NeighborState {
 
         (TwoWay, HelloReceived) => TwoWay,
         (TwoWay, OneWayReceived) => Init,
-        (TwoWay, TwoWayReceived { adjacency_eligible: false }) => TwoWay,
-        (TwoWay, TwoWayReceived { adjacency_eligible: true }) => ExStart,
+        (
+            TwoWay,
+            TwoWayReceived {
+                adjacency_eligible: false,
+            },
+        ) => TwoWay,
+        (
+            TwoWay,
+            TwoWayReceived {
+                adjacency_eligible: true,
+            },
+        ) => ExStart,
         (TwoWay, InactivityTimer | KillNeighbor | LinkDown) => Down,
         (TwoWay, _) => TwoWay,
 
         (ExStart, HelloReceived) => ExStart,
         (ExStart, OneWayReceived) => Init,
-        (ExStart, TwoWayReceived { adjacency_eligible: false }) => TwoWay,
+        (
+            ExStart,
+            TwoWayReceived {
+                adjacency_eligible: false,
+            },
+        ) => TwoWay,
         (ExStart, NegotiationDone) => Exchange,
         (ExStart, InactivityTimer | KillNeighbor | LinkDown) => Down,
         (ExStart, _) => ExStart,
 
         (Exchange, HelloReceived) => Exchange,
         (Exchange, OneWayReceived) => Init,
-        (Exchange, TwoWayReceived { adjacency_eligible: false }) => TwoWay,
+        (
+            Exchange,
+            TwoWayReceived {
+                adjacency_eligible: false,
+            },
+        ) => TwoWay,
         (Exchange, NegotiationDone) => Exchange,
-        (Exchange, ExchangeDone { ls_requests_pending: true }) => Loading,
-        (Exchange, ExchangeDone { ls_requests_pending: false }) => Full,
+        (
+            Exchange,
+            ExchangeDone {
+                ls_requests_pending: true,
+            },
+        ) => Loading,
+        (
+            Exchange,
+            ExchangeDone {
+                ls_requests_pending: false,
+            },
+        ) => Full,
         (Exchange, InactivityTimer | KillNeighbor | LinkDown) => Down,
         (Exchange, _) => Exchange,
 
         (Loading, HelloReceived) => Loading,
         (Loading, OneWayReceived) => Init,
-        (Loading, TwoWayReceived { adjacency_eligible: false }) => TwoWay,
+        (
+            Loading,
+            TwoWayReceived {
+                adjacency_eligible: false,
+            },
+        ) => TwoWay,
         (Loading, ExchangeDone { .. }) => Full,
         (Loading, SeqNumberMismatch | BadLinkStateRequest) => ExStart,
         (Loading, InactivityTimer | KillNeighbor | LinkDown) => Down,
@@ -198,7 +233,12 @@ pub fn transition(state: NeighborState, event: NeighborEvent) -> NeighborState {
 
         (Full, HelloReceived) => Full,
         (Full, OneWayReceived) => Init,
-        (Full, TwoWayReceived { adjacency_eligible: false }) => TwoWay,
+        (
+            Full,
+            TwoWayReceived {
+                adjacency_eligible: false,
+            },
+        ) => TwoWay,
         (Full, SeqNumberMismatch | BadLinkStateRequest) => ExStart,
         (Full, ExchangeDone { .. }) => Full,
         (Full, InactivityTimer | KillNeighbor | LinkDown) => Down,
@@ -243,7 +283,10 @@ impl NeighborTable {
     /// Ensure a neighbor exists (creating it in Down if new) and apply `event`.
     /// Returns the resulting state.
     pub fn process(&mut self, router_id: Ip4, event: NeighborEvent) -> NeighborState {
-        let n = self.neighbors.entry(router_id).or_insert_with(|| Neighbor::new(router_id));
+        let n = self
+            .neighbors
+            .entry(router_id)
+            .or_insert_with(|| Neighbor::new(router_id));
         n.on_event(event)
     }
 

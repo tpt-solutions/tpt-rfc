@@ -10,9 +10,7 @@
 use std::time::{Duration, Instant};
 
 use crate::error::BfdError;
-use crate::packet::{
-    AuthSection, AuthType, BFD_VERSION, ControlPacket, Diagnostic, SessionState,
-};
+use crate::packet::{AuthSection, AuthType, ControlPacket, Diagnostic, SessionState, BFD_VERSION};
 
 /// Role a system takes in session initialization (RFC 5880 §6.1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,9 +62,9 @@ impl SessionConfig {
     pub fn validate(&self) -> Result<(), BfdError> {
         if let Some(auth) = &self.auth {
             match auth.auth_type {
-                AuthType::SimplePassword
-                | AuthType::KeyedSha1
-                | AuthType::MeticulousKeyedSha1 => Ok(()),
+                AuthType::SimplePassword | AuthType::KeyedSha1 | AuthType::MeticulousKeyedSha1 => {
+                    Ok(())
+                }
                 other => Err(BfdError::UnsupportedAuth(other as u8)),
             }
         } else {
@@ -183,7 +181,18 @@ impl Session {
     /// Whether Demand mode is currently active on the remote system
     /// (remote D bit set, both ends `Up`).
     pub fn remote_demand_active(&self) -> bool {
-        self.remote_demand && self.session_state == SessionState::Up && self.remote_state == SessionState::Up
+        self.remote_demand
+            && self.session_state == SessionState::Up
+            && self.remote_state == SessionState::Up
+    }
+
+    /// Whether the local system would set the Demand (D) bit on its next
+    /// transmitted packet (local demand mode requested and both ends
+    /// `Up`).
+    pub fn demand_bit(&self) -> bool {
+        self.demand_mode
+            && self.session_state == SessionState::Up
+            && self.remote_state == SessionState::Up
     }
 
     /// Set the session administratively down, signaling
@@ -250,10 +259,8 @@ impl Session {
         if pkt.auth_present != auth_in_use {
             return Ok(None);
         }
-        if pkt.auth_present {
-            if !self.verify_auth(&pkt, buf)? {
-                return Ok(None);
-            }
+        if pkt.auth_present && !self.verify_auth(&pkt, buf)? {
+            return Ok(None);
         }
         match self.process_packet(&pkt)? {
             PacketResult::Discarded => Ok(None),
@@ -313,8 +320,25 @@ impl Session {
                 self.local_diag = Diagnostic::NeighborSignaledSessionDown;
                 self.session_state = SessionState::Down;
             }
+        } else if self.session_state == SessionState::Down {
+            // RFC 5880 §6.8.6 (the normative procedure; note the §6.2
+            // diagram has a known erratum — Down+Down must advance to
+            // Init, which is what real implementations follow).
+            if pkt.state == SessionState::Down {
+                self.session_state = SessionState::Init;
+            } else if pkt.state == SessionState::Init {
+                self.session_state = SessionState::Up;
+            }
+        } else if self.session_state == SessionState::Init {
+            if pkt.state == SessionState::Init || pkt.state == SessionState::Up {
+                self.session_state = SessionState::Up;
+            }
         } else {
-            self.session_state = transition(self.session_state, pkt.state);
+            // session_state == Up
+            if pkt.state == SessionState::Down {
+                self.local_diag = Diagnostic::NeighborSignaledSessionDown;
+                self.session_state = SessionState::Down;
+            }
         }
 
         if pkt.poll {
@@ -420,7 +444,9 @@ impl Session {
     }
 
     fn build_packet(&mut self, poll: bool, final_bit: bool) -> ControlPacket {
-        let d_bit = self.demand_mode && self.session_state == SessionState::Up && self.remote_state == SessionState::Up;
+        let d_bit = self.demand_mode
+            && self.session_state == SessionState::Up
+            && self.remote_state == SessionState::Up;
         let auth = self.auth.as_ref().map(|cfg| {
             let seq = if cfg.auth_type.is_keyed() {
                 self.xmit_auth_seq = self.xmit_auth_seq.wrapping_add(1);
@@ -480,7 +506,7 @@ impl Session {
                 key_padded[..n].copy_from_slice(&cfg.key[..n]);
                 buf[off..off + digest_len].copy_from_slice(&key_padded);
                 let digest = sha1_hash(&buf);
-                if &digest[..] != &section.data[..digest_len.min(section.data.len())] {
+                if digest[..] != section.data[..digest_len.min(section.data.len())] {
                     return Ok(false);
                 }
                 let seq = section.sequence_number;
@@ -499,34 +525,6 @@ impl Session {
             }
             _ => Err(BfdError::UnsupportedAuth(section.auth_type as u8)),
         }
-    }
-}
-
-/// Apply the BFD state-transition table (RFC 5880 §6.2).
-fn transition(local: SessionState, remote: SessionState) -> SessionState {
-    match (local, remote) {
-        (SessionState::AdminDown, _) => SessionState::AdminDown,
-        _ => match remote {
-            SessionState::AdminDown => local,
-            SessionState::Down => match local {
-                SessionState::Down => SessionState::Down,
-                SessionState::Init => SessionState::Down,
-                SessionState::Up => SessionState::Down,
-                SessionState::AdminDown => SessionState::AdminDown,
-            },
-            SessionState::Init => match local {
-                SessionState::Down => SessionState::Init,
-                SessionState::Init => SessionState::Init,
-                SessionState::Up => SessionState::Init,
-                SessionState::AdminDown => SessionState::AdminDown,
-            },
-            SessionState::Up => match local {
-                SessionState::Down => SessionState::Up,
-                SessionState::Init => SessionState::Up,
-                SessionState::Up => SessionState::Up,
-                SessionState::AdminDown => SessionState::AdminDown,
-            },
-        },
     }
 }
 

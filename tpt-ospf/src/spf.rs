@@ -121,9 +121,7 @@ impl Spf {
     /// Run Dijkstra's shortest-path-first algorithm from the configured root and
     /// return the resulting routing table.
     pub fn calculate(&self) -> Result<RoutingTable, OspfError> {
-        let root = self
-            .root
-            .ok_or(OspfError::SpfRootMissing([0; 4]))?;
+        let root = self.root.ok_or(OspfError::SpfRootMissing([0; 4]))?;
         if !self.routers.contains_key(&root) {
             return Err(OspfError::SpfRootMissing(root));
         }
@@ -163,12 +161,13 @@ impl Spf {
                                     && link_cost < *dist.get(&v).unwrap_or(&u32::MAX)
                                 {
                                     dist.insert(v, link_cost);
-                                    let nh = if r == root { link.link_id } else { next_hop[&node] };
+                                    let nh = if r == root {
+                                        link.link_id
+                                    } else {
+                                        next_hop[&node]
+                                    };
                                     next_hop.insert(v, nh);
-                                    heap.push((
-                                        std::cmp::Reverse((link_cost, 0)),
-                                        v,
-                                    ));
+                                    heap.push((std::cmp::Reverse((link_cost, 0)), v));
                                 }
                             }
                             // Transit: link points to a broadcast network.
@@ -180,10 +179,7 @@ impl Spf {
                                     dist.insert(v, link_cost);
                                     let nh = next_hop[&node];
                                     next_hop.insert(v, nh);
-                                    heap.push((
-                                        std::cmp::Reverse((link_cost, 1)),
-                                        v,
-                                    ));
+                                    heap.push((std::cmp::Reverse((link_cost, 1)), v));
                                 }
                             }
                             // Stub: a leaf network route.

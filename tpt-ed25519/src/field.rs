@@ -103,11 +103,15 @@ pub(crate) struct FieldElement {
 
 impl FieldElement {
     pub(crate) const ZERO: FieldElement = FieldElement { limbs: [0; 4] };
-    pub(crate) const ONE: FieldElement = FieldElement { limbs: [1, 0, 0, 0] };
+    pub(crate) const ONE: FieldElement = FieldElement {
+        limbs: [1, 0, 0, 0],
+    };
 
     /// Construct a field element from a small integer (reduced trivially).
     pub(crate) fn from_u64(x: u64) -> FieldElement {
-        FieldElement { limbs: [x, 0, 0, 0] }
+        FieldElement {
+            limbs: [x, 0, 0, 0],
+        }
     }
 
     /// Canonical decode of a 32-byte little-endian integer; rejects values `>= p`.
@@ -123,7 +127,6 @@ impl FieldElement {
         }
         Some(FieldElement { limbs })
     }
-
 
     /// Encode the canonical value as 32 little-endian bytes.
     pub(crate) fn to_bytes(&self) -> [u8; 32] {
@@ -270,18 +273,26 @@ mod tests {
 
     #[test]
     fn mul_small() {
-        assert_eq!(FieldElement::from_u64(5).mul(&FieldElement::from_u64(7)), FieldElement::from_u64(35));
+        assert_eq!(
+            FieldElement::from_u64(5).mul(&FieldElement::from_u64(7)),
+            FieldElement::from_u64(35)
+        );
     }
 
     #[test]
     fn square_small() {
-        assert_eq!(FieldElement::from_u64(7).square(), FieldElement::from_u64(49));
+        assert_eq!(
+            FieldElement::from_u64(7).square(),
+            FieldElement::from_u64(49)
+        );
     }
 
     #[test]
     fn neg_add() {
         // (p - 5) + 10 = 5 (mod p)
-        let pm5 = FieldElement::from_u64(5).neg().add(&FieldElement::from_u64(10));
+        let pm5 = FieldElement::from_u64(5)
+            .neg()
+            .add(&FieldElement::from_u64(10));
         assert_eq!(pm5, FieldElement::from_u64(5));
     }
 
@@ -308,4 +319,3 @@ mod tests {
         assert_eq!(x, FieldElement::from_u64(19));
     }
 }
-

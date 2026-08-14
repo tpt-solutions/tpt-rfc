@@ -7,7 +7,7 @@ use der::{Decode, Encode, Tag};
 use x509_cert::Certificate;
 
 use crate::cert::{find_signer_cert, parse_cert, verify_chain};
-use crate::crypto::{public_key_from_spki, HashAlgorithm, SigningKey, verify_signature};
+use crate::crypto::{public_key_from_spki, verify_signature, HashAlgorithm, SigningKey};
 use crate::error::{CmsError, Result};
 use crate::oids;
 use crate::wire;
@@ -91,12 +91,7 @@ pub fn build_signed_data(
             .issuer()
             .to_der()
             .map_err(CmsError::Asn1)?;
-        let serial = s
-            .cert
-            .tbs_certificate()
-            .serial_number()
-            .as_bytes()
-            .to_vec();
+        let serial = s.cert.tbs_certificate().serial_number().as_bytes().to_vec();
         let sid = wire::sequence(&[issuer, wire::integer_be(&serial)]);
 
         let signer_info = wire::sequence(&[
@@ -188,7 +183,8 @@ pub fn verify_signed_data(der: &[u8], anchors: &[Certificate]) -> Result<Verifie
                     }
                     got_ct = true;
                 } else if oid == oids::MESSAGE_DIGEST {
-                    let md = OctetStringRef::try_from(val.as_slice()).map_err(CmsError::Asn1)?;
+                    let md: &OctetStringRef =
+                        OctetStringRef::try_from(val.as_slice()).map_err(CmsError::Asn1)?;
                     if md.as_bytes() != content_digest {
                         return Err(CmsError::MessageDigestMismatch);
                     }

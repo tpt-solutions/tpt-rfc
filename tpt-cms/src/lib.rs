@@ -17,23 +17,23 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod enveloped_data;
 pub mod error;
 pub mod oids;
-pub mod signed_data;
-pub mod enveloped_data;
 pub mod other;
+pub mod signed_data;
 
-pub use error::{CmsError, Result};
-pub use signed_data::{build_signed_data, verify_signed_data, CmsSigner, VerifiedSignedData};
 pub use enveloped_data::{
     build_enveloped_data, open_enveloped_data, RecipientPrivateKey, RecipientSpec,
 };
+pub use error::{CmsError, Result};
 pub use other::{
     build_digested_data, build_encrypted_data, decrypt_encrypted_data, verify_digested_data,
 };
+pub use signed_data::{build_signed_data, verify_signed_data, CmsSigner, VerifiedSignedData};
 
 pub use crypto::{ContentEncryption, HashAlgorithm, KeyWrap, SigningKey};
 
-mod crypto;
 mod cert;
+mod crypto;
 mod wire;

@@ -14,14 +14,20 @@ fn full_adjacency_progression() {
     let mut n = Neighbor::new(ip(1, 1, 1, 1));
     assert_eq!(n.state, NeighborState::Down);
 
-    assert_eq!(n.on_event(NeighborEvent::HelloReceived), NeighborState::Init);
+    assert_eq!(
+        n.on_event(NeighborEvent::HelloReceived),
+        NeighborState::Init
+    );
     assert_eq!(
         n.on_event(NeighborEvent::TwoWayReceived {
             adjacency_eligible: true
         }),
         NeighborState::ExStart
     );
-    assert_eq!(n.on_event(NeighborEvent::NegotiationDone), NeighborState::Exchange);
+    assert_eq!(
+        n.on_event(NeighborEvent::NegotiationDone),
+        NeighborState::Exchange
+    );
     assert_eq!(
         n.on_event(NeighborEvent::ExchangeDone {
             ls_requests_pending: true
@@ -83,7 +89,10 @@ fn inactivity_drops_neighbor() {
     let mut n = Neighbor::new(ip(5, 5, 5, 5));
     n.on_event(NeighborEvent::HelloReceived);
     assert_eq!(n.state, NeighborState::Init);
-    assert_eq!(n.on_event(NeighborEvent::InactivityTimer), NeighborState::Down);
+    assert_eq!(
+        n.on_event(NeighborEvent::InactivityTimer),
+        NeighborState::Down
+    );
 }
 
 #[test]

@@ -7,7 +7,10 @@ use der::Encode;
 use x509_cert::{crl::CertificateList, ext::pkix::certpolicy::CertificatePolicies, Certificate};
 
 use crate::{
-    cert::{basic_constraints, extended_key_usage, is_self_issued, key_usage, name_constraints, subject_der, issuer_der, TrustAnchor},
+    cert::{
+        basic_constraints, extended_key_usage, is_self_issued, issuer_der, key_usage,
+        name_constraints, subject_der, TrustAnchor,
+    },
     constraints::{check_constraints, GeneralSubtreeLike},
     crl,
     error::ValidationError,
@@ -108,7 +111,10 @@ impl PathValidator {
         }
         // Look for issuers among the intermediates.
         for cand in &self.config.intermediates {
-            if chain.iter().any(|c| subject_der(c).ok() == subject_der(cand).ok()) {
+            if chain
+                .iter()
+                .any(|c| subject_der(c).ok() == subject_der(cand).ok())
+            {
                 continue;
             }
             if is_issuer_of(cand, last) {
@@ -121,8 +127,8 @@ impl PathValidator {
         if let Some(ai) = self.matches_anchor(last) {
             let mut ordered = chain.clone();
             ordered.reverse(); // [top .. EE]
-            // Prepend the anchor's certificate so the returned path runs from
-            // the trust anchor (root) down to the end entity.
+                               // Prepend the anchor's certificate so the returned path runs from
+                               // the trust anchor (root) down to the end entity.
             if let Some(root) = &self.config.trust_anchors[ai].cert {
                 ordered.insert(0, root.clone());
             }
@@ -153,8 +159,7 @@ impl PathValidator {
         let anchor = &self.config.trust_anchors[anchor_idx];
         let n = path.len();
         let mut max_path_len: Option<u8> = anchor.path_len;
-        let mut permitted: Option<Vec<GeneralSubtreeLike>> =
-            anchor.permitted_subtrees.clone();
+        let mut permitted: Option<Vec<GeneralSubtreeLike>> = anchor.permitted_subtrees.clone();
         let mut excluded: Vec<GeneralSubtreeLike> =
             anchor.excluded_subtrees.clone().unwrap_or_default();
         let mut eku_allowed: Option<Vec<ObjectIdentifier>> = None;
@@ -190,10 +195,7 @@ impl PathValidator {
             if !self_issued {
                 if let Some(ml) = max_path_len {
                     if ml == 0 {
-                        return Err(ValidationError::PathLen {
-                            depth: k,
-                            limit: 0,
-                        });
+                        return Err(ValidationError::PathLen { depth: k, limit: 0 });
                     }
                     max_path_len = Some(ml - 1);
                 }
@@ -227,11 +229,7 @@ impl PathValidator {
             }
 
             // (g) name constraints.
-            check_constraints(
-                cert,
-                permitted.as_deref().unwrap_or(&[]),
-                &excluded,
-            )?;
+            check_constraints(cert, permitted.as_deref().unwrap_or(&[]), &excluded)?;
 
             // Accumulate name constraints from CA certificates.
             if !is_ee {
@@ -271,10 +269,7 @@ impl PathValidator {
 
         // (j) extended key usage end-entity check.
         if let Some(req) = self.config.required_eku {
-            let leaf_eku = path
-                .last()
-                .and_then(|c| extended_key_usage(c))
-                .map(|e| e.0);
+            let leaf_eku = path.last().and_then(|c| extended_key_usage(c)).map(|e| e.0);
             if let Some(set) = &eku_allowed {
                 if !set.iter().any(|o| *o == req || *o == any) {
                     return Err(ValidationError::EkuViolation(req.to_string()));
@@ -376,7 +371,5 @@ fn intersect_subtrees(
 }
 
 fn intersect_oids(a: Vec<ObjectIdentifier>, b: &[ObjectIdentifier]) -> Vec<ObjectIdentifier> {
-    a.into_iter()
-        .filter(|x| b.iter().any(|y| y == x))
-        .collect()
+    a.into_iter().filter(|x| b.iter().any(|y| y == x)).collect()
 }

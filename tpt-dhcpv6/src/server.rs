@@ -13,14 +13,14 @@ use std::time::Instant;
 
 use crate::error::Dhcpv6Error;
 use crate::lease::{AcquireRequest, IaLease, LeaseStore};
-use crate::options::IaKind;
 use crate::memory::MemoryLeaseStore;
 use crate::message::Dhcpv6Message;
+use crate::options::IaKind;
 use crate::options::{
     Dhcpv6Option, Duid, IaAddress, IaNa, IaPd, IaPrefix, IaTa, MessageType, StatusCode,
     OPTION_DNS_SERVERS, OPTION_DOMAIN_SEARCH, OPTION_IA_NA, OPTION_IA_PD, OPTION_IA_TA,
-    STATUS_NO_ADDRS_AVAIL, STATUS_NO_BINDING, STATUS_NO_PREFIX_AVAIL,
-    STATUS_NOT_ON_LINK, STATUS_SUCCESS,
+    STATUS_NOT_ON_LINK, STATUS_NO_ADDRS_AVAIL, STATUS_NO_BINDING, STATUS_NO_PREFIX_AVAIL,
+    STATUS_SUCCESS,
 };
 
 /// A DHCPv6 server backed by a pluggable [`LeaseStore`].
@@ -118,7 +118,11 @@ impl<S: LeaseStore> Server<S> {
             };
             match self.store.acquire(req) {
                 Ok(lease) => reply.set_option(Self::build_ia_na(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_NA, STATUS_NO_ADDRS_AVAIL)),
+                Err(_) => reply.set_option(Self::ia_status(
+                    ia.iaid,
+                    OPTION_IA_NA,
+                    STATUS_NO_ADDRS_AVAIL,
+                )),
             }
         }
         for ia in msg.ia_tas() {
@@ -132,7 +136,11 @@ impl<S: LeaseStore> Server<S> {
             };
             match self.store.acquire(req) {
                 Ok(lease) => reply.set_option(Self::build_ia_ta(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_TA, STATUS_NO_ADDRS_AVAIL)),
+                Err(_) => reply.set_option(Self::ia_status(
+                    ia.iaid,
+                    OPTION_IA_TA,
+                    STATUS_NO_ADDRS_AVAIL,
+                )),
             }
         }
         for ia in msg.ia_pds() {
@@ -146,7 +154,11 @@ impl<S: LeaseStore> Server<S> {
             };
             match self.store.acquire(req) {
                 Ok(lease) => reply.set_option(Self::build_ia_pd(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_PD, STATUS_NO_PREFIX_AVAIL)),
+                Err(_) => reply.set_option(Self::ia_status(
+                    ia.iaid,
+                    OPTION_IA_PD,
+                    STATUS_NO_PREFIX_AVAIL,
+                )),
             }
         }
 
@@ -175,21 +187,29 @@ impl<S: LeaseStore> Server<S> {
             any = true;
             match self.store.confirm(client_id, ia.iaid, IaKind::Na, now) {
                 Ok(lease) => reply.set_option(Self::build_ia_na(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_NA, STATUS_NO_BINDING)),
+                Err(_) => {
+                    reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_NA, STATUS_NO_BINDING))
+                }
             }
         }
         for ia in msg.ia_tas() {
             any = true;
             match self.store.confirm(client_id, ia.iaid, IaKind::Ta, now) {
                 Ok(lease) => reply.set_option(Self::build_ia_ta(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_TA, STATUS_NO_BINDING)),
+                Err(_) => {
+                    reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_TA, STATUS_NO_BINDING))
+                }
             }
         }
         for ia in msg.ia_pds() {
             any = true;
             match self.store.confirm(client_id, ia.iaid, IaKind::Pd, now) {
                 Ok(lease) => reply.set_option(Self::build_ia_pd(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_PD, STATUS_NO_PREFIX_AVAIL)),
+                Err(_) => reply.set_option(Self::ia_status(
+                    ia.iaid,
+                    OPTION_IA_PD,
+                    STATUS_NO_PREFIX_AVAIL,
+                )),
             }
         }
 
@@ -211,17 +231,29 @@ impl<S: LeaseStore> Server<S> {
         // addresses are still on-link.
         let mut on_link = false;
         for ia in msg.ia_nas() {
-            if self.store.lease_for(client_id, ia.iaid, IaKind::Na).is_some() {
+            if self
+                .store
+                .lease_for(client_id, ia.iaid, IaKind::Na)
+                .is_some()
+            {
                 on_link = true;
             }
         }
         for ia in msg.ia_pds() {
-            if self.store.lease_for(client_id, ia.iaid, IaKind::Pd).is_some() {
+            if self
+                .store
+                .lease_for(client_id, ia.iaid, IaKind::Pd)
+                .is_some()
+            {
                 on_link = true;
             }
         }
         let mut reply = self.base_reply(MessageType::Reply, msg);
-        let code = if on_link { STATUS_SUCCESS } else { STATUS_NOT_ON_LINK };
+        let code = if on_link {
+            STATUS_SUCCESS
+        } else {
+            STATUS_NOT_ON_LINK
+        };
         reply.set_option(Dhcpv6Option::StatusCode(StatusCode {
             code,
             message: String::new(),
@@ -241,14 +273,20 @@ impl<S: LeaseStore> Server<S> {
             any = true;
             match self.store.confirm(client_id, ia.iaid, IaKind::Na, now) {
                 Ok(lease) => reply.set_option(Self::build_ia_na(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_NA, STATUS_NO_BINDING)),
+                Err(_) => {
+                    reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_NA, STATUS_NO_BINDING))
+                }
             }
         }
         for ia in msg.ia_pds() {
             any = true;
             match self.store.confirm(client_id, ia.iaid, IaKind::Pd, now) {
                 Ok(lease) => reply.set_option(Self::build_ia_pd(&lease)),
-                Err(_) => reply.set_option(Self::ia_status(ia.iaid, OPTION_IA_PD, STATUS_NO_PREFIX_AVAIL)),
+                Err(_) => reply.set_option(Self::ia_status(
+                    ia.iaid,
+                    OPTION_IA_PD,
+                    STATUS_NO_PREFIX_AVAIL,
+                )),
             }
         }
         if !any {
@@ -280,7 +318,11 @@ impl<S: LeaseStore> Server<S> {
             }
         }
         let mut reply = self.base_reply(MessageType::Reply, msg);
-        let code = if released { STATUS_SUCCESS } else { STATUS_NO_BINDING };
+        let code = if released {
+            STATUS_SUCCESS
+        } else {
+            STATUS_NO_BINDING
+        };
         reply.set_option(Dhcpv6Option::StatusCode(StatusCode {
             code,
             message: String::new(),

@@ -9,7 +9,7 @@
 use const_oid::ObjectIdentifier;
 use der::{
     asn1::{AnyRef, OctetStringRef, UintRef},
-    Decode, Encode, Tag, TagNumber,
+    Decode, Encode, Length, SliceReader, Tag, TagNumber, Tagged,
 };
 use spki::AlgorithmIdentifierRef;
 
@@ -162,7 +162,8 @@ impl<'a> Cursor<'a> {
     /// Take the next TLV, advancing the cursor past it.
     pub fn take(&mut self) -> Result<AnyRef<'a>> {
         let a = AnyRef::from_der(self.data).map_err(CmsError::Asn1)?;
-        self.data = &self.data[a.as_bytes().len()..];
+        let full = a.to_der().map_err(CmsError::Asn1)?;
+        self.data = &self.data[full.len()..];
         Ok(a)
     }
 
@@ -204,18 +205,13 @@ pub(crate) fn algid_of<'a>(any: &AnyRef<'a>) -> Result<AlgorithmIdentifierRef<'a
 
 /// Decode the OCTET STRING carried by `any` and return its value bytes.
 pub(crate) fn octet_value(any: &AnyRef) -> Result<Vec<u8>> {
-    Ok(OctetStringRef::try_from(any.value())
-        .map_err(CmsError::Asn1)?
-        .as_bytes()
-        .to_vec())
+    let os = OctetStringRef::from(any.value());
+    Ok(os.as_bytes().to_vec())
 }
 
 /// Decode `any` as an INTEGER and return its (raw) value bytes.
 pub(crate) fn integer_value(any: &AnyRef) -> Result<Vec<u8>> {
-    Ok(UintRef::try_from(any.value())
-        .map_err(CmsError::Asn1)?
-        .as_bytes()
-        .to_vec())
+    Ok(any.value().to_vec())
 }
 
 /// Decode a `SET OF T` from a cursor, returning each element's full DER.
@@ -232,15 +228,10 @@ pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
 }
 
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
-pub(crate) fn octet_value_param(
-    param: Option<&der::asn1::AnyRef>,
-    what: &str,
-) -> Result<Vec<u8>> {
+pub(crate) fn octet_value_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
-    Ok(OctetStringRef::try_from(p.value())
-        .map_err(CmsError::Asn1)?
-        .as_bytes()
-        .to_vec())
+    let os: &OctetStringRef = OctetStringRef::try_from(p.value()).map_err(CmsError::Asn1)?;
+    Ok(os.as_bytes().to_vec())
 }
 
 /// Decode a `SET OF T` (DER-sorted element list) into owned `T` values.

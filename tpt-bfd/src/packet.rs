@@ -129,10 +129,7 @@ impl AuthType {
 
     /// Whether this auth type carries a keyed digest (SHA1 family).
     pub fn is_keyed(self) -> bool {
-        matches!(
-            self,
-            AuthType::KeyedSha1 | AuthType::MeticulousKeyedSha1
-        )
+        matches!(self, AuthType::KeyedSha1 | AuthType::MeticulousKeyedSha1)
     }
 
     /// Length of the digest carried by this auth type (0 for simple
@@ -227,12 +224,20 @@ impl ControlPacket {
         buf[20..24].copy_from_slice(&self.required_min_echo_rx_interval.to_be_bytes());
 
         if let Some(auth) = &self.auth {
-            let mut ab: Vec<u8> = vec![auth.auth_type as u8, 0, auth.key_id, 0];
-            match auth.auth_type {
+            let mut ab: Vec<u8> = match auth.auth_type {
+                // Simple Password has no Reserved byte (RFC 5880 §4.2):
+                // Auth Type | Auth Len | Auth Key ID | Password...
                 AuthType::SimplePassword => {
                     let pw = &auth.data;
-                    ab[1] = (pw.len() + 3) as u8; // Auth Len = password + 3
-                    ab.extend_from_slice(pw);
+                    vec![auth.auth_type as u8, (pw.len() + 3) as u8, auth.key_id]
+                }
+                // Keyed formats carry a Reserved byte after Auth Key ID
+                // (RFC 5880 §4.3-§4.4).
+                _ => vec![auth.auth_type as u8, 0, auth.key_id, 0],
+            };
+            match auth.auth_type {
+                AuthType::SimplePassword => {
+                    ab.extend_from_slice(&auth.data);
                 }
                 AuthType::KeyedMd5 | AuthType::MeticulousKeyedMd5 => {
                     ab[1] = 24;
@@ -285,10 +290,8 @@ impl ControlPacket {
 
         let my_discriminator = u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]);
         let your_discriminator = u32::from_be_bytes([buf[8], buf[9], buf[10], buf[11]]);
-        let desired_min_tx_interval =
-            u32::from_be_bytes([buf[12], buf[13], buf[14], buf[15]]);
-        let required_min_rx_interval =
-            u32::from_be_bytes([buf[16], buf[17], buf[18], buf[19]]);
+        let desired_min_tx_interval = u32::from_be_bytes([buf[12], buf[13], buf[14], buf[15]]);
+        let required_min_rx_interval = u32::from_be_bytes([buf[16], buf[17], buf[18], buf[19]]);
         let required_min_echo_rx_interval =
             u32::from_be_bytes([buf[20], buf[21], buf[22], buf[23]]);
 

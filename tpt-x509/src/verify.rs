@@ -277,11 +277,13 @@ fn verify_ed25519(spki: &SubjectPublicKeyInfo, msg: &[u8], sig: &[u8]) -> Result
 
     let raw = spki.subject_public_key.raw_bytes();
     if raw.len() != 32 {
-        return Err(format!("Ed25519 public key must be 32 bytes, got {}", raw.len()));
+        return Err(format!(
+            "Ed25519 public key must be 32 bytes, got {}",
+            raw.len()
+        ));
     }
     let pk = PublicKey::from_slice(raw).map_err(|e| format!("bad Ed25519 key: {e:?}"))?;
-    let sig = Signature::from_slice(sig)
-        .map_err(|e| format!("bad Ed25519 signature: {e:?}"))?;
+    let sig = Signature::from_slice(sig).map_err(|e| format!("bad Ed25519 signature: {e:?}"))?;
     pk.verify(msg, &sig)
         .map_err(|e| format!("Ed25519 verification failed: {e:?}"))
 }

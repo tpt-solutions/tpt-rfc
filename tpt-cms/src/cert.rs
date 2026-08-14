@@ -39,10 +39,7 @@ pub(crate) fn subject_der(cert: &Certificate) -> Vec<u8> {
 
 /// Raw value bytes of a certificate's `serialNumber`.
 pub(crate) fn cert_serial_bytes(cert: &Certificate) -> Vec<u8> {
-    cert.tbs_certificate()
-        .serial_number()
-        .as_bytes()
-        .to_vec()
+    cert.tbs_certificate().serial_number().as_bytes().to_vec()
 }
 
 /// DER of the `tbsCertificate` (the signed part).
@@ -120,9 +117,9 @@ pub(crate) fn verify_chain(
     let path_len_limit = 16;
 
     for _ in 0..path_len_limit {
-        let anchor_hit = anchors.iter().any(|a| {
-            subject_der(a) == subject_der(&current) && is_self_signed(&current)
-        });
+        let anchor_hit = anchors
+            .iter()
+            .any(|a| subject_der(a) == subject_der(&current) && is_self_signed(&current));
         if anchor_hit {
             let pk = public_key_from_spki(current.tbs_certificate().subject_public_key_info())?;
             return verify_cert_signature(&current, &pk);
@@ -134,7 +131,9 @@ pub(crate) fn verify_chain(
 
         let key = (cert_issuer_der(&current), cert_serial_bytes(&current));
         if !visited.insert(key) {
-            return Err(CmsError::CertChain("certificate chain loop detected".into()));
+            return Err(CmsError::CertChain(
+                "certificate chain loop detected".into(),
+            ));
         }
         current = issuer;
     }

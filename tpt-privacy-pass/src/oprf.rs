@@ -9,21 +9,23 @@
 
 use crate::error::OprfError;
 use crate::suite::*;
+use digest::Digest;
 use elliptic_curve::{
-    group::GroupOps, CurveArithmetic, ff::Field, Group, NonZeroScalar, scalar::ScalarPrimitive,
+    ff::{Field, PrimeField},
+    group::GroupOps,
+    FieldBytes, Group,
 };
-use sha2::Digest;
 
-type Scalar<C> = ScalarPrimitive<C>;
-type Point<C> = <C as CurveArithmetic>::ProjectivePoint;
+type ScalarE<C> = Scalar<C>;
+type PointE<C> = Point<C>;
 
 /// A DLEQ proof: a pair of scalars `(c, s)` per RFC 9497 §2.2.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Proof<C: Suite> {
     /// Challenge scalar `c`.
-    pub c: Scalar<C>,
+    pub c: ScalarE<C>,
     /// Response scalar `s`.
-    pub s: Scalar<C>,
+    pub s: ScalarE<C>,
 }
 
 // ---------------------------------------------------------------------------
@@ -32,12 +34,12 @@ pub struct Proof<C: Suite> {
 
 /// Generate a fresh non-zero scalar (`RandomScalar` in RFC 9497 §2.1),
 /// using the operating system CSPRNG.
-pub fn random_scalar<C: Suite>() -> Scalar<C> {
+pub fn random_scalar<C: Suite>() -> ScalarE<C> {
     loop {
         let mut buf = [0u8; 64];
-        getrandom::getrandom(&mut buf).ok().expect("getrandom failure");
+        getrandom::fill(&mut buf).ok().expect("getrandom failure");
         let fb = FieldBytes::<C>::clone_from_slice(&buf[..C::NS]);
-        if let Some(sp) = Option::from(Scalar::<C>::from_repr(fb)) {
+        if let Some(sp) = Option::from(ScalarE::<C>::from_repr(fb)) {
             if !bool::from(sp.is_zero()) {
                 return sp;
             }
@@ -54,19 +56,19 @@ pub fn random_scalar<C: Suite>() -> Scalar<C> {
 /// Returns the blinding scalar (kept secret by the client) and the blinded
 /// group element. `mode` selects the context string (use `0x00` for OPRF,
 /// `0x01` for VOPRF, `0x02` for POPRF — the DST differs per mode).
-pub fn blind<C: Suite>(input: &[u8], blind_scalar: &Scalar<C>, mode: u8) -> Point<C> {
+pub fn blind<C: Suite>(input: &[u8], blind_scalar: &ScalarE<C>, mode: u8) -> PointE<C> {
     let dst = dst_group::<C>(mode);
     let ie = C::hash_to_group(input, &dst).expect("hash_to_group");
     ie * *blind_scalar
 }
 
 /// Server-side evaluation (`BlindEvaluate` in RFC 9497 §3.3.1).
-pub fn blind_evaluate<C: Suite>(sk: &Scalar<C>, blinded: &Point<C>) -> Point<C> {
+pub fn blind_evaluate<C: Suite>(sk: &ScalarE<C>, blinded: &PointE<C>) -> PointE<C> {
     *blinded * *sk
 }
 
 /// Client-side finalization (`Finalize` in RFC 9497 §3.3.1).
-pub fn finalize<C: Suite>(input: &[u8], blind: &Scalar<C>, evaluated: &Point<C>, mode: u8) -> [u8; C::NH] {
+pub fn finalize<C: Suite>(input: &[u8], blind: &ScalarE<C>, evaluated: &PointE<C>, mode: u8) -> Vec<u8> {
     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
     let unblinded = serialize_element::<C>(&n);
     finalize_hash::<C>(input, &unblinded, None, mode)
@@ -74,7 +76,7 @@ pub fn finalize<C: Suite>(input: &[u8], blind: &Scalar<C>, evaluated: &Point<C>,
 
 /// Direct evaluation by a party holding the private key (`Evaluate` in
 /// RFC 9497 §3.3.1).
-pub fn evaluate<C: Suite>(sk: &Scalar<C>, input: &[u8], mode: u8) -> [u8; C::NH] {
+pub fn evaluate<C: Suite>(sk: &ScalarE<C>, input: &[u8], mode: u8) -> Vec<u8> {
     let dst = dst_group::<C>(mode);
     let ie = C::hash_to_group(input, &dst).expect("hash_to_group");
     let ev = ie * *sk;
@@ -89,12 +91,12 @@ pub fn evaluate<C: Suite>(sk: &Scalar<C>, input: &[u8], mode: u8) -> [u8; C::NH]
 /// Server-side evaluation with a DLEQ proof (`BlindEvaluate` in
 /// RFC 9497 §3.3.2).
 pub fn blind_evaluate_voprf<C: Suite>(
-    sk: &Scalar<C>,
-    pk: &Point<C>,
-    blinded: &Point<C>,
-) -> (Point<C>, Proof<C>) {
+    sk: &ScalarE<C>,
+    pk: &PointE<C>,
+    blinded: &PointE<C>,
+) -> (PointE<C>, Proof<C>) {
     let evaluated = *blinded * *sk;
-    let proof = generate_proof::<C>(sk, &Point::<C>::GENERATOR, pk, &[*blinded], &[evaluated], 0x01);
+    let proof = generate_proof::<C>(sk, &PointE::<C>::GENERATOR, pk, &[*blinded], &[evaluated], 0x01);
     (evaluated, proof)
 }
 
@@ -103,13 +105,13 @@ pub fn blind_evaluate_voprf<C: Suite>(
 /// supplied proof does not verify.
 pub fn finalize_voprf<C: Suite>(
     input: &[u8],
-    blind: &Scalar<C>,
-    evaluated: &Point<C>,
-    blinded: &Point<C>,
-    pk: &Point<C>,
+    blind: &ScalarE<C>,
+    evaluated: &PointE<C>,
+    blinded: &PointE<C>,
+    pk: &PointE<C>,
     proof: &Proof<C>,
-) -> Result<[u8; C::NH], OprfError> {
-    if !verify_proof::<C>(&Point::<C>::GENERATOR, pk, &[*blinded], &[*evaluated], proof, 0x01) {
+) -> Result<Vec<u8>, OprfError> {
+    if !verify_proof::<C>(&PointE::<C>::GENERATOR, pk, &[*blinded], &[*evaluated], proof, 0x01) {
         return Err(OprfError::ProofVerification);
     }
     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
@@ -138,12 +140,12 @@ fn frame_info(info: &[u8]) -> Vec<u8> {
 pub fn blind_poprf<C: Suite>(
     input: &[u8],
     info: &[u8],
-    pk: &Point<C>,
-    blind: &Scalar<C>,
-) -> (Point<C>, Point<C>) {
+    pk: &PointE<C>,
+    blind: &ScalarE<C>,
+) -> (PointE<C>, PointE<C>) {
     let framed = frame_info(info);
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
-    let t = Point::<C>::GENERATOR * m;
+    let t = PointE::<C>::GENERATOR * m;
     let tweaked = t + *pk;
     assert!(!bool::from(tweaked.is_identity()), "tweaked key is identity");
     let dst = dst_group::<C>(0x02);
@@ -155,18 +157,18 @@ pub fn blind_poprf<C: Suite>(
 /// Server-side evaluation with a DLEQ proof (`BlindEvaluate` in
 /// RFC 9497 §3.3.3).
 pub fn blind_evaluate_poprf<C: Suite>(
-    sk: &Scalar<C>,
-    blinded: &Point<C>,
+    sk: &ScalarE<C>,
+    blinded: &PointE<C>,
     info: &[u8],
-) -> (Point<C>, Proof<C>) {
+) -> (PointE<C>, Proof<C>) {
     let framed = frame_info(info);
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
     let t = *sk + m;
     assert!(!bool::from(t.is_zero()), "POPRF inverse of zero");
     let t_inv = Option::from(t.invert()).expect("t invertible");
     let evaluated = *blinded * t_inv;
-    let tweaked_key = Point::<C>::GENERATOR * t;
-    let proof = generate_proof::<C>(&t, &Point::<C>::GENERATOR, &tweaked_key, &[*evaluated], &[*blinded], 0x02);
+    let tweaked_key = PointE::<C>::GENERATOR * t;
+    let proof = generate_proof::<C>(&t, &PointE::<C>::GENERATOR, &tweaked_key, &[*evaluated], &[*blinded], 0x02);
     (evaluated, proof)
 }
 
@@ -174,14 +176,14 @@ pub fn blind_evaluate_poprf<C: Suite>(
 /// RFC 9497 §3.3.3).
 pub fn finalize_poprf<C: Suite>(
     input: &[u8],
-    blind: &Scalar<C>,
-    evaluated: &Point<C>,
-    blinded: &Point<C>,
+    blind: &ScalarE<C>,
+    evaluated: &PointE<C>,
+    blinded: &PointE<C>,
     proof: &Proof<C>,
     info: &[u8],
-    tweaked: &Point<C>,
-) -> Result<[u8; C::NH], OprfError> {
-    if !verify_proof::<C>(&Point::<C>::GENERATOR, tweaked, &[*evaluated], &[*blinded], proof, 0x02) {
+    tweaked: &PointE<C>,
+) -> Result<Vec<u8>, OprfError> {
+    if !verify_proof::<C>(&PointE::<C>::GENERATOR, tweaked, &[*evaluated], &[*blinded], proof, 0x02) {
         return Err(OprfError::ProofVerification);
     }
     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
@@ -191,7 +193,7 @@ pub fn finalize_poprf<C: Suite>(
 
 /// Direct evaluation by a party holding the private key (`Evaluate` in
 /// RFC 9497 §3.3.3), binding the public `info`.
-pub fn evaluate_poprf<C: Suite>(sk: &Scalar<C>, input: &[u8], info: &[u8]) -> [u8; C::NH] {
+pub fn evaluate_poprf<C: Suite>(sk: &ScalarE<C>, input: &[u8], info: &[u8]) -> Vec<u8> {
     let framed = frame_info(info);
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
     let t = *sk + m;
@@ -209,7 +211,7 @@ pub fn evaluate_poprf<C: Suite>(sk: &Scalar<C>, input: &[u8], info: &[u8]) -> [u
 
 /// The `hashInput` hash used by every `Finalize` / `Evaluate` (RFC 9497
 /// §3.3). POPRF (`mode == 0x02`) additionally binds `info`.
-fn finalize_hash<C: Suite>(input: &[u8], unblinded: &[u8], info: Option<&[u8]>, mode: u8) -> [u8; C::NH] {
+fn finalize_hash<C: Suite>(input: &[u8], unblinded: &[u8], info: Option<&[u8]>, mode: u8) -> Vec<u8> {
     let mut h = C::Hash::new();
     h.update(len_prefixed(input));
     if mode == 0x02 {
@@ -219,9 +221,7 @@ fn finalize_hash<C: Suite>(input: &[u8], unblinded: &[u8], info: Option<&[u8]>, 
     h.update(len_prefixed(unblinded));
     h.update(b"Finalize");
     let out = h.finalize();
-    let mut r = [0u8; C::NH];
-    r.copy_from_slice(&out);
-    r
+    out.to_vec()
 }
 
 // ---------------------------------------------------------------------------
@@ -230,11 +230,11 @@ fn finalize_hash<C: Suite>(input: &[u8], unblinded: &[u8], info: Option<&[u8]>, 
 
 /// Generate a DLEQ proof (`GenerateProof` in RFC 9497 §2.2.1).
 pub fn generate_proof<C: Suite>(
-    k: &Scalar<C>,
-    a: &Point<C>,
-    b: &Point<C>,
-    c: &[Point<C>],
-    d: &[Point<C>],
+    k: &ScalarE<C>,
+    a: &PointE<C>,
+    b: &PointE<C>,
+    c: &[PointE<C>],
+    d: &[PointE<C>],
     mode: u8,
 ) -> Proof<C> {
     generate_proof_rng::<C>(k, a, b, c, d, mode, &random_scalar::<C>())
@@ -243,13 +243,13 @@ pub fn generate_proof<C: Suite>(
 /// Generate a DLEQ proof with an explicit `r` (used to reproduce the
 /// deterministic RFC 9497 test vectors).
 pub fn generate_proof_rng<C: Suite>(
-    k: &Scalar<C>,
-    a: &Point<C>,
-    b: &Point<C>,
-    c: &[Point<C>],
-    d: &[Point<C>],
+    k: &ScalarE<C>,
+    a: &PointE<C>,
+    b: &PointE<C>,
+    c: &[PointE<C>],
+    d: &[PointE<C>],
     mode: u8,
-    r: &Scalar<C>,
+    r: &ScalarE<C>,
 ) -> Proof<C> {
     let (m, z) = compute_composites_fast::<C>(k, b, c, d, mode);
     let t2 = *a * *r;
@@ -268,10 +268,10 @@ pub fn generate_proof_rng<C: Suite>(
 
 /// Verify a DLEQ proof (`VerifyProof` in RFC 9497 §2.2.2).
 pub fn verify_proof<C: Suite>(
-    a: &Point<C>,
-    b: &Point<C>,
-    c: &[Point<C>],
-    d: &[Point<C>],
+    a: &PointE<C>,
+    b: &PointE<C>,
+    c: &[PointE<C>],
+    d: &[PointE<C>],
     proof: &Proof<C>,
     mode: u8,
 ) -> bool {
@@ -293,14 +293,14 @@ pub fn verify_proof<C: Suite>(
 
 /// `ComputeCompositesFast` (RFC 9497 §2.2.1) — server side, knows `k`.
 fn compute_composites_fast<C: Suite>(
-    k: &Scalar<C>,
-    b: &Point<C>,
-    c: &[Point<C>],
-    d: &[Point<C>],
+    k: &ScalarE<C>,
+    b: &PointE<C>,
+    c: &[PointE<C>],
+    d: &[PointE<C>],
     mode: u8,
-) -> (Point<C>, Point<C>) {
+) -> (PointE<C>, PointE<C>) {
     let seed = seed_for::<C>(b, mode);
-    let mut m = Point::<C>::IDENTITY;
+    let mut m = PointE::<C>::IDENTITY;
     for i in 0..c.len() {
         let ci = serialize_element::<C>(&c[i]);
         let di = serialize_element::<C>(&d[i]);
@@ -313,10 +313,10 @@ fn compute_composites_fast<C: Suite>(
 }
 
 /// `ComputeComposites` (RFC 9497 §2.2.2) — verifier side.
-fn compute_composites<C: Suite>(b: &Point<C>, c: &[Point<C>], d: &[Point<C>], mode: u8) -> (Point<C>, Point<C>) {
+fn compute_composites<C: Suite>(b: &PointE<C>, c: &[PointE<C>], d: &[PointE<C>], mode: u8) -> (PointE<C>, PointE<C>) {
     let seed = seed_for::<C>(b, mode);
-    let mut m = Point::<C>::IDENTITY;
-    let mut z = Point::<C>::IDENTITY;
+    let mut m = PointE::<C>::IDENTITY;
+    let mut z = PointE::<C>::IDENTITY;
     for i in 0..c.len() {
         let ci = serialize_element::<C>(&c[i]);
         let di = serialize_element::<C>(&d[i]);
@@ -329,7 +329,7 @@ fn compute_composites<C: Suite>(b: &Point<C>, c: &[Point<C>], d: &[Point<C>], mo
 }
 
 /// Derive the `seed` used by `ComputeComposites` (RFC 9497 §2.2).
-fn seed_for<C: Suite>(b: &Point<C>, mode: u8) -> Vec<u8> {
+fn seed_for<C: Suite>(b: &PointE<C>, mode: u8) -> Vec<u8> {
     let ctx = C::context_string(mode);
     let seed_dst = format!("Seed-{}", ctx).into_bytes();
     let bm = serialize_element::<C>(b);
@@ -391,7 +391,7 @@ pub fn deserialize_proof<C: Suite>(b: &[u8]) -> Result<Proof<C>, OprfError> {
 /// (`DeriveKeyPair` in RFC 9497 §3.2.1). `mode` selects the context string
 /// (e.g. `0x00` for the OPRF-mode test vectors, `0x01` for Privacy Pass
 /// VOPRF issuance per RFC 9578 §5.5).
-pub fn derive_key_pair<C: Suite>(seed: &[u8], info: &[u8], mode: u8) -> (Scalar<C>, Point<C>) {
+pub fn derive_key_pair<C: Suite>(seed: &[u8], info: &[u8], mode: u8) -> (ScalarE<C>, PointE<C>) {
     let ctx = C::context_string(mode);
     let dst = format!("DeriveKeyPair{}", ctx).into_bytes();
     let mut derive_input = Vec::with_capacity(seed.len() + 2 + info.len());
@@ -400,7 +400,7 @@ pub fn derive_key_pair<C: Suite>(seed: &[u8], info: &[u8], mode: u8) -> (Scalar<
     derive_input.extend_from_slice(info);
 
     let mut counter: u8 = 0;
-    let mut sk = Scalar::<C>::ZERO;
+    let mut sk = ScalarE::<C>::ZERO;
     loop {
         assert!(counter <= 255, "DeriveKeyPair counter exhausted");
         let mut input = derive_input.clone();
@@ -412,6 +412,6 @@ pub fn derive_key_pair<C: Suite>(seed: &[u8], info: &[u8], mode: u8) -> (Scalar<
             break;
         }
     }
-    let pk = Point::<C>::GENERATOR * sk;
+    let pk = PointE::<C>::GENERATOR * sk;
     (sk, pk)
 }
