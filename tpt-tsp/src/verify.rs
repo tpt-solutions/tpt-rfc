@@ -99,7 +99,7 @@ pub fn verify_timestamp_response(
     // Locate the signer certificate and verify its signature.
     let cert = find_signer_cert(&signed_data, signer_info)
         .ok_or(TspError::SignerCertNotFound)?;
-    let spki = &cert.tbs_certificate().subject()_public_key_info();
+    let spki = &cert.tbs_certificate().subject_public_key_info();
     verify_signature_raw(
         &to_be_signed,
         signer_info.signature.as_bytes(),
@@ -160,7 +160,7 @@ pub fn verify_timestamp_response(
         let mut trusted = false;
         for anchor in anchors {
             if name_eq(&cert.tbs_certificate().issuer(), &anchor.tbs_certificate().subject())
-                && verify_cert_signature(cert, &anchor.tbs_certificate().subject()_public_key_info()).is_ok()
+                && verify_cert_signature(cert, &anchor.tbs_certificate().subject_public_key_info()).is_ok()
             {
                 trusted = true;
                 break;
@@ -207,14 +207,14 @@ fn find_signer_cert<'a>(sd: &SignedData<'a>, si: &SignerInfo<'a>) -> Option<Cert
 
 fn attr_value_octet(any: &AnyRef) -> der::Result<Vec<u8>> {
     let set = AnyRef::from_der(any.as_bytes())?;
-    let elems = decode_set_elements::<AnyRef>(set.value)?;
+    let elems = decode_set_elements::<AnyRef>(set.value())?;
     let first = elems.into_iter().next().ok_or_else(missing_attr)?;
     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
 }
 
 fn attr_value_oid(any: &AnyRef) -> der::Result<ObjectIdentifier> {
     let set = AnyRef::from_der(any.as_bytes())?;
-    let elems = decode_set_elements::<AnyRef>(set.value)?;
+    let elems = decode_set_elements::<AnyRef>(set.value())?;
     let first = elems.into_iter().next().ok_or_else(missing_attr)?;
     Ok(ObjectIdentifierRef::from_der(first.as_bytes())?.to_owned())
 }

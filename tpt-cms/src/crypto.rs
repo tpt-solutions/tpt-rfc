@@ -101,7 +101,7 @@ impl ContentEncryption {
     pub fn encrypt(&self, key: &[u8], iv: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
         use cbc::{Decryptor, Encryptor};
-        use cbc::block_padding::Pkcs7;
+        use block_padding::Pkcs7;
         match self {
             ContentEncryption::Aes128Cbc => {
                 let enc = Encryptor::<aes::Aes128>::new(key.into(), iv.into());
@@ -121,7 +121,7 @@ impl ContentEncryption {
     pub fn decrypt(&self, key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
         use cbc::{Decryptor, Encryptor};
-        use cbc::block_padding::Pkcs7;
+        use block_padding::Pkcs7;
         let pt = match self {
             ContentEncryption::Aes128Cbc => {
                 let dec = Decryptor::<aes::Aes128>::new(key.into(), iv.into());
@@ -459,7 +459,7 @@ impl SigningKey {
 }
 
 /// Extract the public key from an `x509_cert` SubjectPublicKeyInfo.
-pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfo) -> Result<PublicKey> {
+pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfoRef<'_>) -> Result<PublicKey> {
     let alg = spki.algorithm.oid.to_string();
     let params_der = spki
         .algorithm
@@ -469,7 +469,10 @@ pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfo) -> Result<
     let key_bytes = spki.subject_public_key.as_bytes();
     match alg.as_str() {
         oids::RSA_ENCRYPTION => {
-            let pubkey = RsaPub::try_from(spki.clone())
+            let spki_der = spki
+                .to_der()
+                .map_err(|e| CmsError::Crypto(format!("spki der: {e}")))?;
+            let pubkey = RsaPub::from_public_key_der(&spki_der)
                 .map_err(|e| CmsError::Crypto(format!("RSA pubkey: {e}")))?;
             Ok(PublicKey::Rsa(pubkey))
         }

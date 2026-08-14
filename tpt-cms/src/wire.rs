@@ -3,15 +3,17 @@
 //! Encoding is performed with manual TLV helpers (so the crate stays in full
 //! control of DER ordering, sorting of SET OF elements, and the exact
 //! `IMPLICIT`/`EXPLICIT` tagging the spec mandates). Decoding reuses the `der`
-//! `#[derive(Sequence)]` machinery on borrow-from-input types.
+//! primitives via a small [`Cursor`] abstraction and hand-written parsers for
+//! the IMPLICIT-tagged CMS fields.
 
 use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{AnyRef, Name, OctetStringRef, UintRef},
-    Sequence,
+    asn1::{AnyRef, OctetStringRef, UintRef},
+    Decode, Encode, Tag, TagNumber,
 };
 use spki::AlgorithmIdentifierRef;
-use x509_cert::name::Name as X509Name;
+
+use crate::error::{CmsError, Result};
 
 // ---------------------------------------------------------------------------
 // Manual TLV builders
@@ -42,7 +44,12 @@ pub(crate) fn enc_len(n: usize) -> Vec<u8> {
 
 /// `[n] EXPLICIT` (or IMPLICIT-constructed) context tag: `0xA0 | n`.
 pub(crate) fn ctx(n: u8, content: &[u8]) -> Vec<u8> {
-    tlv(0xA0 | n, content)
+    tlv(0xA0 | (n & 0x1F), content)
+}
+
+/// `[n] IMPLICIT OCTET STRING` (primitive context tag): `0x80 | n`.
+pub(crate) fn implicit_octet_string(n: u8, content: &[u8]) -> Vec<u8> {
+    tlv(0x80 | (n & 0x1F), content)
 }
 
 pub(crate) fn integer_be(bytes: &[u8]) -> Vec<u8> {
@@ -65,6 +72,13 @@ pub(crate) fn integer_u64(v: u64) -> Vec<u8> {
 
 pub(crate) fn octet_string(data: &[u8]) -> Vec<u8> {
     tlv(0x04, data)
+}
+
+pub(crate) fn bit_string(data: &[u8]) -> Vec<u8> {
+    // Unused-bits count 0, then the raw bytes.
+    let mut content = vec![0x00];
+    content.extend_from_slice(data);
+    tlv(0x03, &content)
 }
 
 pub(crate) fn oid_der(oid: &ObjectIdentifier) -> Vec<u8> {
@@ -104,229 +118,163 @@ pub(crate) fn signed_attrs_tlv(content: &[u8]) -> Vec<u8> {
 }
 
 // ---------------------------------------------------------------------------
-// Shared DER value wrappers
+// Tag helpers for manual decoding
 // ---------------------------------------------------------------------------
 
-/// Raw `IMPLICIT [N]` constructed content: carries just the *content* octets of
-/// an `IMPLICIT [N]` field (the context tag is emitted by the caller).
-#[derive(Clone)]
-pub(crate) struct RawContent(pub Vec<u8>);
-
-impl der::Encode for RawContent {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        der::Length::try_from(self.0.len())
-    }
-    fn encode(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        encoder.write(&self.0)
+/// Context-specific, constructed tag `[n]` (EXPLICIT wrapper / IMPLICIT SET).
+pub(crate) fn ctx_tag(n: u8) -> Tag {
+    Tag::ContextSpecific {
+        constructed: true,
+        number: TagNumber(n as u32),
     }
 }
 
-impl<'a> der::Decode<'a> for RawContent {
-    fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(decoder)?;
-        Ok(RawContent(any.value.to_vec()))
+/// Context-specific, primitive tag `[n]` (IMPLICIT OCTET STRING).
+pub(crate) fn ctx_tag_prim(n: u8) -> Tag {
+    Tag::ContextSpecific {
+        constructed: false,
+        number: TagNumber(n as u32),
     }
 }
 
-/// `SET OF AlgorithmIdentifier` (RFC 5652 `DigestAlgorithmIdentifiers`).
-#[derive(Clone)]
-pub(crate) struct DigestAlgorithmIdentifiers<'a>(pub Vec<AlgorithmIdentifierRef<'a>>);
+/// Construct a `CmsError::Asn1` for an unexpected tag.
+pub(crate) fn unexpected_tag(actual: Tag, expected: Tag) -> CmsError {
+    CmsError::Asn1(der::Error::new(der::ErrorKind::TagUnexpected {
+        expected: Some(expected),
+        actual,
+    }))
+}
 
-impl<'a> der::Encode for DigestAlgorithmIdentifiers<'a> {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        let parts: Vec<Vec<u8>> = self
-            .0
-            .iter()
-            .map(|a| a.to_der())
-            .collect::<der::Result<Vec<_>>>()?;
-        der::Length::try_from(set_of(&parts).len())
+// ---------------------------------------------------------------------------
+// DER cursor for manual parsing
+// ---------------------------------------------------------------------------
+
+/// A cursor over a DER byte slice that yields one TLV at a time.
+pub(crate) struct Cursor<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Cursor<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Cursor { data }
     }
-    fn encode(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        let parts: Vec<Vec<u8>> = self
-            .0
-            .iter()
-            .map(|a| a.to_der())
-            .collect::<der::Result<Vec<_>>>()?;
-        encoder.write(&set_of(&parts))
+
+    /// Take the next TLV, advancing the cursor past it.
+    pub fn take(&mut self) -> Result<AnyRef<'a>> {
+        let a = AnyRef::from_der(self.data).map_err(CmsError::Asn1)?;
+        self.data = &self.data[a.as_bytes().len()..];
+        Ok(a)
+    }
+
+    /// Peek at the next tag without consuming it.
+    pub fn peek_tag(&self) -> Option<Tag> {
+        AnyRef::from_der(self.data).ok().map(|a| a.tag())
+    }
+
+    pub fn at_end(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    pub fn remaining(&self) -> &'a [u8] {
+        self.data
     }
 }
 
-impl<'a> der::Decode<'a> for DigestAlgorithmIdentifiers<'a> {
-    fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(decoder)?;
-        if any.tag != der::Tag::Set {
-            return Err(der::Error::TagUnexpected {
-                expected: Some(der::Tag::Set),
-                actual: any.tag,
-            });
-        }
-        decode_set_elements(&any.value)
+pub(crate) fn ensure_tag(actual: Tag, expected: Tag) -> Result<()> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(unexpected_tag(actual, expected))
     }
 }
 
-/// `SET OF SignerInfo` (RFC 5652 `SignerInfos`).
-#[derive(Clone)]
-pub(crate) struct SignerInfos<'a>(pub Vec<SignerInfo<'a>>);
-
-impl<'a> der::Encode for SignerInfos<'a> {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        let parts: Vec<Vec<u8>> = self
-            .0
-            .iter()
-            .map(|s| s.to_der())
-            .collect::<der::Result<Vec<_>>>()?;
-        der::Length::try_from(set_of(&parts).len())
-    }
-    fn encode(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        let parts: Vec<Vec<u8>> = self
-            .0
-            .iter()
-            .map(|s| s.to_der())
-            .collect::<der::Result<Vec<_>>>()?;
-        encoder.write(&set_of(&parts))
-    }
+pub(crate) fn ensure_ctx(actual: Tag, n: u8) -> Result<()> {
+    ensure_tag(actual, ctx_tag(n))
 }
 
-impl<'a> der::Decode<'a> for SignerInfos<'a> {
-    fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(decoder)?;
-        if any.tag != der::Tag::Set {
-            return Err(der::Error::TagUnexpected {
-                expected: Some(der::Tag::Set),
-                actual: any.tag,
-            });
-        }
-        decode_set_elements(&any.value)
-    }
+/// Decode the OID carried by `any` (whose tag must be OBJECT IDENTIFIER).
+pub(crate) fn oid_of(any: &AnyRef) -> Result<ObjectIdentifier> {
+    ObjectIdentifier::from_der(any.value()).map_err(CmsError::Asn1)
 }
 
-/// Decode the elements of a `SET`/`SET OF` whose DER is in `data`.
-pub(crate) fn decode_set_elements<'a, T: der::Decode<'a>>(data: &'a [u8]) -> der::Result<Vec<T>> {
+/// Decode the `AlgorithmIdentifier` carried by `any`.
+pub(crate) fn algid_of<'a>(any: &AnyRef<'a>) -> Result<AlgorithmIdentifierRef<'a>> {
+    AlgorithmIdentifierRef::from_der(any.value()).map_err(CmsError::Asn1)
+}
+
+/// Decode the OCTET STRING carried by `any` and return its value bytes.
+pub(crate) fn octet_value(any: &AnyRef) -> Result<Vec<u8>> {
+    Ok(OctetStringRef::try_from(any.value())
+        .map_err(CmsError::Asn1)?
+        .as_bytes()
+        .to_vec())
+}
+
+/// Decode `any` as an INTEGER and return its (raw) value bytes.
+pub(crate) fn integer_value(any: &AnyRef) -> Result<Vec<u8>> {
+    Ok(UintRef::try_from(any.value())
+        .map_err(CmsError::Asn1)?
+        .as_bytes()
+        .to_vec())
+}
+
+/// Decode a `SET OF T` from a cursor, returning each element's full DER.
+pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
+    let set = c.take()?;
+    ensure_tag(set.tag(), Tag::Set)?;
+    let mut inner = Cursor::new(set.value());
     let mut out = Vec::new();
-    let mut rest = data;
-    while !rest.is_empty() {
-        let any = AnyRef::from_der(rest)?;
-        let consumed = any.as_bytes().len();
-        out.push(T::from_der(any.as_bytes())?);
-        rest = &rest[consumed..];
+    while !inner.at_end() {
+        let a = inner.take()?;
+        out.push(a.as_bytes().to_vec());
     }
     Ok(out)
 }
 
-// ---------------------------------------------------------------------------
-// Top-level content wrapper + core content types (decode side)
-// ---------------------------------------------------------------------------
-
-/// `ContentInfo` — `{ contentType, content [0] EXPLICIT ANY }` (RFC 5652 §3).
-#[derive(Clone, Sequence)]
-pub(crate) struct ContentInfo<'a> {
-    pub content_type: ObjectIdentifierRef<'a>,
-    #[asn1(context_specific = "0", constructed)]
-    pub content: AnyRef<'a>,
+/// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
+pub(crate) fn octet_value_param(
+    param: Option<&der::asn1::AnyRef>,
+    what: &str,
+) -> Result<Vec<u8>> {
+    let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
+    Ok(OctetStringRef::try_from(p.value())
+        .map_err(CmsError::Asn1)?
+        .as_bytes()
+        .to_vec())
 }
 
-impl<'a> ContentInfo<'a> {
-    pub fn content_as<T: der::Decode<'a>>(&self) -> der::Result<T> {
-        T::from_der(self.content.value)
+/// Decode a `SET OF T` (DER-sorted element list) into owned `T` values.
+pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<Vec<T>> {
+    let set = AnyRef::from_der(data).map_err(CmsError::Asn1)?;
+    ensure_tag(set.tag(), Tag::Set)?;
+    let mut inner = Cursor::new(set.value());
+    let mut out = Vec::new();
+    while !inner.at_end() {
+        let a = inner.take()?;
+        out.push(T::from_der(a.as_bytes()).map_err(CmsError::Asn1)?);
     }
+    Ok(out)
 }
 
-/// `EncapsulatedContentInfo` — `{ eContentType, eContent [0] EXPLICIT OCTET STRING }`.
-#[derive(Clone, Sequence)]
-pub(crate) struct EncapsulatedContentInfo<'a> {
-    pub e_content_type: ObjectIdentifierRef<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
-    pub e_content: Option<AnyRef<'a>>,
-}
-
-impl<'a> EncapsulatedContentInfo<'a> {
-    pub fn content_bytes(&self) -> der::Result<Vec<u8>> {
-        match &self.e_content {
-            Some(any) => Ok(OctetStringRef::from_der(any.value)?.as_bytes().to_vec()),
-            None => Ok(Vec::new()),
-        }
+/// Parse the elements of a `SET`/`SET OF` whose DER is in `data`.
+pub(crate) fn parse_set_elements_raw<'a>(data: &'a [u8]) -> Result<Vec<&'a [u8]>> {
+    let set = AnyRef::from_der(data).map_err(CmsError::Asn1)?;
+    ensure_tag(set.tag(), Tag::Set)?;
+    let mut inner = Cursor::new(set.value());
+    let mut out = Vec::new();
+    while !inner.at_end() {
+        let a = inner.take()?;
+        out.push(a.as_bytes());
     }
+    Ok(out)
 }
 
-/// `IssuerAndSerialNumber` (RFC 5652 §10.2.4).
-#[derive(Clone, Sequence)]
-pub(crate) struct IssuerAndSerialNumber<'a> {
-    pub issuer: X509Name,
-    pub serial_number: UintRef<'a>,
-}
-
-/// `SignerIdentifier` (RFC 5652 §10.2.3): CHOICE of `IssuerAndSerialNumber`
-/// (the common, default form) or `subjectKeyIdentifier [0] IMPLICIT`.
-#[derive(Clone)]
-pub(crate) enum SignerIdentifier<'a> {
-    IssuerAndSerialNumber(IssuerAndSerialNumber<'a>),
-    SubjectKeyIdentifier(der::asn1::OctetStringRef<'a>),
-}
-
-impl<'a> der::Decode<'a> for SignerIdentifier<'a> {
-    fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(decoder)?;
-        match any.tag {
-            der::Tag::Sequence => Ok(SignerIdentifier::IssuerAndSerialNumber(
-                IssuerAndSerialNumber::from_der(any.as_bytes())?,
-            )),
-            // [0] IMPLICIT subjectKeyIdentifier => context-specific, primitive [0].
-            tag if tag == der::Tag::context_specific(0) => Ok(
-                SignerIdentifier::SubjectKeyIdentifier(der::asn1::OctetStringRef::from_der(
-                    any.value,
-                )?),
-            ),
-            other => Err(der::Error::TagUnexpected {
-                expected: Some(der::Tag::Sequence),
-                actual: other,
-            }),
-        }
-    }
-}
-
-impl<'a> der::Encode for SignerIdentifier<'a> {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        match self {
-            SignerIdentifier::IssuerAndSerialNumber(i) => i.encoded_len(),
-            SignerIdentifier::SubjectKeyIdentifier(s) => s.encoded_len(),
-        }
-    }
-    fn encode(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        match self {
-            SignerIdentifier::IssuerAndSerialNumber(i) => i.encode(encoder),
-            SignerIdentifier::SubjectKeyIdentifier(s) => s.encode(encoder),
-        }
-    }
-}
-
-/// `SignerInfo` (RFC 5652 §5.3).
-#[derive(Clone, Sequence)]
-pub(crate) struct SignerInfo<'a> {
-    pub version: UintRef<'a>,
-    pub sid: SignerIdentifier<'a>,
-    pub digest_algorithm: AlgorithmIdentifierRef<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
-    pub signed_attrs: Option<RawContent>,
-    pub signature_algorithm: AlgorithmIdentifierRef<'a>,
-    pub signature: OctetStringRef<'a>,
-}
-
-/// CMS `Attribute` `{ attrType, attrValues SET OF AttributeValue }` (RFC 5652 §11).
-#[derive(Clone, Sequence)]
-pub(crate) struct Attribute<'a> {
-    pub attr_type: ObjectIdentifierRef<'a>,
-    pub attr_values: der::asn1::SetOfVec<AnyRef<'a>>,
-}
-
-/// `SignedData` (RFC 5652 §5.1).
-#[derive(Clone, Sequence)]
-pub(crate) struct SignedData<'a> {
-    pub version: UintRef<'a>,
-    pub digest_algorithms: DigestAlgorithmIdentifiers<'a>,
-    pub encap_content_info: EncapsulatedContentInfo<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
-    pub certificates: Option<RawContent>,
-    #[asn1(context_specific = "1", constructed, optional)]
-    pub crls: Option<RawContent>,
-    pub signer_infos: SignerInfos<'a>,
+/// Parse an IMPLICIT `[n] EXPLICIT { SEQUENCE { ... } }` context tag and return
+/// the inner SEQUENCE content cursor. `n` is the outer context tag number.
+pub(crate) fn open_ctx_sequence<'a>(c: &mut Cursor<'a>, n: u8) -> Result<Cursor<'a>> {
+    let any = c.take()?;
+    ensure_tag(any.tag(), ctx_tag(n))?;
+    let seq = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
+    ensure_tag(seq.tag(), Tag::Sequence)?;
+    Ok(Cursor::new(seq.value()))
 }

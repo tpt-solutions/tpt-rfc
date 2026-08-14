@@ -159,7 +159,7 @@ where
         }
         got_any = true;
         let mut i = 0usize;
-        let mut had_literal = false;
+    let mut had_literal = false;
         while i < line.len() {
             while i < line.len() && (line[i] == b' ' || line[i] == b'\t') {
                 i += 1;
@@ -208,9 +208,12 @@ where
                 }
             }
         }
-        if !had_literal {
-            break;
-        }
+        // The literal's data (and its terminating CRLF) has already been
+        // consumed above; any tokens following the literal on the same
+        // logical line have also been scanned. The command is therefore
+        // complete — do not read another line.
+        let _ = had_literal;
+        break;
     }
 
     if toks.len() < 2 {

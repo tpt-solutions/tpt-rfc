@@ -9,32 +9,36 @@
 
 use std::collections::HashSet;
 
-use spki::SubjectPublicKeyInfo;
+use der::asn1::OctetStringRef;
 use x509_cert::Certificate;
 
 use crate::crypto::{public_key_from_spki, sig_alg_hash, verify_signature, PublicKey};
 use crate::error::{CmsError, Result};
 use crate::oids;
-use crate::wire::{IssuerAndSerialNumber, SignerIdentifier};
-use der::asn1::OctetStringRef;
 
 /// Parse a DER-encoded X.509 certificate.
 pub(crate) fn parse_cert(der: &[u8]) -> Result<Certificate> {
-    Certificate::from_der(der).map_err(CmsError::Decode)
+    Certificate::from_der(der).map_err(CmsError::Asn1)
 }
 
 /// DER encoding of a certificate's `issuer` `Name`.
-pub(crate) fn issuer_der(cert: &Certificate) -> Vec<u8> {
-    cert.tbs_certificate().issuer().to_der().expect("issuer der")
+pub(crate) fn cert_issuer_der(cert: &Certificate) -> Vec<u8> {
+    cert.tbs_certificate()
+        .issuer()
+        .to_der()
+        .expect("issuer der")
 }
 
 /// DER encoding of a certificate's `subject` `Name`.
 pub(crate) fn subject_der(cert: &Certificate) -> Vec<u8> {
-    cert.tbs_certificate().subject().to_der().expect("subject der")
+    cert.tbs_certificate()
+        .subject()
+        .to_der()
+        .expect("subject der")
 }
 
-/// DER encoding of a certificate's `serialNumber`.
-pub(crate) fn serial_der(cert: &Certificate) -> Vec<u8> {
+/// Raw value bytes of a certificate's `serialNumber`.
+pub(crate) fn cert_serial_bytes(cert: &Certificate) -> Vec<u8> {
     cert.tbs_certificate()
         .serial_number()
         .as_bytes()
@@ -46,39 +50,40 @@ pub(crate) fn tbs_der(cert: &Certificate) -> Vec<u8> {
     cert.tbs_certificate().to_der().expect("tbs der")
 }
 
-/// True when `issuer` == `subject` (self-issued/self-signed by DN).
+/// True when `issuer` == `subject` (self-issued / self-signed by DN).
 pub(crate) fn is_self_signed(cert: &Certificate) -> bool {
-    issuer_der(cert) == subject_der(cert)
+    cert_issuer_der(cert) == subject_der(cert)
 }
 
-/// Locate the signer certificate within `certs` matching `sid`.
-pub(crate) fn find_signer_cert(certs: &[Certificate], sid: &SignerIdentifier) -> Option<Certificate> {
-    match sid {
-        SignerIdentifier::IssuerAndSerialNumber(ias) => {
-            let want_issuer = ias.issuer.to_der().ok()?;
-            let want_serial = ias.serial_number.as_bytes().to_vec();
-            certs.iter().find(|c| {
-                issuer_der(c) == want_issuer && serial_der(c) == want_serial
-            }).cloned()
-        }
-        SignerIdentifier::SubjectKeyIdentifier(ski) => {
-            // Compare against the SKI extension if present.
-            certs.iter().find(|c| {
-                ski_extension(c).map(|s| s == ski.as_bytes()).unwrap_or(false)
-            }).cloned()
-        }
+/// Locate the signer certificate within `certs` matching either an
+/// `IssuerAndSerialNumber` (by `issuer_der` + `serial` value bytes) or a
+/// `subjectKeyIdentifier` (`ski`).
+pub(crate) fn find_signer_cert(
+    certs: &[Certificate],
+    issuer_der: &[u8],
+    serial: &[u8],
+    ski: Option<&[u8]>,
+) -> Option<Certificate> {
+    if let Some(ski) = ski {
+        return certs
+            .iter()
+            .find(|c| ski_extension(c).as_deref() == Some(ski))
+            .cloned();
     }
+    certs
+        .iter()
+        .find(|c| cert_issuer_der(c) == issuer_der && cert_serial_bytes(c) == serial)
+        .cloned()
 }
 
 /// Extract the SubjectKeyIdentifier extension value bytes from a cert, if any.
 fn ski_extension(cert: &Certificate) -> Option<Vec<u8>> {
-    use x509_cert::ext::pkix::SubjectKeyIdentifier;
-    use x509_cert::ext::Extensions;
-    let exts: &Extensions = cert.tbs_certificate().extensions.as_ref()?;
+    let exts = cert.tbs_certificate().extensions()?;
     for ext in exts.iter() {
         if ext.extn_id.to_string() == oids::SUBJECT_KEY_IDENTIFIER {
-            // The extension value is a DER OCTET STRING wrapping the SKI.
-            let inner = der::asn1::OctetStringRef::from_der(ext.extn_value).ok()?;
+            // extn_value is an OCTET STRING whose content is the DER of the
+            // SubjectKeyIdentifier (itself an OCTET STRING).
+            let inner = OctetStringRef::from_der(ext.extn_value.as_bytes()).ok()?;
             return Some(inner.as_bytes().to_vec());
         }
     }
@@ -127,7 +132,7 @@ pub(crate) fn verify_chain(
         let pk = public_key_from_spki(issuer.tbs_certificate().subject_public_key_info())?;
         verify_cert_signature(&current, &pk)?;
 
-        let key = (issuer_der(&current), serial_der(&current));
+        let key = (cert_issuer_der(&current), cert_serial_bytes(&current));
         if !visited.insert(key) {
             return Err(CmsError::CertChain("certificate chain loop detected".into()));
         }
@@ -154,7 +159,7 @@ fn find_issuer<'a>(
     }
     Err(CmsError::CertChain(format!(
         "no issuer certificate found for {}",
-        issuer_der(cert)
+        cert_issuer_der(cert)
             .iter()
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
@@ -162,6 +167,6 @@ fn find_issuer<'a>(
 }
 
 /// The subject's `SubjectPublicKeyInfo` as required by signers.
-pub(crate) fn subject_public_key_info(cert: &Certificate) -> SubjectPublicKeyInfo {
+pub(crate) fn subject_public_key_info(cert: &Certificate) -> spki::SubjectPublicKeyInfoRef<'_> {
     cert.tbs_certificate().subject_public_key_info().clone()
 }

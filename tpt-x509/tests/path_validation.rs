@@ -9,7 +9,7 @@ use std::time::{Duration, SystemTime};
 
 use const_oid::ObjectIdentifier;
 use der::asn1::Ia5String;
-use ecdsa::signature::{Error as SigError, Keypair, Signer, Signature as SigTrait};
+use signature::{Error as SigError, Keypair, Signer};
 use flagset::FlagSet;
 use p256::ecdsa::SigningKey;
 use spki::{
@@ -54,15 +54,6 @@ const CODE_SIGNING: &str = "1.3.6.1.5.5.7.3.3";
 /// A P-256 ECDSA signature wrapper that carries its DER encoding.
 struct EcdsaSig(p256::ecdsa::Signature);
 
-impl SigTrait for EcdsaSig {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, SigError> {
-        Ok(EcdsaSig(p256::ecdsa::Signature::from_slice(bytes)?))
-    }
-    fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
-}
-
 impl spki::SignatureBitStringEncoding for EcdsaSig {
     fn to_bitstring(&self) -> der::Result<der::asn1::BitString> {
         der::asn1::BitString::new(0, self.0.to_vec())
@@ -81,7 +72,7 @@ impl Keypair for EcdsaSigner {
 
 impl DynSignatureAlgorithmIdentifier for EcdsaSigner {
     fn signature_algorithm_identifier(&self) -> der::Result<spki::AlgorithmIdentifier<der::asn1::Any>> {
-        self.0.signature_algorithm_identifier()
+        self.0.signature_algorithm_identifier().map_err(spki::Error::from)
     }
 }
 
@@ -440,3 +431,6 @@ fn intermediate_chain_is_validated() {
     let path = validator.validate(&leaf).expect("3-cert chain should validate");
     assert_eq!(path.len(), 3);
 }
+
+
+

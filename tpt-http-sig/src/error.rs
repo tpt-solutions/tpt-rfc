@@ -58,11 +58,5 @@ impl fmt::Display for HttpSigError {
     }
 }
 
-impl From<HttpSigError> for Box<dyn std::error::Error> {
-    fn from(e: HttpSigError) -> Self {
-        Box::new(e)
-    }
-}
-
 /// Convenience result alias used throughout the crate.
 pub type Result<T> = std::result::Result<T, HttpSigError>;

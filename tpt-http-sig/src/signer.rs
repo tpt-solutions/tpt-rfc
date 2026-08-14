@@ -6,7 +6,7 @@
 use crate::algorithm::{Algorithm, SigningKey, VerifyingKey};
 use crate::components::ComponentId;
 use crate::error::{HttpSigError, Result};
-use crate::headers::{parse_signature_input_value, SignatureInput};
+use crate::headers::parse_signature_input_value;
 use crate::message::HttpMessage;
 use crate::sf::{serialize_inner_list, SfParam, InnerList};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

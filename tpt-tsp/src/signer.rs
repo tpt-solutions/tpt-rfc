@@ -3,6 +3,7 @@
 
 use const_oid::ObjectIdentifier;
 use der::Encode;
+use ecdsa::signature::hazmat::PrehashSigner;
 use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey};
 use p384::ecdsa::{Signature as P384Signature, SigningKey as P384SigningKey};
 use rsa::pkcs1v15::Pkcs1v15Sign;

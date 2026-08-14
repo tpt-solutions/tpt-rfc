@@ -1,0 +1,25 @@
+[package]
+name = "tpt-ospf"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["ospf", "rfc2328", "rfc5340", "igp", "routing"]
+categories = ["network-programming"]
+description = "Clean-room, dual-licensed OSPFv2 (RFC 2328) + OSPFv3 (RFC 5340) implementation: packet codec, LSA database, neighbor FSM, and Dijkstra SPF"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

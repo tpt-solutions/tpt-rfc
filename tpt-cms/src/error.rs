@@ -5,11 +5,8 @@ use thiserror::Error;
 /// Errors that can occur while building, parsing, or verifying CMS messages.
 #[derive(Debug, Error)]
 pub enum CmsError {
-    #[error("ASN.1/DER encoding error: {0}")]
-    Encode(#[from] der::Error),
-
-    #[error("ASN.1/DER decoding error: {0}")]
-    Decode(#[from] der::Error),
+    #[error("ASN.1/DER error: {0}")]
+    Asn1(#[from] der::Error),
 
     #[error("the top-level ContentInfo contentType is not {expected} (got {got})")]
     UnexpectedContentType { expected: String, got: String },
@@ -69,10 +66,4 @@ pub enum CmsError {
     Crypto(String),
 }
 
-pub(crate) type Result<T> = std::result::Result<T, CmsError>;
-
-impl From<der::Error> for CmsError {
-    fn from(e: der::Error) -> Self {
-        CmsError::Decode(e)
-    }
-}
+pub type Result<T> = std::result::Result<T, CmsError>;

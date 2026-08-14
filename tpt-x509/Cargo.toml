@@ -40,6 +40,8 @@ ed25519-compact = "2"  # MIT
 [dev-dependencies]
 hex = "0.4"
 flagset = "0.4"
+signature = "3"
 
 [package.metadata.docs.rs]
 all-features = true
+

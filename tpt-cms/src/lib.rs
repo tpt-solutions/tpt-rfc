@@ -18,6 +18,7 @@
 #![warn(missing_docs)]
 
 pub mod error;
+pub mod oids;
 pub mod signed_data;
 pub mod enveloped_data;
 pub mod other;

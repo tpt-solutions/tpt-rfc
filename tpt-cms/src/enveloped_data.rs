@@ -2,10 +2,8 @@
 //! recipient information, with AES-CBC content encryption and AES key wrap.
 
 use const_oid::ObjectIdentifier;
-use der::{
-    asn1::{AnyRef, BitStringRef, ObjectIdentifierRef, OctetStringRef, UintRef},
-    Decode, DecodeValue, Encode, EncodeValue, FixedTag, Length, Sequence, Tag, Writer,
-};
+use der::asn1::{AnyRef, BitStringRef, OctetStringRef};
+use der::{Decode, Tag};
 use x509_cert::Certificate;
 
 use crate::cert::{cert_issuer_der, cert_serial_bytes};
@@ -15,7 +13,7 @@ use crate::crypto::{
 };
 use crate::error::{CmsError, Result};
 use crate::oids;
-use crate::wire::{self, ContentInfo};
+use crate::wire;
 
 use p256::SecretKey as P256Secret;
 use p384::SecretKey as P384Secret;
@@ -65,7 +63,7 @@ pub fn build_enveloped_data(
     let encrypted_content_info = wire::sequence(&[
         wire::oid_der(&content_enc.oid()),
         wire::algorithm_identifier(&content_enc.oid(), Some(&iv_param)),
-        wire::ctx(0, &wire::octet_string(&encrypted)),
+        wire::implicit_octet_string(0, &encrypted),
     ]);
 
     let mut recipient_infos: Vec<Vec<u8>> = Vec::new();
@@ -99,51 +97,52 @@ pub fn build_enveloped_data(
 
 /// Open an `EnvelopedData` `ContentInfo` (DER) using one of `recipients`.
 pub fn open_enveloped_data(der: &[u8], recipients: &[RecipientPrivateKey]) -> Result<Vec<u8>> {
-    let ci = ContentInfo::from_der(der)?;
-    if ci.content_type.to_string() != oids::ID_ENVELOPED_DATA {
+    let (ct, content_der) = decode_content_info(der)?;
+    if ct.to_string() != oids::ID_ENVELOPED_DATA {
         return Err(CmsError::UnexpectedContentType {
             expected: oids::ID_ENVELOPED_DATA.into(),
-            got: ci.content_type.to_string(),
+            got: ct.to_string(),
         });
     }
-    let sd = ci.content_as::<EnvelopedData>()?;
-    let eci = &sd.encrypted_content_info;
-    let ct: ObjectIdentifier = (*eci.e_content_type).clone();
-    let content_enc = ContentEncryption::from_oid(&ct)?;
-    let iv = extract_iv(&eci.content_enc_alg)?;
-    let encrypted = eci
-        .encrypted_content
-        .as_ref()
-        .ok_or(CmsError::MissingContent)?;
-    let encrypted = OctetStringRef::from_der(encrypted.value)?.as_bytes().to_vec();
+    let ed = parse_enveloped_data(&content_der)?;
+    let content_enc = ContentEncryption::from_oid(&ed.e_content_type)?;
+    let encrypted = &ed.encrypted_content;
 
     let mut last_err = None;
-    for ri in &sd.recipient_infos.0 {
+    for ri in &ed.recipient_infos {
         match ri {
-            RecipientInfo::KeyTrans(kt) => {
+            ParsedRecipientInfo::KeyTrans(kt) => {
                 for rec in recipients {
-                    let RecipientPrivateKey::Rsa(key, cert) = rec else { continue };
-                    if !rid_matches_cert(&kt.rid, cert) { continue; }
+                    let RecipientPrivateKey::Rsa(key, cert) = rec else {
+                        continue;
+                    };
+                    if !rid_matches(&kt.rid_issuer, &kt.rid_serial, cert) {
+                        continue;
+                    }
                     match open_key_trans(key, kt) {
-                        Ok(cek) => return content_enc.decrypt(&cek, &iv, &encrypted),
+                        Ok(cek) => return content_enc.decrypt(&cek, &ed.iv, encrypted),
                         Err(e) => last_err = Some(e),
                     }
                 }
             }
-            RecipientInfo::KeyAgree(ka) => {
+            ParsedRecipientInfo::KeyAgree(ka) => {
                 for rec in recipients {
                     match rec {
                         RecipientPrivateKey::EcdhP256(key, cert) => {
-                            if !rid_matches_cert(&ka.recipient.rid, cert) { continue; }
+                            if !rid_matches(&ka.rid_issuer, &ka.rid_serial, cert) {
+                                continue;
+                            }
                             match open_key_agree_p256(key, ka) {
-                                Ok(cek) => return content_enc.decrypt(&cek, &iv, &encrypted),
+                                Ok(cek) => return content_enc.decrypt(&cek, &ed.iv, encrypted),
                                 Err(e) => last_err = Some(e),
                             }
                         }
                         RecipientPrivateKey::EcdhP384(key, cert) => {
-                            if !rid_matches_cert(&ka.recipient.rid, cert) { continue; }
+                            if !rid_matches(&ka.rid_issuer, &ka.rid_serial, cert) {
+                                continue;
+                            }
                             match open_key_agree_p384(key, ka) {
-                                Ok(cek) => return content_enc.decrypt(&cek, &iv, &encrypted),
+                                Ok(cek) => return content_enc.decrypt(&cek, &ed.iv, encrypted),
                                 Err(e) => last_err = Some(e),
                             }
                         }
@@ -176,23 +175,26 @@ fn build_key_trans(rng: &mut OsRng, cert: &Certificate, cek: &[u8], oaep: bool) 
             .encrypt(rng, Pkcs1v15Encrypt, cek)
             .map_err(|e| CmsError::Crypto(e.to_string()))?
     };
-    let key_enc_oid = oids::oid(if oaep { oids::RSAES_OAEP } else { oids::RSA_ENCRYPTION });
-    let kt = wire::sequence(&[
+    let key_enc_oid = oids::oid(if oaep {
+        oids::RSAES_OAEP
+    } else {
+        oids::RSA_ENCRYPTION
+    });
+    Ok(wire::sequence(&[
         wire::integer_u64(0),
         issuer_serial_der(cert),
         wire::algorithm_identifier(&key_enc_oid, None),
         wire::octet_string(&encrypted_key),
-    ]);
-    Ok(kt)
+    ]))
 }
 
-fn open_key_trans(key: &RsaPrivateKey, kt: &KeyTransRecipientInfo) -> Result<Vec<u8>> {
-    let oid = kt.key_encryption_algorithm.to_string();
+fn open_key_trans(key: &RsaPrivateKey, kt: &ParsedKeyTrans) -> Result<Vec<u8>> {
+    let oid = kt.key_enc_oid.to_string();
     let decrypted = if oid == oids::RSAES_OAEP {
-        key.decrypt(Oaep::new::<sha2::Sha256>(), kt.encrypted_key.as_bytes())
+        key.decrypt(Oaep::new::<sha2::Sha256>(), &kt.encrypted_key)
             .map_err(|e| CmsError::Crypto(e.to_string()))?
     } else if oid == oids::RSA_ENCRYPTION {
-        key.decrypt(Pkcs1v15Encrypt, kt.encrypted_key.as_bytes())
+        key.decrypt(Pkcs1v15Encrypt, &kt.encrypted_key)
             .map_err(|e| CmsError::Crypto(e.to_string()))?
     } else {
         return Err(CmsError::UnsupportedKeyTransport(oid));
@@ -219,62 +221,63 @@ fn build_key_agree(rng: &mut OsRng, cert: &Certificate, cek: &[u8], wrap: KeyWra
     });
     let key_wrap_alg_der = wrap.algorithm_id();
 
-    let zz = if is_p256 {
+    // Use a SINGLE ephemeral key for both the shared secret and the published
+    // originator public key (so the recipient derives the same `zz`).
+    let (zz, eph_sec1) = if is_p256 {
         let eph = p256::ecdh::EphemeralSecret::random(rng);
         let recip = p256::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        eph.diffie_hellman(&recip).raw_secret_bytes().to_vec()
+        let zz = eph
+            .diffie_hellman(&recip)
+            .raw_secret_bytes()
+            .to_vec();
+        let pubk = eph.public_key().to_sec1_bytes().to_vec();
+        (zz, pubk)
     } else {
         let eph = p384::ecdh::EphemeralSecret::random(rng);
         let recip = p384::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        eph.diffie_hellman(&recip).raw_secret_bytes().to_vec()
+        let zz = eph
+            .diffie_hellman(&recip)
+            .raw_secret_bytes()
+            .to_vec();
+        let pubk = eph.public_key().to_sec1_bytes().to_vec();
+        (zz, pubk)
     };
 
     let kek = cms_ecdh_kdf(
-        if is_p256 { HashAlgorithm::Sha256 } else { HashAlgorithm::Sha384 },
+        if is_p256 {
+            HashAlgorithm::Sha256
+        } else {
+            HashAlgorithm::Sha384
+        },
         &zz,
         &key_wrap_alg_der,
         &[],
         (wrap.key_size() as u32) * 8,
-    );
+    )?;
     let wrapped_cek = aes_key_wrap(&kek, cek)?;
 
-    let eph_sec1 = if is_p256 {
-        p256::ecdh::EphemeralSecret::random(rng)
-            .public_key()
-            .to_sec1_bytes()
-            .to_vec()
-    } else {
-        p384::ecdh::EphemeralSecret::random(rng)
-            .public_key()
-            .to_sec1_bytes()
-            .to_vec()
-    };
     let originator_pub = wire::sequence(&[
         wire::algorithm_identifier(&oids::oid(oids::EC_PUBLIC_KEY), Some(&wire::oid_der(&curve_oid))),
         wire::bit_string(&eph_sec1),
     ]);
-    // [0] EXPLICIT { [1] EXPLICIT { OriginatorPublicKey } }
+    // originator [0] EXPLICIT { originatorKey [1] EXPLICIT OriginatorPublicKey }
     let originator = wire::ctx(0, &wire::ctx(1, &originator_pub));
 
     let rek = wire::sequence(&[issuer_serial_der(cert), wire::octet_string(&wrapped_cek)]);
     let recipient_encrypted_keys = wire::sequence(&[rek]);
 
-    let ka = wire::sequence(&[
+    Ok(wire::sequence(&[
         wire::integer_u64(3),
         originator,
         wire::algorithm_identifier(&key_agree_oid, Some(&key_wrap_alg_der)),
         recipient_encrypted_keys,
-    ]);
-    Ok(ka)
+    ]))
 }
 
-fn open_key_agree_p256(secret: &P256Secret, ka: &KeyAgreeRecipientInfo) -> Result<Vec<u8>> {
-    let inner = AnyRef::from_der(ka.originator.value)?;
-    let opk = OriginatorPublicKey::from_der(inner.value)?;
-    let eph_sec1 = opk.public_key.as_bytes().to_vec();
-    let pubk = p256::PublicKey::from_sec1_bytes(&eph_sec1)
+fn open_key_agree_p256(secret: &P256Secret, ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
+    let pubk = p256::PublicKey::from_sec1_bytes(&ka.originator_pub)
         .map_err(|e| CmsError::Crypto(e.to_string()))?;
     let zz = p256::ecdh::diffie_hellman(secret, &pubk)
         .raw_secret_bytes()
@@ -282,11 +285,8 @@ fn open_key_agree_p256(secret: &P256Secret, ka: &KeyAgreeRecipientInfo) -> Resul
     unwrap_cek(&zz, ka)
 }
 
-fn open_key_agree_p384(secret: &P384Secret, ka: &KeyAgreeRecipientInfo) -> Result<Vec<u8>> {
-    let inner = AnyRef::from_der(ka.originator.value)?;
-    let opk = OriginatorPublicKey::from_der(inner.value)?;
-    let eph_sec1 = opk.public_key.as_bytes().to_vec();
-    let pubk = p384::PublicKey::from_sec1_bytes(&eph_sec1)
+fn open_key_agree_p384(secret: &P384Secret, ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
+    let pubk = p384::PublicKey::from_sec1_bytes(&ka.originator_pub)
         .map_err(|e| CmsError::Crypto(e.to_string()))?;
     let zz = p384::ecdh::diffie_hellman(secret, &pubk)
         .raw_secret_bytes()
@@ -295,279 +295,244 @@ fn open_key_agree_p384(secret: &P384Secret, ka: &KeyAgreeRecipientInfo) -> Resul
 }
 
 /// Derive the KEK from the ECDH shared secret and unwrap the CEK.
-fn unwrap_cek(zz: &[u8], ka: &KeyAgreeRecipientInfo) -> Result<Vec<u8>> {
-    let param = ka
-        .key_encryption_algorithm
-        .parameters
-        .as_ref()
-        .ok_or_else(|| CmsError::Crypto("key agreement missing key-wrap parameters".into()))?;
-    let wrap = KeyWrap::from_oid(&ObjectIdentifier::from_der(param.value)?)?;
-    let key_agree_oid = ka.key_encryption_algorithm.oid.to_string();
-    let hash = match key_agree_oid.as_str() {
+fn unwrap_cek(zz: &[u8], ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
+    let wrap = KeyWrap::from_oid(&ObjectIdentifier::from_der(&ka.key_wrap_alg_der)
+        .map_err(|e| CmsError::Crypto(e.to_string()))?)?;
+    let hash = match ka.key_agree_oid.to_string().as_str() {
         oids::DH_SINGLE_PASS_STD_SHA256 => HashAlgorithm::Sha256,
         oids::DH_SINGLE_PASS_STD_SHA384 => HashAlgorithm::Sha384,
         oids::DH_SINGLE_PASS_STD_SHA512 => HashAlgorithm::Sha512,
-        _ => return Err(CmsError::UnsupportedKeyAgreement(key_agree_oid)),
+        other => return Err(CmsError::UnsupportedKeyAgreement(other.into())),
     };
-    let ukm = ka
-        .ukm
-        .as_ref()
-        .map(|u| OctetStringRef::from_der(u.value).map(|o| o.as_bytes().to_vec()))
-        .transpose()?
-        .unwrap_or_default();
     let kek = cms_ecdh_kdf(
         hash,
         zz,
         &wrap.algorithm_id(),
-        &ukm,
+        &ka.ukm,
         (wrap.key_size() as u32) * 8,
-    );
-    aes_key_unwrap(&kek, &ka.recipient.encrypted_key.as_bytes())
+    )?;
+    aes_key_unwrap(&kek, &ka.encrypted_key)
 }
 
 // ---------------------------------------------------------------------------
-// DER structures (decode + encode)
+// Decoding
 // ---------------------------------------------------------------------------
 
-/// `RecipientIdentifier` CHOICE: `IssuerAndSerialNumber` or
-/// `subjectKeyIdentifier [0] IMPLICIT`.
-#[derive(Clone)]
-pub(crate) enum RecipientIdentifier<'a> {
-    IssuerAndSerialNumber(crate::wire::IssuerAndSerialNumber<'a>),
-    SubjectKeyIdentifier(OctetStringRef<'a>),
+fn decode_content_info(der: &[u8]) -> Result<(ObjectIdentifier, Vec<u8>)> {
+    let seq = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    wire::ensure_tag(seq.tag(), Tag::Sequence)?;
+    let mut c = wire::Cursor::new(seq.value());
+    let ct = wire::oid_of(&c.take()?)?;
+    let content = if c.at_end() {
+        Vec::new()
+    } else {
+        let inner = c.take()?;
+        wire::ensure_tag(inner.tag(), wire::ctx_tag(0))?;
+        inner.value().to_vec()
+    };
+    Ok((ct, content))
 }
 
-impl<'a> Decode<'a> for RecipientIdentifier<'a> {
-    fn decode(d: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(d)?;
-        match any.tag {
-            der::Tag::Sequence => Ok(RecipientIdentifier::IssuerAndSerialNumber(
-                crate::wire::IssuerAndSerialNumber::from_der(any.as_bytes())?,
-            )),
-            tag if tag == der::Tag::context_specific(0) => Ok(
-                RecipientIdentifier::SubjectKeyIdentifier(OctetStringRef::from_der(any.value)?),
-            ),
-            other => Err(der::Error::TagUnexpected {
-                expected: Some(der::Tag::Sequence),
-                actual: other,
-            }),
-        }
+struct ParsedEnvelopedData {
+    e_content_type: ObjectIdentifier,
+    iv: Vec<u8>,
+    encrypted_content: Vec<u8>,
+    recipient_infos: Vec<ParsedRecipientInfo>,
+}
+
+enum ParsedRecipientInfo {
+    KeyTrans(ParsedKeyTrans),
+    KeyAgree(ParsedKeyAgree),
+}
+
+struct ParsedKeyTrans {
+    rid_issuer: Vec<u8>,
+    rid_serial: Vec<u8>,
+    rid_ski: Option<Vec<u8>>,
+    key_enc_oid: ObjectIdentifier,
+    encrypted_key: Vec<u8>,
+}
+
+struct ParsedKeyAgree {
+    originator_pub: Vec<u8>,
+    key_agree_oid: ObjectIdentifier,
+    key_wrap_alg_der: Vec<u8>,
+    ukm: Vec<u8>,
+    rid_issuer: Vec<u8>,
+    rid_serial: Vec<u8>,
+    rid_ski: Option<Vec<u8>>,
+    encrypted_key: Vec<u8>,
+}
+
+fn parse_enveloped_data(content_der: &[u8]) -> Result<ParsedEnvelopedData> {
+    let seq = AnyRef::from_der(content_der).map_err(CmsError::Asn1)?;
+    wire::ensure_tag(seq.tag(), Tag::Sequence)?;
+    let mut c = wire::Cursor::new(seq.value());
+
+    let _version = c.take()?; // INTEGER
+    // originatorInfo [0] IMPLICIT SET OF (optional, skipped if present).
+    if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(0)) {
+        c.take()?;
+    }
+
+    let ri_raw = wire::take_set_of_raw(&mut c)?;
+    let mut recipient_infos = Vec::with_capacity(ri_raw.len());
+    for d in &ri_raw {
+        recipient_infos.push(parse_recipient_info(d)?);
+    }
+
+    let encap = c.take()?;
+    wire::ensure_tag(encap.tag(), Tag::Sequence)?;
+    let mut ec = wire::Cursor::new(encap.value());
+    let e_content_type = wire::oid_of(&ec.take()?)?;
+    let alg_any = ec.take()?;
+    let algid = wire::algid_of(&alg_any)?;
+    let enc_alg_oid = algid.oid.to_owned();
+    let iv = extract_octet_param(algid.parameters.as_ref(), "content-encryption IV")?;
+
+    let encrypted_content = if ec.at_end() {
+        Vec::new()
+    } else {
+        let e = ec.take()?;
+        wire::ensure_tag(e.tag(), wire::ctx_tag_prim(0))?; // [0] IMPLICIT OCTET STRING
+        e.value().to_vec()
+    };
+
+    Ok(ParsedEnvelopedData {
+        e_content_type,
+        iv,
+        encrypted_content,
+        recipient_infos,
+    })
+}
+
+fn parse_recipient_info(der: &[u8]) -> Result<ParsedRecipientInfo> {
+    let any = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    if any.tag() == wire::ctx_tag(0) {
+        let inner = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
+        wire::ensure_tag(inner.tag(), Tag::Sequence)?;
+        Ok(ParsedRecipientInfo::KeyTrans(parse_key_trans(inner.value())))
+    } else if any.tag() == wire::ctx_tag(1) {
+        let inner = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
+        wire::ensure_tag(inner.tag(), Tag::Sequence)?;
+        Ok(ParsedRecipientInfo::KeyAgree(parse_key_agree(inner.value())))
+    } else {
+        Err(wire::unexpected_tag(any.tag(), wire::ctx_tag(0)))
     }
 }
 
-impl<'a> Encode for RecipientIdentifier<'a> {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        match self {
-            RecipientIdentifier::IssuerAndSerialNumber(i) => i.encoded_len(),
-            RecipientIdentifier::SubjectKeyIdentifier(s) => s.encoded_len(),
-        }
-    }
-    fn encode(&self, e: &mut impl Writer) -> der::Result<()> {
-        match self {
-            RecipientIdentifier::IssuerAndSerialNumber(i) => i.encode(e),
-            RecipientIdentifier::SubjectKeyIdentifier(s) => s.encode(e),
-        }
-    }
-}
-
-#[derive(Clone, Sequence)]
-struct KeyTransRecipientInfo<'a> {
-    version: UintRef<'a>,
-    rid: RecipientIdentifier<'a>,
-    key_encryption_algorithm: ObjectIdentifierRef<'a>,
-    encrypted_key: OctetStringRef<'a>,
-}
-
-#[derive(Clone)]
-struct OriginatorPublicKey<'a> {
-    algorithm: ObjectIdentifierRef<'a>,
-    public_key: BitStringRef<'a>,
-}
-
-impl<'a> DecodeValue<'a> for OriginatorPublicKey<'a> {
-    fn decode_value(d: &mut impl der::Reader<'a>, _len: Length) -> der::Result<Self> {
-        let algorithm = ObjectIdentifierRef::decode(d)?;
-        let public_key = BitStringRef::decode(d)?;
-        Ok(OriginatorPublicKey { algorithm, public_key })
+fn parse_issuer_serial(rid: &AnyRef) -> Result<(Vec<u8>, Vec<u8>, Option<Vec<u8>>)> {
+    if rid.tag() == Tag::Sequence {
+        let mut ias = wire::Cursor::new(rid.value());
+        let issuer = ias.take()?;
+        let serial = ias.take()?;
+        Ok((
+            issuer.as_bytes().to_vec(),
+            wire::integer_value(&serial)?,
+            None,
+        ))
+    } else if rid.tag() == wire::ctx_tag_prim(0) {
+        Ok((Vec::new(), Vec::new(), Some(rid.value().to_vec())))
+    } else {
+        Err(wire::unexpected_tag(rid.tag(), Tag::Sequence))
     }
 }
 
-impl<'a> EncodeValue for OriginatorPublicKey<'a> {
-    fn value_len(&self) -> der::Result<Length> {
-        Ok(self.algorithm.encoded_len()? + self.public_key.encoded_len()?)
-    }
-    fn encode_value(&self, e: &mut impl Writer) -> der::Result<()> {
-        self.algorithm.encode(e)?;
-        self.public_key.encode(e)
-    }
+fn parse_key_trans(body: &[u8]) -> Result<ParsedKeyTrans> {
+    let mut c = wire::Cursor::new(body);
+    let _version = c.take()?;
+    let rid = c.take()?;
+    let (rid_issuer, rid_serial, rid_ski) = parse_issuer_serial(&rid)?;
+    let key_enc = c.take()?;
+    let key_enc_oid = wire::algid_of(&key_enc)?.oid.to_owned();
+    let encrypted_key = wire::octet_value(&c.take()?)?;
+    Ok(ParsedKeyTrans {
+        rid_issuer,
+        rid_serial,
+        rid_ski,
+        key_enc_oid,
+        encrypted_key,
+    })
 }
 
-impl<'a> FixedTag for OriginatorPublicKey<'a> {
-    const TAG: Tag = Tag::Sequence;
-}
-impl<'a> Sequence<'a> for OriginatorPublicKey<'a> {}
+fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
+    let mut c = wire::Cursor::new(body);
+    let _version = c.take()?;
 
-/// `RecipientEncryptedKey` = SEQUENCE { rid, encryptedKey }.
-#[derive(Clone, Sequence)]
-struct RecipientEncryptedKey<'a> {
-    rid: RecipientIdentifier<'a>,
-    encrypted_key: OctetStringRef<'a>,
-}
+    let originator = c.take()?;
+    wire::ensure_tag(originator.tag(), wire::ctx_tag(0))?;
+    let inner = AnyRef::from_der(originator.value()).map_err(CmsError::Asn1)?; // [1] EXPLICIT
+    wire::ensure_tag(inner.tag(), wire::ctx_tag(1))?;
+    let opk = AnyRef::from_der(inner.value()).map_err(CmsError::Asn1)?; // OriginatorPublicKey SEQUENCE
+    wire::ensure_tag(opk.tag(), Tag::Sequence)?;
+    let mut oc = wire::Cursor::new(opk.value());
+    let alg_any = oc.take()?;
+    let algid = wire::algid_of(&alg_any)?;
+    let curve_oid = ObjectIdentifier::from_der(
+        algid
+            .parameters
+            .as_ref()
+            .ok_or_else(|| CmsError::Crypto("OriginatorPublicKey missing curve".into()))?
+            .value(),
+    )
+    .map_err(CmsError::Asn1)?;
+    let _ = curve_oid;
+    let pubk_any = oc.take()?;
+    let originator_pub = BitStringRef::try_from(pubk_any.value())
+        .map_err(CmsError::Asn1)?
+        .as_bytes()
+        .to_vec();
 
-#[derive(Clone)]
-struct KeyAgreeRecipientInfo<'a> {
-    version: UintRef<'a>,
-    /// Raw `[0]` content (an `[1]` EXPLICIT OriginatorPublicKey).
-    originator: AnyRef<'a>,
-    /// Inner OCTET STRING of the `[1] EXPLICIT ukm` (if present).
-    ukm: Option<OctetStringRef<'a>>,
-    key_encryption_algorithm: ObjectIdentifierRef<'a>,
-    recipient: RecipientEncryptedKey<'a>,
-}
+    // ukm [1] EXPLICIT OCTET STRING OPTIONAL
+    let (ukm, key_agree_any, rek) = if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(1)) {
+        let u = c.take()?;
+        let ukm = wire::octet_value(&AnyRef::from_der(u.value()).map_err(CmsError::Asn1)?)?;
+        let ka = c.take()?;
+        let rek = c.take()?;
+        (ukm, ka, rek)
+    } else {
+        let ka = c.take()?;
+        let rek = c.take()?;
+        (Vec::new(), ka, rek)
+    };
+    let ka_algid = wire::algid_of(&key_agree_any)?;
+    let key_agree_oid = ka_algid.oid.to_owned();
+    let key_wrap_alg_der = ka_algid
+        .parameters
+        .as_ref()
+        .ok_or_else(|| CmsError::Crypto("key agreement missing key-wrap parameters".into()))?
+        .value()
+        .to_vec();
 
-impl<'a> DecodeValue<'a> for KeyAgreeRecipientInfo<'a> {
-    fn decode_value(d: &mut impl der::Reader<'a>, _len: Length) -> der::Result<Self> {
-        let version = UintRef::decode(d)?;
-        let originator = AnyRef::decode(d)?;
-        let (ukm, kea, recipient) = if d.peek_tag()? == der::Tag::context_specific(1) {
-            let ukm_any = AnyRef::decode(d)?;
-            let ukm = OctetStringRef::from_der(ukm_any.value)?;
-            let kea = ObjectIdentifierRef::decode(d)?;
-            let recipient = RecipientEncryptedKey::decode(d)?;
-            (Some(ukm), kea, recipient)
-        } else {
-            let kea = ObjectIdentifierRef::decode(d)?;
-            let recipient = RecipientEncryptedKey::decode(d)?;
-            (None, kea, recipient)
-        };
-        Ok(KeyAgreeRecipientInfo {
-            version,
-            originator,
-            ukm,
-            key_encryption_algorithm: kea,
-            recipient,
-        })
-    }
-}
+    // RecipientEncryptedKeys ::= SEQUENCE OF RecipientEncryptedKey
+    let rek_seq = AnyRef::from_der(rek.value()).map_err(CmsError::Asn1)?;
+    wire::ensure_tag(rek_seq.tag(), Tag::Sequence)?;
+    let mut rc = wire::Cursor::new(rek_seq.value());
+    let rek_elem = rc.take()?;
+    let mut rk = wire::Cursor::new(rek_elem.value());
+    let rid = rk.take()?;
+    let (rid_issuer, rid_serial, rid_ski) = parse_issuer_serial(&rid)?;
+    let encrypted_key = wire::octet_value(&rk.take()?)?;
 
-impl<'a> EncodeValue for KeyAgreeRecipientInfo<'a> {
-    fn value_len(&self) -> der::Result<Length> {
-        let mut len = self.version.encoded_len()? + self.originator.encoded_len()?;
-        if let Some(u) = &self.ukm {
-            len = (len + u.encoded_len())?;
-        }
-        len = (len + self.key_encryption_algorithm.encoded_len())?;
-        len = (len + self.recipient.encoded_len())?;
-        Ok(len)
-    }
-    fn encode_value(&self, e: &mut impl Writer) -> der::Result<()> {
-        self.version.encode(e)?;
-        self.originator.encode(e)?;
-        if let Some(u) = &self.ukm {
-            let der = u.to_der()?;
-            e.write(&wire::ctx(1, &der))?;
-        }
-        self.key_encryption_algorithm.encode(e)?;
-        self.recipient.encode(e)
-    }
-}
-
-impl<'a> FixedTag for KeyAgreeRecipientInfo<'a> {
-    const TAG: Tag = Tag::Sequence;
-}
-impl<'a> Sequence<'a> for KeyAgreeRecipientInfo<'a> {}
-
-#[derive(Clone)]
-enum RecipientInfo<'a> {
-    KeyTrans(KeyTransRecipientInfo<'a>),
-    KeyAgree(KeyAgreeRecipientInfo<'a>),
+    Ok(ParsedKeyAgree {
+        originator_pub,
+        key_agree_oid,
+        key_wrap_alg_der,
+        ukm,
+        rid_issuer,
+        rid_serial,
+        rid_ski,
+        encrypted_key,
+    })
 }
 
-impl<'a> Decode<'a> for RecipientInfo<'a> {
-    fn decode(d: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(d)?;
-        match any.tag {
-            tag if tag == der::Tag::context_specific(0) => Ok(RecipientInfo::KeyTrans(
-                KeyTransRecipientInfo::from_der(any.value)?,
-            )),
-            tag if tag == der::Tag::context_specific(1) => Ok(RecipientInfo::KeyAgree(
-                KeyAgreeRecipientInfo::from_der(any.value)?,
-            )),
-            other => Err(der::Error::TagUnexpected {
-                expected: Some(der::Tag::context_specific(0)),
-                actual: other,
-            }),
-        }
-    }
-}
-
-impl<'a> Encode for RecipientInfo<'a> {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        match self {
-            RecipientInfo::KeyTrans(k) => k.encoded_len(),
-            RecipientInfo::KeyAgree(k) => k.encoded_len(),
-        }
-    }
-    fn encode(&self, e: &mut impl Writer) -> der::Result<()> {
-        match self {
-            RecipientInfo::KeyTrans(k) => k.encode(e),
-            RecipientInfo::KeyAgree(k) => k.encode(e),
-        }
-    }
-}
-
-#[derive(Clone, Sequence)]
-struct EnvelopedData<'a> {
-    version: UintRef<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
-    originator_info: Option<AnyRef<'a>>,
-    recipient_infos: RecipientInfos<'a>,
-    encrypted_content_info: EncryptedContentInfo<'a>,
-    #[asn1(context_specific = "1", constructed, optional)]
-    unprotected_attrs: Option<AnyRef<'a>>,
-}
-
-#[derive(Clone)]
-struct RecipientInfos<'a>(pub Vec<RecipientInfo<'a>>);
-
-impl<'a> Decode<'a> for RecipientInfos<'a> {
-    fn decode(d: &mut impl der::Reader<'a>) -> der::Result<Self> {
-        let any = AnyRef::decode(d)?;
-        if any.tag != der::Tag::Set {
-            return Err(der::Error::TagUnexpected {
-                expected: Some(der::Tag::Set),
-                actual: any.tag,
-            });
-        }
-        wire::decode_set_elements(&any.value)
-    }
-}
-
-impl<'a> Encode for RecipientInfos<'a> {
-    fn encoded_len(&self) -> der::Result<der::Length> {
-        let parts: Vec<Vec<u8>> = self
-            .0
-            .iter()
-            .map(|r| r.to_der())
-            .collect::<der::Result<Vec<_>>>()?;
-        der::Length::try_from(wire::set_of(&parts).len())
-    }
-    fn encode(&self, e: &mut impl Writer) -> der::Result<()> {
-        let parts: Vec<Vec<u8>> = self
-            .0
-            .iter()
-            .map(|r| r.to_der())
-            .collect::<der::Result<Vec<_>>>()?;
-        e.write(&wire::set_of(&parts))
-    }
-}
-
-#[derive(Clone, Sequence)]
-struct EncryptedContentInfo<'a> {
-    e_content_type: ObjectIdentifierRef<'a>,
-    content_enc_alg: ObjectIdentifierRef<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
-    encrypted_content: Option<AnyRef<'a>>,
+/// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
+fn extract_octet_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
+    let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
+    Ok(OctetStringRef::try_from(p.value())
+        .map_err(CmsError::Asn1)?
+        .as_bytes()
+        .to_vec())
 }
 
 // ---------------------------------------------------------------------------
@@ -587,23 +552,6 @@ fn issuer_serial_der(cert: &Certificate) -> Vec<u8> {
     wire::sequence(&[issuer, wire::integer_be(&serial)])
 }
 
-fn rid_matches_cert(rid: &RecipientIdentifier, cert: &Certificate) -> bool {
-    match rid {
-        RecipientIdentifier::IssuerAndSerialNumber(ias) => {
-            let Some(want_issuer) = ias.issuer.to_der().ok() else {
-                return false;
-            };
-            let want_serial = ias.serial_number.as_bytes().to_vec();
-            want_issuer == cert_issuer_der(cert) && want_serial == cert_serial_bytes(cert)
-        }
-        RecipientIdentifier::SubjectKeyIdentifier(_) => false,
-    }
-}
-
-fn extract_iv(alg: &ObjectIdentifierRef) -> Result<Vec<u8>> {
-    let params = alg
-        .parameters
-        .as_ref()
-        .ok_or_else(|| CmsError::Crypto("content-encryption algorithm missing IV".into()))?;
-    Ok(OctetStringRef::from_der(params.value)?.as_bytes().to_vec())
+fn rid_matches(rid_issuer: &[u8], rid_serial: &[u8], cert: &Certificate) -> bool {
+    cert_issuer_der(cert) == rid_issuer && cert_serial_bytes(cert) == rid_serial
 }

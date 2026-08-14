@@ -387,7 +387,7 @@ where
 }
 
 /// Minimal DER TLV reader over a byte slice. Returns `(tag, value)`.
-fn read_tlv(b: &[u8], i: &mut usize) -> Result<(u8, &[u8])> {
+fn read_tlv<'a>(b: &'a [u8], i: &mut usize) -> Result<(u8, &'a [u8])> {
     if *i >= b.len() {
         return Err(HttpSigError::Key("unexpected end of DER".into()));
     }

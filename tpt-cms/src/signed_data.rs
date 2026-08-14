@@ -2,16 +2,15 @@
 //! multiple-signer support.
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{GeneralizedTime, OctetStringRef};
+use der::asn1::{AnyRef, GeneralizedTime, OctetStringRef};
+use der::{Decode, Encode, Tag};
 use x509_cert::Certificate;
 
 use crate::cert::{find_signer_cert, parse_cert, verify_chain};
 use crate::crypto::{public_key_from_spki, HashAlgorithm, SigningKey, verify_signature};
 use crate::error::{CmsError, Result};
 use crate::oids;
-use crate::wire::{
-    self, Attribute, ContentInfo, IssuerAndSerialNumber, RawContent, SignedData, SignerInfos,
-};
+use crate::wire;
 
 /// A signer entry for building `SignedData`: its signing key and certificate.
 pub struct CmsSigner {
@@ -40,23 +39,22 @@ pub fn build_signed_data(
         return Err(CmsError::Crypto("at least one signer is required".into()));
     }
 
-    let e_content_der = wire::octet_string(content);
     let encapsulated = wire::sequence(&[
         wire::oid_der(content_type),
-        wire::ctx(0, &e_content_der),
+        wire::implicit_octet_string(0, content),
     ]);
 
     let mut digest_algs: Vec<Vec<u8>> = Vec::new();
     let mut signer_infos: Vec<Vec<u8>> = Vec::new();
 
     for s in signers {
-        let (hash, digest_oid) = match &s.key {
+        let (hash, digest_oid_str) = match &s.key {
             SigningKey::EcdsaP256(_) => (HashAlgorithm::Sha256, oids::SHA256),
             SigningKey::EcdsaP384(_) => (HashAlgorithm::Sha384, oids::SHA384),
             SigningKey::Rsa(_) => (HashAlgorithm::Sha256, oids::SHA256),
             SigningKey::Ed25519(_) => (HashAlgorithm::Sha512, oids::SHA512),
         };
-        let digest_oid = oids::oid(digest_oid);
+        let digest_oid = oids::oid(digest_oid_str);
 
         // Signed attributes: contentType, messageDigest, signingTime (sorted by DER).
         let content_digest = hash.digest(content);
@@ -75,7 +73,8 @@ pub fn build_signed_data(
         attrs.sort();
         let signed_attrs_content: Vec<u8> = attrs.concat();
 
-        // The signature is computed over the DER-encoded SET OF SignedAttributes.
+        // The signature is computed over the DER encoding of the SET OF
+        // SignedAttributes (which includes the SET tag), per RFC 5652 §5.4.
         let signed_attrs_set = wire::signed_attrs_tlv(&signed_attrs_content);
         let message: Vec<u8> = if let SigningKey::Ed25519(_) = &s.key {
             signed_attrs_set.clone()
@@ -86,8 +85,18 @@ pub fn build_signed_data(
         let (sig_oid, signature) = s.key.sign(hash, &message)?;
 
         // SignerIdentifier = IssuerAndSerialNumber from the signer certificate.
-        let issuer = s.cert.tbs_certificate().issuer().to_der()?;
-        let serial = s.cert.tbs_certificate().serial_number().as_bytes().to_vec();
+        let issuer = s
+            .cert
+            .tbs_certificate()
+            .issuer()
+            .to_der()
+            .map_err(CmsError::Asn1)?;
+        let serial = s
+            .cert
+            .tbs_certificate()
+            .serial_number()
+            .as_bytes()
+            .to_vec();
         let sid = wire::sequence(&[issuer, wire::integer_be(&serial)]);
 
         let signer_info = wire::sequence(&[
@@ -107,8 +116,11 @@ pub fn build_signed_data(
     }
 
     // Certificate set (IMPLICIT [0] SET OF Certificate).
-    let mut cert_der_list: Vec<Vec<u8>> = signers.iter().map(|s| s.cert.to_der().unwrap()).collect();
-    cert_der_list.extend(extra_certs.iter().map(|c| c.to_der().unwrap()));
+    let mut cert_der_list: Vec<Vec<u8>> = signers
+        .iter()
+        .map(|s| s.cert.to_der().expect("cert der"))
+        .collect();
+    cert_der_list.extend(extra_certs.iter().map(|c| c.to_der().expect("cert der")));
     cert_der_list.sort();
     let certs_set_content: Vec<u8> = cert_der_list.concat();
 
@@ -140,58 +152,47 @@ pub struct VerifiedSignedData {
 /// signer certificate of each accepted signer must additionally chain to one of
 /// the anchors. Returns the encapsulated content of the first valid signer.
 pub fn verify_signed_data(der: &[u8], anchors: &[Certificate]) -> Result<VerifiedSignedData> {
-    let ci = ContentInfo::from_der(der)?;
-    if ci.content_type.to_string() != oids::ID_SIGNED_DATA {
+    let (ct, content_der) = decode_content_info(der)?;
+    if ct.to_string() != oids::ID_SIGNED_DATA {
         return Err(CmsError::UnexpectedContentType {
             expected: oids::ID_SIGNED_DATA.into(),
-            got: ci.content_type.to_string(),
+            got: ct.to_string(),
         });
     }
-    let sd = ci.content_as::<SignedData>()?;
+    let sd = parse_signed_data(&content_der)?;
     let certs = parse_cert_set(&sd.certificates)?;
 
-    let content = sd.encap_content_info.content_bytes()?;
-    let e_content_type = sd.encap_content_info.e_content_type.to_string();
-
     let mut verified = 0usize;
-    for si in &sd.signer_infos.0 {
-        let Some(cert) = find_signer_cert(&certs, &si.sid) else {
+    for si in &sd.signer_infos {
+        let Some(cert) = find_signer_cert(
+            &certs,
+            &si.sid_issuer,
+            &si.sid_serial,
+            si.sid_ski.as_deref(),
+        ) else {
             return Err(CmsError::SignerCertNotFound);
         };
 
-        let hash = HashAlgorithm::from_oid(&si.digest_algorithm.oid.to_owned())?;
-        let content_digest = hash.digest(&content);
+        let hash = HashAlgorithm::from_oid(&si.digest_alg)?;
+        let content_digest = hash.digest(&sd.e_content);
 
-        let (mut base, signed_attrs_present) = if let Some(sa) = &si.signed_attrs {
-            let attrs = wire::decode_set_elements::<Attribute>(&sa.0)?;
+        let (message, signed_attrs_present) = if let Some(sa) = &si.signed_attrs {
+            let attrs = parse_attributes(sa)?;
             let mut got_ct = false;
             let mut got_md = false;
-            for a in &attrs {
-                match a.attr_type.to_string().as_str() {
-                    oids::CONTENT_TYPE => {
-                        let v = a
-                            .attr_values
-                            .get(0)
-                            .ok_or(CmsError::Crypto("empty content-type value".into()))?;
-                        let ct = ObjectIdentifier::from_der(v.as_bytes())
-                            .map_err(|e| CmsError::Crypto(e.to_string()))?;
-                        if ct.to_string() != e_content_type {
-                            return Err(CmsError::ContentTypeMismatch);
-                        }
-                        got_ct = true;
+            for (oid, val) in &attrs {
+                if oid == oids::CONTENT_TYPE {
+                    let ct_val = ObjectIdentifier::from_der(val).map_err(CmsError::Asn1)?;
+                    if ct_val.to_string() != sd.e_content_type.to_string() {
+                        return Err(CmsError::ContentTypeMismatch);
                     }
-                    oids::MESSAGE_DIGEST => {
-                        let v = a
-                            .attr_values
-                            .get(0)
-                            .ok_or(CmsError::Crypto("empty message-digest value".into()))?;
-                        let md = OctetStringRef::from_der(v.as_bytes())?.as_bytes().to_vec();
-                        if md != content_digest {
-                            return Err(CmsError::MessageDigestMismatch);
-                        }
-                        got_md = true;
+                    got_ct = true;
+                } else if oid == oids::MESSAGE_DIGEST {
+                    let md = OctetStringRef::try_from(val.as_slice()).map_err(CmsError::Asn1)?;
+                    if md.as_bytes() != content_digest {
+                        return Err(CmsError::MessageDigestMismatch);
                     }
-                    _ => {}
+                    got_md = true;
                 }
             }
             if !got_ct || !got_md {
@@ -199,25 +200,25 @@ pub fn verify_signed_data(der: &[u8], anchors: &[Certificate]) -> Result<Verifie
                     "signed attributes missing content-type or message-digest".into(),
                 ));
             }
-            (hash.digest(&wire::signed_attrs_tlv(&sa.0)), true)
+            (hash.digest(&wire::signed_attrs_tlv(sa)), true)
         } else {
             (content_digest.clone(), false)
         };
 
-        // For Ed25519 the signature is over the DER SET (or the content) itself.
-        let is_ed25519 = si.signature_algorithm.oid.to_string() == oids::ED25519;
+        // For Ed25519 the signature is over the data itself (no pre-hash).
+        let is_ed25519 = si.sig_alg.to_string() == oids::ED25519;
         let message: Vec<u8> = if is_ed25519 {
             if signed_attrs_present {
-                wire::signed_attrs_tlv(&si.signed_attrs.as_ref().unwrap().0)
+                wire::signed_attrs_tlv(si.signed_attrs.as_ref().unwrap())
             } else {
-                content.clone()
+                sd.e_content.clone()
             }
         } else {
-            base
+            message
         };
 
         let pk = public_key_from_spki(cert.tbs_certificate().subject_public_key_info())?;
-        verify_signature(&si.signature_algorithm.oid.to_owned(), &message, si.signature.as_bytes(), &pk)?;
+        verify_signature(&si.sig_alg, &message, &si.signature, &pk)?;
 
         if !anchors.is_empty() {
             verify_chain(&cert, &certs, anchors)?;
@@ -230,26 +231,164 @@ pub fn verify_signed_data(der: &[u8], anchors: &[Certificate]) -> Result<Verifie
     }
 
     Ok(VerifiedSignedData {
-        content_type: sd.encap_content_info.e_content_type.to_owned(),
-        content,
+        content_type: sd.e_content_type,
+        content: sd.e_content,
         signer_count: verified,
     })
 }
 
+// ---------------------------------------------------------------------------
+// Decoding
+// ---------------------------------------------------------------------------
+
+/// `ContentInfo` — `{ contentType, content [0] EXPLICIT ANY }` (RFC 5652 §3).
+fn decode_content_info(der: &[u8]) -> Result<(ObjectIdentifier, Vec<u8>)> {
+    let seq = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    wire::ensure_tag(seq.tag(), Tag::Sequence)?;
+    let mut c = wire::Cursor::new(seq.value());
+    let ct = wire::oid_of(&c.take()?)?;
+    let content = if c.at_end() {
+        Vec::new()
+    } else {
+        let inner = c.take()?;
+        wire::ensure_tag(inner.tag(), wire::ctx_tag(0))?;
+        inner.value().to_vec()
+    };
+    Ok((ct, content))
+}
+
+struct ParsedSignedData {
+    e_content_type: ObjectIdentifier,
+    e_content: Vec<u8>,
+    certificates: Option<Vec<u8>>,
+    signer_infos: Vec<ParsedSignerInfo>,
+}
+
+struct ParsedSignerInfo {
+    sid_issuer: Vec<u8>,
+    sid_serial: Vec<u8>,
+    sid_ski: Option<Vec<u8>>,
+    digest_alg: ObjectIdentifier,
+    signed_attrs: Option<Vec<u8>>,
+    sig_alg: ObjectIdentifier,
+    signature: Vec<u8>,
+}
+
+fn parse_signed_data(content_der: &[u8]) -> Result<ParsedSignedData> {
+    let seq = AnyRef::from_der(content_der).map_err(CmsError::Asn1)?;
+    wire::ensure_tag(seq.tag(), Tag::Sequence)?;
+    let mut c = wire::Cursor::new(seq.value());
+
+    let _version = c.take()?; // INTEGER
+    let _digest_algs = c.take()?; // SET OF AlgorithmIdentifier
+
+    let encap = c.take()?;
+    wire::ensure_tag(encap.tag(), Tag::Sequence)?;
+    let mut ec = wire::Cursor::new(encap.value());
+    let e_content_type = wire::oid_of(&ec.take()?)?;
+    let e_content = if ec.at_end() {
+        Vec::new()
+    } else {
+        let e = ec.take()?;
+        wire::ensure_tag(e.tag(), wire::ctx_tag_prim(0))?; // [0] IMPLICIT OCTET STRING
+        e.value().to_vec()
+    };
+
+    let certificates = if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(0)) {
+        Some(c.take()?.value().to_vec())
+    } else {
+        None
+    };
+    // crls [1] IMPLICIT SET OF Certificate (optional, ignored here).
+    if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(1)) {
+        c.take()?;
+    }
+
+    let si_raw = wire::take_set_of_raw(&mut c)?;
+    let mut signer_infos = Vec::with_capacity(si_raw.len());
+    for d in &si_raw {
+        signer_infos.push(parse_signer_info(d)?);
+    }
+
+    Ok(ParsedSignedData {
+        e_content_type,
+        e_content,
+        certificates,
+        signer_infos,
+    })
+}
+
+fn parse_signer_info(der: &[u8]) -> Result<ParsedSignerInfo> {
+    let seq = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    wire::ensure_tag(seq.tag(), Tag::Sequence)?;
+    let mut c = wire::Cursor::new(seq.value());
+
+    let _version = c.take()?;
+    let sid = c.take()?;
+
+    let (sid_issuer, sid_serial, sid_ski) = if sid.tag() == Tag::Sequence {
+        let mut ias = wire::Cursor::new(sid.value());
+        let issuer = ias.take()?;
+        let serial = ias.take()?;
+        (
+            issuer.as_bytes().to_vec(),
+            wire::integer_value(&serial)?,
+            None,
+        )
+    } else if sid.tag() == wire::ctx_tag_prim(0) {
+        (Vec::new(), Vec::new(), Some(sid.value().to_vec()))
+    } else {
+        return Err(wire::unexpected_tag(sid.tag(), Tag::Sequence));
+    };
+
+    let digest_alg = wire::algid_of(&c.take()?)?.oid.to_owned();
+
+    let signed_attrs = if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(0)) {
+        Some(c.take()?.value().to_vec())
+    } else {
+        None
+    };
+
+    let sig_alg = wire::algid_of(&c.take()?)?.oid.to_owned();
+    let signature = wire::octet_value(&c.take()?)?;
+
+    Ok(ParsedSignerInfo {
+        sid_issuer,
+        sid_serial,
+        sid_ski,
+        digest_alg,
+        signed_attrs,
+        sig_alg,
+        signature,
+    })
+}
+
 /// Parse the `certificates` `IMPLICIT [0]` set into individual certificates.
-fn parse_cert_set(raw: &Option<RawContent>) -> Result<Vec<Certificate>> {
+fn parse_cert_set(raw: &Option<Vec<u8>>) -> Result<Vec<Certificate>> {
     let mut out = Vec::new();
     let Some(raw) = raw else {
         return Ok(out);
     };
-    let mut rest = raw.0.as_slice();
-    while !rest.is_empty() {
-        let any = der::asn1::AnyRef::from_der(rest)?;
-        let consumed = any.as_bytes().len();
-        let cert = parse_cert(any.as_bytes())?;
-        out.push(cert);
-        rest = &rest[consumed..];
+    let elems = wire::parse_set_elements_raw(raw)?;
+    for e in elems {
+        out.push(parse_cert(e)?);
     }
     Ok(out)
 }
 
+/// Parse a SET OF `SignedAttribute` into `(attrType OID string, first value DER)`.
+fn parse_attributes(data: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
+    let elems = wire::parse_set_elements_raw(data)?;
+    let mut out = Vec::new();
+    for e in elems {
+        let mut c = wire::Cursor::new(e);
+        let atype = c.take()?;
+        let oid = wire::oid_of(&atype)?.to_string();
+        let av = c.take()?;
+        wire::ensure_tag(av.tag(), Tag::Set)?;
+        let mut ac = wire::Cursor::new(av.value());
+        let first = ac.take()?;
+        out.push((oid, first.as_bytes().to_vec()));
+    }
+    Ok(out)
+}

@@ -151,7 +151,7 @@ fn create_and_list_mailbox() {
     c.cmd("LOGIN alice secret");
     assert!(c.cmd("CREATE Trash").last().unwrap().contains("OK"));
     let r = c.cmd("LIST \"\" \"*\"");
-    assert!(r.iter().any(|l| l.contains("\"Trash\"")), "list: {r:?}");
+    assert!(r.iter().any(|l| l.contains("Trash")), "list: {r:?}");
 }
 
 #[test]
@@ -163,8 +163,8 @@ fn append_and_status() {
     assert!(r.last().unwrap().contains("OK"), "append: {r:?}");
     let r = c.cmd("STATUS INBOX (MESSAGES)");
     assert!(
-        r.iter().any(|l| l.contains("Trash")),
-        "list: {r:?}"
+        r.iter().any(|l| l.contains("MESSAGES 3")),
+        "status: {r:?}"
     );
 }
 

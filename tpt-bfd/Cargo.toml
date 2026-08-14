@@ -1,0 +1,31 @@
+[package]
+name = "tpt-bfd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["bfd", "rfc5880", "bidirectional-forwarding-detection", "network", "protocol"]
+categories = ["network-programming"]
+description = "Clean-room, dual-licensed BFD (RFC 5880/5881) control-protocol implementation with a UDP transport"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# SHA-1 is used only to implement Keyed SHA1 / Meticulous Keyed SHA1
+# authentication sections (RFC 5880 §6.7.4). RustCrypto `sha1` is
+# dual-licensed MIT/Apache-2.0, consistent with the platform's
+# clean-room / reuse-primitive policy. Simple Password authentication
+# (the other supported type) needs no crypto.
+sha1 = "0.10"
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

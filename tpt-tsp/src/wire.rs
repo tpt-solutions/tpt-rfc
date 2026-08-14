@@ -9,7 +9,7 @@
 use const_oid::{ObjectIdentifier, ObjectIdentifierRef};
 use der::{
     asn1::{AnyRef, GeneralizedTime, OctetStringRef, UintRef},
-    Decode, Encode, Sequence,
+    Decode, Encode, Sequence, Tagged,
 };
 use spki::AlgorithmIdentifierRef;
 use x509_cert::name::Name;
@@ -91,13 +91,13 @@ impl<'a> der::Encode for DigestAlgorithmIdentifiers<'a> {
 impl<'a> der::Decode<'a> for DigestAlgorithmIdentifiers<'a> {
     fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
         let any = AnyRef::decode(decoder)?;
-        if any.header().tag != der::Tag::Set {
+        if any.tag() != der::Tag::Set {
             return Err(der::Error::TagUnexpected {
                 expected: Some(der::Tag::Set),
-                actual: any.tag,
+                actual: any.tag(),
             });
         }
-        Ok(DigestAlgorithmIdentifiers(decode_set_elements(any.value)?))
+        Ok(DigestAlgorithmIdentifiers(decode_set_elements(any.value())?))
     }
 }
 
@@ -128,13 +128,13 @@ impl<'a> der::Encode for SignerInfos<'a> {
 impl<'a> der::Decode<'a> for SignerInfos<'a> {
     fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
         let any = AnyRef::decode(decoder)?;
-        if any.header().tag != der::Tag::Set {
+        if any.tag() != der::Tag::Set {
             return Err(der::Error::TagUnexpected {
                 expected: Some(der::Tag::Set),
-                actual: any.tag,
+                actual: any.tag(),
             });
         }
-        Ok(SignerInfos(decode_set_elements(any.value)?))
+        Ok(SignerInfos(decode_set_elements(any.value())?))
     }
 }
 
@@ -239,7 +239,7 @@ pub(crate) struct ContentInfo<'a> {
 impl<'a> ContentInfo<'a> {
     /// Decode the inner `content` as `T` (e.g. `SignedData`).
     pub fn content_as<T: der::Decode<'a>>(&self) -> der::Result<T> {
-        T::from_der(self.content.value)
+        T::from_der(self.content.value())
     }
 }
 
@@ -256,7 +256,7 @@ impl<'a> EncapsulatedContentInfo<'a> {
     pub fn content_bytes(&self) -> der::Result<Vec<u8>> {
         match &self.e_content {
             Some(any) => {
-                let os = OctetStringRef::from_der(any.value)?;
+                let os = OctetStringRef::from_der(any.value())?;
                 Ok(os.as_bytes().to_vec())
             }
             None => Ok(Vec::new()),
