@@ -181,7 +181,8 @@ impl V3Message {
         match &self.data {
             V3Data::Plain(scoped) => {
                 let s = encode_scoped(scoped);
-                body.write_sequence(&s);
+                // `encode_scoped` already emits the scopedPDU SEQUENCE.
+                body.write_raw(&s);
             }
             V3Data::Encrypted(ct) => {
                 body.write_octet_string(ct);

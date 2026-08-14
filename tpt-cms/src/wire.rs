@@ -8,12 +8,18 @@
 
 use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{AnyRef, OctetStringRef, UintRef},
+    asn1::{Any, UintRef},
     Decode, Encode, Length, SliceReader, Tag, TagNumber, Tagged,
 };
 use spki::AlgorithmIdentifierRef;
 
 use crate::error::{CmsError, Result};
+
+/// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
+pub(crate) fn octet_value_param(param: Option<&der::asn1::Any>, what: &str) -> Result<Vec<u8>> {
+    let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
+    Ok(p.value().to_vec())
+}
 
 // ---------------------------------------------------------------------------
 // Manual TLV builders
@@ -149,7 +155,7 @@ pub(crate) fn unexpected_tag(actual: Tag, expected: Tag) -> CmsError {
 // DER cursor for manual parsing
 // ---------------------------------------------------------------------------
 
-/// A cursor over a DER byte slice that yields one TLV at a time.
+/// A cursor over a DER byte slice that yields one TLV at a time (as owned `Any`).
 pub(crate) struct Cursor<'a> {
     data: &'a [u8],
 }
@@ -160,8 +166,8 @@ impl<'a> Cursor<'a> {
     }
 
     /// Take the next TLV, advancing the cursor past it.
-    pub fn take(&mut self) -> Result<AnyRef<'a>> {
-        let a = AnyRef::from_der(self.data).map_err(CmsError::Asn1)?;
+    pub fn take(&mut self) -> Result<Any> {
+        let a = Any::from_der(self.data).map_err(CmsError::Asn1)?;
         let full = a.to_der().map_err(CmsError::Asn1)?;
         self.data = &self.data[full.len()..];
         Ok(a)
@@ -169,7 +175,7 @@ impl<'a> Cursor<'a> {
 
     /// Peek at the next tag without consuming it.
     pub fn peek_tag(&self) -> Option<Tag> {
-        AnyRef::from_der(self.data).ok().map(|a| a.tag())
+        Any::from_der(self.data).ok().map(|a| a.tag())
     }
 
     pub fn at_end(&self) -> bool {
@@ -189,32 +195,27 @@ pub(crate) fn ensure_tag(actual: Tag, expected: Tag) -> Result<()> {
     }
 }
 
-pub(crate) fn ensure_ctx(actual: Tag, n: u8) -> Result<()> {
-    ensure_tag(actual, ctx_tag(n))
-}
-
 /// Decode the OID carried by `any` (whose tag must be OBJECT IDENTIFIER).
-pub(crate) fn oid_of(any: &AnyRef) -> Result<ObjectIdentifier> {
-    ObjectIdentifier::from_der(any.value()).map_err(CmsError::Asn1)
+pub(crate) fn oid_of(any: &Any) -> Result<ObjectIdentifier> {
+    ObjectIdentifier::from_der(any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
 }
 
 /// Decode the `AlgorithmIdentifier` carried by `any`.
-pub(crate) fn algid_of<'a>(any: &AnyRef<'a>) -> Result<AlgorithmIdentifierRef<'a>> {
-    AlgorithmIdentifierRef::from_der(any.value()).map_err(CmsError::Asn1)
+pub(crate) fn algid_of(any: &Any) -> Result<AlgorithmIdentifierRef<'_>> {
+    AlgorithmIdentifierRef::from_der(any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
 }
 
-/// Decode the OCTET STRING carried by `any` and return its value bytes.
-pub(crate) fn octet_value(any: &AnyRef) -> Result<Vec<u8>> {
-    let os = OctetStringRef::from(any.value());
-    Ok(os.as_bytes().to_vec())
-}
-
-/// Decode `any` as an INTEGER and return its (raw) value bytes.
-pub(crate) fn integer_value(any: &AnyRef) -> Result<Vec<u8>> {
+/// Return the OCTET STRING value bytes of `any` (which is an OCTET STRING TLV).
+pub(crate) fn octet_value(any: &Any) -> Result<Vec<u8>> {
     Ok(any.value().to_vec())
 }
 
-/// Decode a `SET OF T` from a cursor, returning each element's full DER.
+/// Return the INTEGER value bytes of `any`.
+pub(crate) fn integer_value(any: &Any) -> Result<Vec<u8>> {
+    Ok(any.value().to_vec())
+}
+
+/// Decode a `SET OF` from a cursor, returning each element's full DER.
 pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
     let set = c.take()?;
     ensure_tag(set.tag(), Tag::Set)?;
@@ -227,16 +228,9 @@ pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
     Ok(out)
 }
 
-/// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
-pub(crate) fn octet_value_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
-    let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
-    let os = OctetStringRef::from(p.value());
-    Ok(os.as_bytes().to_vec())
-}
-
 /// Decode a `SET OF T` (DER-sorted element list) into owned `T` values.
 pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<Vec<T>> {
-    let set = AnyRef::from_der(data).map_err(CmsError::Asn1)?;
+    let set = Any::from_der(data).map_err(CmsError::Asn1)?;
     ensure_tag(set.tag(), Tag::Set)?;
     let mut inner = Cursor::new(set.value());
     let mut out = Vec::new();
@@ -248,8 +242,8 @@ pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<V
 }
 
 /// Parse the elements of a `SET`/`SET OF` whose DER is in `data`.
-pub(crate) fn parse_set_elements_raw<'a>(data: &'a [u8]) -> Result<Vec<&'a [u8]>> {
-    let set = AnyRef::from_der(data).map_err(CmsError::Asn1)?;
+pub(crate) fn parse_set_elements_raw(data: &[u8]) -> Result<Vec<Vec<u8>>> {
+    let set = Any::from_der(data).map_err(CmsError::Asn1)?;
     ensure_tag(set.tag(), Tag::Set)?;
     let mut inner = Cursor::new(set.value());
     let mut out = Vec::new();
@@ -258,14 +252,4 @@ pub(crate) fn parse_set_elements_raw<'a>(data: &'a [u8]) -> Result<Vec<&'a [u8]>
         out.push(a.to_der().map_err(CmsError::Asn1)?);
     }
     Ok(out)
-}
-
-/// Parse an IMPLICIT `[n] EXPLICIT { SEQUENCE { ... } }` context tag and return
-/// the inner SEQUENCE content cursor. `n` is the outer context tag number.
-pub(crate) fn open_ctx_sequence<'a>(c: &mut Cursor<'a>, n: u8) -> Result<Cursor<'a>> {
-    let any = c.take()?;
-    ensure_tag(any.tag(), ctx_tag(n))?;
-    let seq = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
-    ensure_tag(seq.tag(), Tag::Sequence)?;
-    Ok(Cursor::new(seq.value()))
 }

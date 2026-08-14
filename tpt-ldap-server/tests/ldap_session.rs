@@ -15,7 +15,6 @@ use tpt_ldap_server::protocol::*;
 use tpt_ldap_server::session::Session;
 
 struct ParsedResponse {
-    id: i32,
     op_tag: u32,
     result_code: Option<i64>,
     entry: Option<(String, Vec<(String, Vec<Vec<u8>>)>)>,
@@ -28,7 +27,6 @@ fn parse_responses(bytes: &[u8]) -> Vec<ParsedResponse> {
         let (el, consumed) = BerElement::decode_partial(&bytes[pos..]).unwrap();
         pos += consumed;
         let kids = el.as_children().unwrap();
-        let id = kids[0].as_int().unwrap() as i32;
         let op = &kids[1];
         let op_tag = op.tag.number;
         if op_tag == 4 {
@@ -48,7 +46,6 @@ fn parse_responses(bytes: &[u8]) -> Vec<ParsedResponse> {
                 attrs.push((name, vals));
             }
             out.push(ParsedResponse {
-                id,
                 op_tag,
                 result_code: None,
                 entry: Some((dn, attrs)),
@@ -56,7 +53,6 @@ fn parse_responses(bytes: &[u8]) -> Vec<ParsedResponse> {
         } else {
             let rc = op.as_children().unwrap()[0].as_int().unwrap();
             out.push(ParsedResponse {
-                id,
                 op_tag,
                 result_code: Some(rc),
                 entry: None,
@@ -96,7 +92,10 @@ fn seed_backend() -> Arc<tpt_ldap_server::memory::MemoryBackend> {
     Arc::new(b)
 }
 
-fn roundtrip(backend: &Arc<tpt_ldap_server::memory::MemoryBackend>, reqs: &[LdapRequest]) -> Vec<u8> {
+fn roundtrip(
+    backend: &Arc<tpt_ldap_server::memory::MemoryBackend>,
+    reqs: &[LdapRequest],
+) -> Vec<u8> {
     let mut buf = Vec::new();
     for r in reqs {
         buf.extend_from_slice(&r.encode());
@@ -193,16 +192,29 @@ fn search_subtree_by_filter_returns_matching_entries() {
         attribute_desc: "objectClass".to_string(),
         assertion_value: b"person".to_vec(),
     });
-    let out = roundtrip(&b, &[search_req(2, "dc=example,dc=com", Scope::WholeSubtree, filter)]);
+    let out = roundtrip(
+        &b,
+        &[search_req(
+            2,
+            "dc=example,dc=com",
+            Scope::WholeSubtree,
+            filter,
+        )],
+    );
     let res = parse_responses(&out);
     // Two entries (admin, alice) plus the SearchResultDone.
     let entries: Vec<_> = res.iter().filter(|r| r.entry.is_some()).collect();
     assert_eq!(entries.len(), 2);
-    let dns: Vec<&str> = entries.iter().map(|e| e.entry.as_ref().unwrap().0.as_str()).collect();
+    let dns: Vec<&str> = entries
+        .iter()
+        .map(|e| e.entry.as_ref().unwrap().0.as_str())
+        .collect();
     assert!(dns.contains(&"cn=admin,dc=example,dc=com"));
     assert!(dns.contains(&"cn=alice,dc=example,dc=com"));
     // The terminal done has resultCode success.
-    assert!(res.iter().any(|r| r.op_tag == 5 && r.result_code == Some(SUCCESS)));
+    assert!(res
+        .iter()
+        .any(|r| r.op_tag == 5 && r.result_code == Some(SUCCESS)));
 }
 
 #[test]
@@ -211,12 +223,20 @@ fn search_base_scope_returns_only_base() {
     let filter = Filter::Present("objectClass".to_string());
     let out = roundtrip(
         &b,
-        &[search_req(2, "cn=alice,dc=example,dc=com", Scope::Base, filter)],
+        &[search_req(
+            2,
+            "cn=alice,dc=example,dc=com",
+            Scope::Base,
+            filter,
+        )],
     );
     let res = parse_responses(&out);
     let entries: Vec<_> = res.iter().filter(|r| r.entry.is_some()).collect();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].entry.as_ref().unwrap().0, "cn=alice,dc=example,dc=com");
+    assert_eq!(
+        entries[0].entry.as_ref().unwrap().0,
+        "cn=alice,dc=example,dc=com"
+    );
 }
 
 #[test]
@@ -225,7 +245,12 @@ fn search_single_level_scope() {
     let filter = Filter::Present("objectClass".to_string());
     let out = roundtrip(
         &b,
-        &[search_req(2, "dc=example,dc=com", Scope::SingleLevel, filter)],
+        &[search_req(
+            2,
+            "dc=example,dc=com",
+            Scope::SingleLevel,
+            filter,
+        )],
     );
     let res = parse_responses(&out);
     let entries: Vec<_> = res.iter().filter(|r| r.entry.is_some()).collect();
@@ -246,11 +271,22 @@ fn search_and_filter() {
             assertion_value: b"alice".to_vec(),
         }),
     ]);
-    let out = roundtrip(&b, &[search_req(2, "dc=example,dc=com", Scope::WholeSubtree, filter)]);
+    let out = roundtrip(
+        &b,
+        &[search_req(
+            2,
+            "dc=example,dc=com",
+            Scope::WholeSubtree,
+            filter,
+        )],
+    );
     let res = parse_responses(&out);
     let entries: Vec<_> = res.iter().filter(|r| r.entry.is_some()).collect();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].entry.as_ref().unwrap().0, "cn=alice,dc=example,dc=com");
+    assert_eq!(
+        entries[0].entry.as_ref().unwrap().0,
+        "cn=alice,dc=example,dc=com"
+    );
 }
 
 #[test]
@@ -263,11 +299,22 @@ fn search_substring_filter() {
             value: b"li".to_vec(),
         }],
     });
-    let out = roundtrip(&b, &[search_req(2, "dc=example,dc=com", Scope::WholeSubtree, filter)]);
+    let out = roundtrip(
+        &b,
+        &[search_req(
+            2,
+            "dc=example,dc=com",
+            Scope::WholeSubtree,
+            filter,
+        )],
+    );
     let res = parse_responses(&out);
     let entries: Vec<_> = res.iter().filter(|r| r.entry.is_some()).collect();
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].entry.as_ref().unwrap().0, "cn=alice,dc=example,dc=com");
+    assert_eq!(
+        entries[0].entry.as_ref().unwrap().0,
+        "cn=alice,dc=example,dc=com"
+    );
 }
 
 #[test]
@@ -310,7 +357,10 @@ fn add_then_search_then_modify_then_delete() {
         op: RequestOp::Add(AddRequest {
             entry: Entry::new(
                 "cn=bob,dc=example,dc=com",
-                vec![Attribute::new("objectClass", vec![b"person".to_vec()]), Attribute::new("cn", vec![b"bob".to_vec()])],
+                vec![
+                    Attribute::new("objectClass", vec![b"person".to_vec()]),
+                    Attribute::new("cn", vec![b"bob".to_vec()]),
+                ],
             ),
         }),
         controls: Vec::new(),
@@ -323,8 +373,22 @@ fn add_then_search_then_modify_then_delete() {
         attribute_desc: "cn".to_string(),
         assertion_value: b"bob".to_vec(),
     });
-    let out = roundtrip(&b, &[search_req(2, "dc=example,dc=com", Scope::WholeSubtree, filter.clone())]);
-    assert_eq!(parse_responses(&out).iter().filter(|r| r.entry.is_some()).count(), 1);
+    let out = roundtrip(
+        &b,
+        &[search_req(
+            2,
+            "dc=example,dc=com",
+            Scope::WholeSubtree,
+            filter.clone(),
+        )],
+    );
+    assert_eq!(
+        parse_responses(&out)
+            .iter()
+            .filter(|r| r.entry.is_some())
+            .count(),
+        1
+    );
 
     // Add an sn attribute.
     let modify = LdapRequest {
@@ -343,8 +407,17 @@ fn add_then_search_then_modify_then_delete() {
     assert_eq!(parse_responses(&out)[0].result_code, Some(SUCCESS));
 
     // Verify sn was added.
-    let b_entry = b.entries().unwrap().into_iter().find(|e| e.dn == "cn=bob,dc=example,dc=com").unwrap();
-    assert!(b_entry.attribute("sn").unwrap().values.contains(&b"Bob".to_vec()));
+    let b_entry = b
+        .entries()
+        .unwrap()
+        .into_iter()
+        .find(|e| e.dn == "cn=bob,dc=example,dc=com")
+        .unwrap();
+    assert!(b_entry
+        .attribute("sn")
+        .unwrap()
+        .values
+        .contains(&b"Bob".to_vec()));
 
     // Delete bob.
     let delete = LdapRequest {
@@ -355,8 +428,22 @@ fn add_then_search_then_modify_then_delete() {
     let out = roundtrip(&b, &[delete]);
     assert_eq!(parse_responses(&out)[0].result_code, Some(SUCCESS));
 
-    let out = roundtrip(&b, &[search_req(5, "dc=example,dc=com", Scope::WholeSubtree, filter.clone())]);
-    assert_eq!(parse_responses(&out).iter().filter(|r| r.entry.is_some()).count(), 0);
+    let out = roundtrip(
+        &b,
+        &[search_req(
+            5,
+            "dc=example,dc=com",
+            Scope::WholeSubtree,
+            filter.clone(),
+        )],
+    );
+    assert_eq!(
+        parse_responses(&out)
+            .iter()
+            .filter(|r| r.entry.is_some())
+            .count(),
+        0
+    );
 }
 
 #[test]
@@ -396,7 +483,10 @@ fn modify_dn_renames_entry() {
         op: RequestOp::Add(AddRequest {
             entry: Entry::new(
                 "cn=bob,dc=example,dc=com",
-                vec![Attribute::new("objectClass", vec![b"person".to_vec()]), Attribute::new("cn", vec![b"bob".to_vec()])],
+                vec![
+                    Attribute::new("objectClass", vec![b"person".to_vec()]),
+                    Attribute::new("cn", vec![b"bob".to_vec()]),
+                ],
             ),
         }),
         controls: Vec::new(),
@@ -412,7 +502,10 @@ fn modify_dn_renames_entry() {
         controls: Vec::new(),
     };
     let out = roundtrip(&b, &[add, moddn]);
-    let codes: Vec<_> = parse_responses(&out).iter().map(|r| r.result_code).collect();
+    let codes: Vec<_> = parse_responses(&out)
+        .iter()
+        .map(|r| r.result_code)
+        .collect();
     assert!(codes.contains(&Some(SUCCESS)));
 
     let entries = b.entries().unwrap();

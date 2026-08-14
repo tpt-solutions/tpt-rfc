@@ -15,9 +15,6 @@ pub enum OcspError {
     #[error("ASN.1/DER decoding error: {0}")]
     Decode(#[from] der::Error),
 
-    #[error("unsupported or unknown hash algorithm OID: {0}")]
-    UnsupportedHash(String),
-
     #[error("unsupported or unknown signature algorithm OID: {0}")]
     UnsupportedSignature(String),
 

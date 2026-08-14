@@ -28,26 +28,34 @@
 //!
 //! ```
 //! use std::sync::Arc;
-//! use tpt_ldap_server::memory::MemoryBackend;
-//! use tpt_ldap_server::session::Session;
 //! use tpt_ldap_server::backend::{Attribute, Entry};
+//! use tpt_ldap_server::memory::MemoryBackend;
+//! use tpt_ldap_server::protocol::{AuthChoice, BindRequest, LdapRequest, RequestOp};
 //!
 //! let backend = MemoryBackend::new();
 //! backend
 //!     .add_entry(Entry::new(
-//!         "cn=alice,dc=example,dc=com",
-//!         vec![Attribute::new("cn", vec![b"alice".to_vec()])],
+//!         "cn=admin,dc=example,dc=com",
+//!         vec![
+//!             Attribute::new("cn", vec![b"admin".to_vec()]),
+//!             Attribute::new("userPassword", vec![b"secret".to_vec()]),
+//!         ],
 //!     ))
 //!     .unwrap();
 //!
-//! // Drive a session over any `Read + Write` (here: in-memory for testing).
-//! let input = b"\x30\x00"; // an (empty) message; real clients send full PDUs
-//! let mut reader = std::io::Cursor::new(Vec::new());
-//! let mut writer: Vec<u8> = Vec::new();
-//! let mut session = Session::new(Arc::new(backend));
-//! // A no-op run is shown for doctest stability; see `tests/` for full flows.
-//! let _ = (&mut reader, &mut writer, &mut session);
-//! let _ = input;
+//! // Build and serialize a simple bind request.
+//! let req = LdapRequest {
+//!     id: 1,
+//!     op: RequestOp::Bind(BindRequest {
+//!         version: 3,
+//!         name: "cn=admin,dc=example,dc=com".to_string(),
+//!         auth: AuthChoice::Simple(b"secret".to_vec()),
+//!     }),
+//!     controls: vec![],
+//! };
+//! let bytes = req.encode();
+//! assert!(!bytes.is_empty());
+//! let _ = Arc::new(backend);
 //! ```
 
 #![forbid(unsafe_code)]

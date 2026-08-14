@@ -364,9 +364,9 @@ impl ClientHello {
 
         let mut exts: Vec<(u16, Vec<u8>)> = Vec::new();
 
-        // supported_versions: u8-length list of u16 versions.
+        // supported_versions: u16-length list of u16 versions.
         let mut sv = Writer::new();
-        sv.put_vec_u8(&DTLS_1_3_VERSION.to_be_bytes());
+        sv.put_vec_u16(&DTLS_1_3_VERSION.to_be_bytes());
         exts.push((ext::SUPPORTED_VERSIONS, sv.into_inner()));
 
         // supported_groups: u16-length list.

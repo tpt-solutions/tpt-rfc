@@ -30,7 +30,15 @@ fn sample_ch() -> ClientHello {
 fn client_hello_round_trip() {
     let msg = HandshakeMessage::new(HandshakeBody::ClientHello(sample_ch()), 0);
     let bytes = msg.encode();
-    let parsed = HandshakeMessage::decode(&bytes).unwrap();
+    eprintln!("CH bytes len = {}", bytes.len());
+    let parsed = match HandshakeMessage::decode(&bytes) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("decode error: {:?}", e);
+            let _ = &bytes;
+            panic!("{:?}", e);
+        }
+    };
     assert_eq!(parsed.msg_type, HandshakeType::ClientHello);
     assert_eq!(parsed.message_seq, 0);
     match &parsed.body {

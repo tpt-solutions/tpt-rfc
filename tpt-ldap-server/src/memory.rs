@@ -51,17 +51,18 @@ impl DirectoryBackend for MemoryBackend {
         let entries = self.entries.lock().expect("backend lock poisoned");
         match entries.get(&norm(dn)) {
             Some(entry) => match entry.attribute("userPassword") {
-                Some(attr) => Ok(attr
-                    .values
-                    .iter()
-                    .any(|v| constant_time_eq(v, password))),
+                Some(attr) => Ok(attr.values.iter().any(|v| constant_time_eq(v, password))),
                 None => Ok(false),
             },
             None => Ok(false),
         }
     }
 
-    fn bind_sasl(&self, dn: &str, sasl: &crate::backend::SaslCredentials) -> Result<bool, BackendError> {
+    fn bind_sasl(
+        &self,
+        dn: &str,
+        sasl: &crate::backend::SaslCredentials,
+    ) -> Result<bool, BackendError> {
         // The reference backend does not implement any SASL mechanism.
         let _ = (dn, sasl);
         Err(BackendError::Unsupported)
@@ -103,9 +104,7 @@ impl DirectoryBackend for MemoryBackend {
     fn modify(&self, dn: &str, changes: &[Modification]) -> Result<(), BackendError> {
         let mut entries = self.entries.lock().expect("backend lock poisoned");
         let key = norm(dn);
-        let entry = entries
-            .get_mut(&key)
-            .ok_or(BackendError::NotFound)?;
+        let entry = entries.get_mut(&key).ok_or(BackendError::NotFound)?;
         for change in changes {
             let attr = entry
                 .attributes
@@ -121,16 +120,17 @@ impl DirectoryBackend for MemoryBackend {
                         }
                         a.values.extend_from_slice(&change.values);
                     } else {
-                        entry.attributes.push(Attribute::new(
-                            change.name.clone(),
-                            change.values.clone(),
-                        ));
+                        entry
+                            .attributes
+                            .push(Attribute::new(change.name.clone(), change.values.clone()));
                     }
                 }
                 ModificationOp::Delete => {
                     let a = attr.ok_or(BackendError::NoSuchAttribute)?;
                     if change.values.is_empty() {
-                        entry.attributes.retain(|x| x.name.eq_ignore_ascii_case(&change.name));
+                        entry
+                            .attributes
+                            .retain(|x| x.name.eq_ignore_ascii_case(&change.name));
                     } else {
                         let before = a.values.len();
                         a.values.retain(|v| !change.values.iter().any(|c| c == v));
@@ -138,20 +138,23 @@ impl DirectoryBackend for MemoryBackend {
                             return Err(BackendError::NoSuchAttribute);
                         }
                         if a.values.is_empty() {
-                            entry.attributes.retain(|x| x.name.eq_ignore_ascii_case(&change.name));
+                            entry
+                                .attributes
+                                .retain(|x| x.name.eq_ignore_ascii_case(&change.name));
                         }
                     }
                 }
                 ModificationOp::Replace => {
                     if change.values.is_empty() {
-                        entry.attributes.retain(|x| x.name.eq_ignore_ascii_case(&change.name));
+                        entry
+                            .attributes
+                            .retain(|x| x.name.eq_ignore_ascii_case(&change.name));
                     } else if let Some(a) = attr {
                         a.values = change.values.clone();
                     } else {
-                        entry.attributes.push(Attribute::new(
-                            change.name.clone(),
-                            change.values.clone(),
-                        ));
+                        entry
+                            .attributes
+                            .push(Attribute::new(change.name.clone(), change.values.clone()));
                     }
                 }
             }
@@ -165,8 +168,8 @@ impl DirectoryBackend for MemoryBackend {
         if !entries.contains_key(&key) {
             return Err(BackendError::NotFound);
         }
-        let (new_rdn_name, new_rdn_value) = parse_rdn(&req.new_rdn)
-            .ok_or_else(|| BackendError::Other("invalid new RDN".into()))?;
+        let (new_rdn_name, new_rdn_value) =
+            parse_rdn(&req.new_rdn).ok_or_else(|| BackendError::Other("invalid new RDN".into()))?;
         let superior = match &req.new_superior {
             Some(s) => s.clone(),
             None => crate::protocol::dn_parent(&req.dn)

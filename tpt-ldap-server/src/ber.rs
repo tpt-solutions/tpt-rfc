@@ -404,9 +404,7 @@ fn read_element(buf: &[u8], pos: &mut usize) -> Result<BerElement, BerError> {
         })
     } else {
         let content_start = *pos;
-        let content_end = content_start
-            .checked_add(len)
-            .ok_or(BerError::BadLength)?;
+        let content_end = content_start.checked_add(len).ok_or(BerError::BadLength)?;
         if content_end > buf.len() {
             return Err(BerError::Truncated);
         }

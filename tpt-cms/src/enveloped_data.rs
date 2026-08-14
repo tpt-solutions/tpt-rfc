@@ -2,8 +2,8 @@
 //! recipient information, with AES-CBC content encryption and AES key wrap.
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{AnyRef, BitStringRef, OctetStringRef};
-use der::{Decode, Tag};
+use der::asn1::Any;
+use der::{Decode, Tag, Tagged};
 use x509_cert::Certificate;
 
 use crate::cert::{cert_issuer_der, cert_serial_bytes};
@@ -325,7 +325,7 @@ fn unwrap_cek(zz: &[u8], ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
 // ---------------------------------------------------------------------------
 
 fn decode_content_info(der: &[u8]) -> Result<(ObjectIdentifier, Vec<u8>)> {
-    let seq = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    let seq = Any::from_der(der).map_err(CmsError::Asn1)?;
     wire::ensure_tag(seq.tag(), Tag::Sequence)?;
     let mut c = wire::Cursor::new(seq.value());
     let ct = wire::oid_of(&c.take()?)?;
@@ -371,7 +371,7 @@ struct ParsedKeyAgree {
 }
 
 fn parse_enveloped_data(content_der: &[u8]) -> Result<ParsedEnvelopedData> {
-    let seq = AnyRef::from_der(content_der).map_err(CmsError::Asn1)?;
+    let seq = Any::from_der(content_der).map_err(CmsError::Asn1)?;
     wire::ensure_tag(seq.tag(), Tag::Sequence)?;
     let mut c = wire::Cursor::new(seq.value());
 
@@ -413,31 +413,31 @@ fn parse_enveloped_data(content_der: &[u8]) -> Result<ParsedEnvelopedData> {
 }
 
 fn parse_recipient_info(der: &[u8]) -> Result<ParsedRecipientInfo> {
-    let any = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    let any = Any::from_der(der).map_err(CmsError::Asn1)?;
     if any.tag() == wire::ctx_tag(0) {
-        let inner = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
+        let inner = Any::from_der(any.value()).map_err(CmsError::Asn1)?;
         wire::ensure_tag(inner.tag(), Tag::Sequence)?;
         Ok(ParsedRecipientInfo::KeyTrans(parse_key_trans(
             inner.value(),
-        )))
+        )?))
     } else if any.tag() == wire::ctx_tag(1) {
-        let inner = AnyRef::from_der(any.value()).map_err(CmsError::Asn1)?;
+        let inner = Any::from_der(any.value()).map_err(CmsError::Asn1)?;
         wire::ensure_tag(inner.tag(), Tag::Sequence)?;
         Ok(ParsedRecipientInfo::KeyAgree(parse_key_agree(
             inner.value(),
-        )))
+        )?))
     } else {
         Err(wire::unexpected_tag(any.tag(), wire::ctx_tag(0)))
     }
 }
 
-fn parse_issuer_serial(rid: &AnyRef) -> Result<(Vec<u8>, Vec<u8>, Option<Vec<u8>>)> {
+fn parse_issuer_serial(rid: &Any) -> Result<(Vec<u8>, Vec<u8>, Option<Vec<u8>>)> {
     if rid.tag() == Tag::Sequence {
         let mut ias = wire::Cursor::new(rid.value());
         let issuer = ias.take()?;
         let serial = ias.take()?;
         Ok((
-            issuer.as_bytes().to_vec(),
+            issuer.to_der().map_err(CmsError::Asn1)?.to_vec(),
             wire::integer_value(&serial)?,
             None,
         ))
@@ -471,9 +471,9 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
 
     let originator = c.take()?;
     wire::ensure_tag(originator.tag(), wire::ctx_tag(0))?;
-    let inner = AnyRef::from_der(originator.value()).map_err(CmsError::Asn1)?; // [1] EXPLICIT
+    let inner = Any::from_der(originator.value()).map_err(CmsError::Asn1)?; // [1] EXPLICIT
     wire::ensure_tag(inner.tag(), wire::ctx_tag(1))?;
-    let opk = AnyRef::from_der(inner.value()).map_err(CmsError::Asn1)?; // OriginatorPublicKey SEQUENCE
+    let opk = Any::from_der(inner.value()).map_err(CmsError::Asn1)?; // OriginatorPublicKey SEQUENCE
     wire::ensure_tag(opk.tag(), Tag::Sequence)?;
     let mut oc = wire::Cursor::new(opk.value());
     let alg_any = oc.take()?;
@@ -488,14 +488,12 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
     .map_err(CmsError::Asn1)?;
     let _ = curve_oid;
     let pubk_any = oc.take()?;
-        let originator_pub = BitStringRef::from(pubk_any.value())
-            .as_bytes()
-            .to_vec();
+        let originator_pub = pubk_any.value()[1..].to_vec();
 
     // ukm [1] EXPLICIT OCTET STRING OPTIONAL
     let (ukm, key_agree_any, rek) = if !c.at_end() && c.peek_tag() == Some(wire::ctx_tag(1)) {
         let u = c.take()?;
-        let ukm = wire::octet_value(&AnyRef::from_der(u.value()).map_err(CmsError::Asn1)?)?;
+        let ukm = wire::octet_value(&Any::from_der(u.value()).map_err(CmsError::Asn1)?)?;
         let ka = c.take()?;
         let rek = c.take()?;
         (ukm, ka, rek)
@@ -514,7 +512,7 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
         .to_vec();
 
     // RecipientEncryptedKeys ::= SEQUENCE OF RecipientEncryptedKey
-    let rek_seq = AnyRef::from_der(rek.value()).map_err(CmsError::Asn1)?;
+    let rek_seq = Any::from_der(rek.value()).map_err(CmsError::Asn1)?;
     wire::ensure_tag(rek_seq.tag(), Tag::Sequence)?;
     let mut rc = wire::Cursor::new(rek_seq.value());
     let rek_elem = rc.take()?;
@@ -536,7 +534,7 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
 }
 
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
-fn extract_octet_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
+fn extract_octet_param(param: Option<&der::asn1::Any>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
     let os = OctetStringRef::from(p.value());
     Ok(os.as_bytes().to_vec())

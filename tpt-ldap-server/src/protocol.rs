@@ -9,7 +9,7 @@
 //! matching rules and DN scope logic the server needs.
 
 use crate::backend::{Attribute, Entry, Modification, ModifyDnRequest, SaslCredentials};
-use crate::ber::{BerElement, BerError, Tag, universal};
+use crate::ber::{universal, BerElement, BerError, Tag};
 
 /// An attribute value assertion (RFC 4511 §4.1.8): a type and a value.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -381,10 +381,7 @@ pub struct LdapResponse {
 /// of bytes consumed.
 pub fn decode_request(buf: &[u8]) -> Result<(LdapRequest, usize), BerError> {
     let (el, consumed) = BerElement::decode_partial(buf)?;
-    let children = el
-        .as_children()
-        .ok_or(BerError::Unexpected)?
-        .to_vec();
+    let children = el.as_children().ok_or(BerError::Unexpected)?.to_vec();
     if children.len() < 2 {
         return Err(BerError::Unexpected);
     }
@@ -405,11 +402,13 @@ fn decode_request_op(el: &BerElement) -> Result<RequestOp, BerError> {
     if tag.class != crate::ber::CLASS_APPLICATION {
         return Err(BerError::Unexpected);
     }
-    match tag.number {
+    let op = match tag.number {
         // BindRequest and the remaining constructed operations carry nested
         // elements; the primitive operations (Unbind, DelRequest, Abandon)
         // do not and are handled without descending into children.
-        0 => RequestOp::Bind(decode_bind_request(el.as_children().ok_or(BerError::Unexpected)?)?),
+        0 => RequestOp::Bind(decode_bind_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
         2 => RequestOp::Unbind,
         10 => {
             let dn = el.as_str()?.to_string();
@@ -419,14 +418,27 @@ fn decode_request_op(el: &BerElement) -> Result<RequestOp, BerError> {
             let mid = el.as_int()?;
             RequestOp::Abandon(mid.try_into().map_err(|_| BerError::IntegerRange)?)
         }
-        3 => RequestOp::Search(decode_search_request(el.as_children().ok_or(BerError::Unexpected)?)?),
-        6 => RequestOp::Modify(decode_modify_request(el.as_children().ok_or(BerError::Unexpected)?)?),
-        8 => RequestOp::Add(decode_add_request(el.as_children().ok_or(BerError::Unexpected)?)?),
-        12 => RequestOp::ModifyDn(decode_modify_dn_request(el.as_children().ok_or(BerError::Unexpected)?)?),
-        14 => RequestOp::Compare(decode_compare_request(el.as_children().ok_or(BerError::Unexpected)?)?),
-        23 => RequestOp::Extended(decode_extended_request(el.as_children().ok_or(BerError::Unexpected)?)?),
-        _ => Err(BerError::Unexpected),
-    }
+        3 => RequestOp::Search(decode_search_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
+        6 => RequestOp::Modify(decode_modify_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
+        8 => RequestOp::Add(decode_add_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
+        12 => RequestOp::ModifyDn(decode_modify_dn_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
+        14 => RequestOp::Compare(decode_compare_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
+        23 => RequestOp::Extended(decode_extended_request(
+            el.as_children().ok_or(BerError::Unexpected)?,
+        )?),
+        _ => return Err(BerError::Unexpected),
+    };
+    Ok(op)
 }
 
 fn decode_bind_request(kids: &[BerElement]) -> Result<BindRequest, BerError> {
@@ -446,7 +458,10 @@ fn decode_bind_request(kids: &[BerElement]) -> Result<BindRequest, BerError> {
             .as_str()?
             .to_string();
         let credentials = if sasl_kids.len() > 1 {
-            sasl_kids[1].as_bytes().ok_or(BerError::Unexpected)?.to_vec()
+            sasl_kids[1]
+                .as_bytes()
+                .ok_or(BerError::Unexpected)?
+                .to_vec()
         } else {
             Vec::new()
         };
@@ -555,10 +570,7 @@ fn decode_filter(el: &BerElement) -> Result<Filter, BerError> {
                     value: s.as_bytes().ok_or(BerError::Unexpected)?.to_vec(),
                 });
             }
-            Ok(Filter::Substrings(SubstringFilter {
-                r#type,
-                substrings,
-            }))
+            Ok(Filter::Substrings(SubstringFilter { r#type, substrings }))
         }
         7 => {
             // Present: OCTET STRING (the attribute description)
@@ -824,14 +836,12 @@ impl LdapRequest {
 /// Serialize a [`Filter`] into its context-tagged BER element.
 pub fn encode_filter(filter: &Filter) -> BerElement {
     match filter {
-        Filter::And(subs) => BerElement::context_sequence(
-            0,
-            subs.iter().map(encode_filter).collect(),
-        ),
-        Filter::Or(subs) => BerElement::context_sequence(
-            1,
-            subs.iter().map(encode_filter).collect(),
-        ),
+        Filter::And(subs) => {
+            BerElement::context_sequence(0, subs.iter().map(encode_filter).collect())
+        }
+        Filter::Or(subs) => {
+            BerElement::context_sequence(1, subs.iter().map(encode_filter).collect())
+        }
         Filter::Not(f) => BerElement::context_sequence(2, vec![encode_filter(f)]),
         Filter::Equality(ava) => ava_element(3, ava),
         Filter::GreaterOrEqual(ava) => ava_element(5, ava),
@@ -889,16 +899,13 @@ fn encode_request_op(op: &RequestOp) -> BerElement {
         RequestOp::Bind(b) => {
             let auth = match &b.auth {
                 AuthChoice::Simple(pw) => BerElement::context_primitive(0, pw),
-                AuthChoice::Sasl(s) => BerElement::context_sequence(
-                    3,
-                    {
-                        let mut v = vec![BerElement::octet_string(s.mechanism.as_bytes())];
-                        if !s.credentials.is_empty() {
-                            v.push(BerElement::octet_string(&s.credentials));
-                        }
-                        v
-                    },
-                ),
+                AuthChoice::Sasl(s) => BerElement::context_sequence(3, {
+                    let mut v = vec![BerElement::octet_string(s.mechanism.as_bytes())];
+                    if !s.credentials.is_empty() {
+                        v.push(BerElement::octet_string(&s.credentials));
+                    }
+                    v
+                }),
             };
             BerElement::application_sequence(
                 0,
@@ -1026,7 +1033,10 @@ fn search_entry_children(e: &SearchResultEntry) -> Vec<BerElement> {
         .iter()
         .map(|a| {
             let vals = BerElement::set(
-                a.values.iter().map(|v| BerElement::octet_string(v)).collect(),
+                a.values
+                    .iter()
+                    .map(|v| BerElement::octet_string(v))
+                    .collect(),
             );
             BerElement::sequence(vec![BerElement::octet_string(a.r#type.as_bytes()), vals])
         })
@@ -1048,7 +1058,7 @@ pub fn filter_matches(filter: &Filter, entry: &Entry) -> bool {
         Filter::Or(subs) => subs.iter().any(|f| filter_matches(f, entry)),
         Filter::Not(f) => !filter_matches(f, entry),
         Filter::Equality(ava) => match entry.attribute(&ava.attribute_desc) {
-            Some(a) => a.values.iter().any(|v| *v == ava.assertion_value),
+            Some(a) => a.values.contains(&ava.assertion_value),
             None => false,
         },
         Filter::GreaterOrEqual(ava) => match entry.attribute(&ava.attribute_desc) {
@@ -1066,10 +1076,13 @@ pub fn filter_matches(filter: &Filter, entry: &Entry) -> bool {
             None => false,
         },
         Filter::ApproxMatch(ava) => match entry.attribute(&ava.attribute_desc) {
-            Some(a) => a.values.iter().any(|v| *v == ava.assertion_value),
+            Some(a) => a.values.contains(&ava.assertion_value),
             None => false,
         },
-        Filter::Present(name) => entry.attributes.iter().any(|a| a.name.eq_ignore_ascii_case(name)),
+        Filter::Present(name) => entry
+            .attributes
+            .iter()
+            .any(|a| a.name.eq_ignore_ascii_case(name)),
         Filter::Substrings(sf) => match entry.attribute(&sf.r#type) {
             Some(a) => a.values.iter().any(|v| substring_match(v, &sf.substrings)),
             None => false,
@@ -1094,7 +1107,10 @@ fn substring_match(value: &[u8], subs: &[Substring]) -> bool {
                 if s.value.len() > remaining.len() {
                     return false;
                 }
-                match remaining.windows(s.value.len()).position(|w| w == s.value.as_slice()) {
+                match remaining
+                    .windows(s.value.len())
+                    .position(|w| w == s.value.as_slice())
+                {
                     Some(pos) => cursor += pos + s.value.len(),
                     None => return false,
                 }
@@ -1139,9 +1155,7 @@ pub fn scope_match(scope: Scope, base: &str, dn: &str) -> bool {
             Some(parent) => parent.to_ascii_lowercase() == base_l && dn_l != base_l,
             None => false,
         },
-        Scope::WholeSubtree => {
-            dn_l == base_l || dn_l.ends_with(&format!(",{}", base_l))
-        }
+        Scope::WholeSubtree => dn_l == base_l || dn_l.ends_with(&format!(",{}", base_l)),
     }
 }
 
@@ -1157,10 +1171,18 @@ pub fn entry_to_result(
     let attrs = entry
         .attributes
         .iter()
-        .filter(|a| all || attributes.iter().any(|sel| sel.eq_ignore_ascii_case(&a.name)))
+        .filter(|a| {
+            all || attributes
+                .iter()
+                .any(|sel| sel.eq_ignore_ascii_case(&a.name))
+        })
         .map(|a| PartialAttribute {
             r#type: a.name.clone(),
-            values: if types_only { Vec::new() } else { a.values.clone() },
+            values: if types_only {
+                Vec::new()
+            } else {
+                a.values.clone()
+            },
         })
         .collect();
     SearchResultEntry {

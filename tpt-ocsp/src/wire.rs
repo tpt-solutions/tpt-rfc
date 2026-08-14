@@ -1,3 +1,6 @@
+// Copyright 2026 TPT Solutions
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! ASN.1/DER wire types for RFC 6960 (OCSP).
 //!
 //! All types borrow from the input buffer (`'a`) so they can be decoded cheaply
@@ -7,18 +10,20 @@
 
 use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, ObjectIdentifierRef, OctetStringRef, UintRef},
+    asn1::{
+        AnyRef, BitStringRef, GeneralizedTime, Null, ObjectIdentifierRef, OctetStringRef, UintRef,
+    },
     Choice, Enumerated, Sequence,
 };
 use spki::AlgorithmIdentifierRef;
-use x509_cert::Certificate;
 use x509_cert::name::Name;
+use x509_cert::Certificate;
 
 /// `OCSPResponseStatus` (RFC 6960 §4.2.1) — `ENUMERATED`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Enumerated)]
 #[repr(u8)]
 pub(crate) enum OcspResponseStatus {
-    /// `success` (0)
+    /// `successful` (0)
     Success = 0,
     /// `malformedRequest` (1)
     MalformedRequest = 1,
@@ -128,7 +133,7 @@ pub(crate) enum CrlReason {
 }
 
 impl CrlReason {
-    /// Map a raw reason code (`REVOKED` status `reason` byte) to `CrlReason`.
+    /// Map a raw reason code to `CrlReason`, if recognised.
     pub(crate) fn from_code(code: u8) -> Option<Self> {
         match code {
             0 => Some(CrlReason::Unspecified),
@@ -160,7 +165,7 @@ pub(crate) struct CertIdWire<'a> {
     pub serial_number: UintRef<'a>,
 }
 
-/// `Extension` — a single OCSP/`Extensions` member (RFC 5280 §4.1 / RFC 6960).
+/// `Extension` — a single `Extensions` member (RFC 5280 §4.1 / RFC 6960).
 #[derive(Clone, Sequence)]
 pub(crate) struct Extension<'a> {
     pub extn_id: ObjectIdentifier,

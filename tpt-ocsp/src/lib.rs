@@ -33,6 +33,7 @@ pub mod oids;
 pub mod responder;
 pub mod signer;
 pub mod verify;
+pub mod wire;
 
 pub use certid::{CertId, CertStatusValue};
 pub use client::{build_request, decode_request, DecodedRequest, OcspClient, RequestOptions, VerifiedResponse};

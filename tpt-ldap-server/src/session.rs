@@ -34,7 +34,11 @@ impl Session {
     /// messages until EOF, dispatching each and writing the corresponding
     /// response(s). `UnbindRequest` and `AbandonRequest` do not produce
     /// responses.
-    pub fn run<R: Read, W: Write>(&mut self, reader: &mut R, writer: &mut W) -> std::io::Result<()> {
+    pub fn run<R: Read, W: Write>(
+        &mut self,
+        reader: &mut R,
+        writer: &mut W,
+    ) -> std::io::Result<()> {
         let mut buf: Vec<u8> = Vec::new();
         while let Some(req) = read_message(reader, &mut buf)? {
             let close = self.handle_request(&req, writer)?;
@@ -93,7 +97,13 @@ impl Session {
     ) -> std::io::Result<bool> {
         if req.version < 2 {
             return self
-                .respond(op, id, ResultCode::ProtocolError, "unsupported LDAP version", writer)
+                .respond(
+                    op,
+                    id,
+                    ResultCode::ProtocolError,
+                    "unsupported LDAP version",
+                    writer,
+                )
                 .map(|_| false);
         }
         let result = match &req.auth {
@@ -110,7 +120,7 @@ impl Session {
                 .map_err(|e| ResultCode::from_backend_error(&e)),
             AuthChoice::Sasl(sasl) => self
                 .backend
-                .bind_sasl(&req.name, &sasl)
+                .bind_sasl(&req.name, sasl)
                 .map(|ok| {
                     if ok {
                         ResultCode::Success
@@ -120,7 +130,8 @@ impl Session {
                 })
                 .map_err(|e| ResultCode::from_backend_error(&e)),
         };
-        self.emit(op, id, result, "bind failed", writer).map(|_| false)
+        self.emit(op, id, result, "bind failed", writer)
+            .map(|_| false)
     }
 
     fn handle_search<W: Write>(
@@ -178,8 +189,14 @@ impl Session {
             returned += 1;
         }
 
-        self.respond(&RequestOp::Search(req.clone()), id, done_code, &done_diag, writer)
-            .map(|_| false)
+        self.respond(
+            &RequestOp::Search(req.clone()),
+            id,
+            done_code,
+            &done_diag,
+            writer,
+        )
+        .map(|_| false)
     }
 
     fn handle_compare<W: Write>(
@@ -191,7 +208,11 @@ impl Session {
     ) -> std::io::Result<bool> {
         let result = self
             .backend
-            .compare(&req.entry, &req.ava.attribute_desc, &req.ava.assertion_value)
+            .compare(
+                &req.entry,
+                &req.ava.attribute_desc,
+                &req.ava.assertion_value,
+            )
             .map(|matched| {
                 if matched {
                     ResultCode::CompareTrue
@@ -200,7 +221,8 @@ impl Session {
                 }
             })
             .map_err(|e| ResultCode::from_backend_error(&e));
-        self.emit(op, id, result, "compare failed", writer).map(|_| false)
+        self.emit(op, id, result, "compare failed", writer)
+            .map(|_| false)
     }
 
     fn handle_add<W: Write>(
@@ -210,8 +232,13 @@ impl Session {
         req: &crate::protocol::AddRequest,
         writer: &mut W,
     ) -> std::io::Result<bool> {
-        let result = self.backend.add(&req.entry).map(|_| ResultCode::Success).map_err(|e| ResultCode::from_backend_error(&e));
-        self.emit(op, id, result, "add failed", writer).map(|_| false)
+        let result = self
+            .backend
+            .add(&req.entry)
+            .map(|_| ResultCode::Success)
+            .map_err(|e| ResultCode::from_backend_error(&e));
+        self.emit(op, id, result, "add failed", writer)
+            .map(|_| false)
     }
 
     fn handle_delete<W: Write>(
@@ -221,8 +248,13 @@ impl Session {
         dn: &str,
         writer: &mut W,
     ) -> std::io::Result<bool> {
-        let result = self.backend.delete(dn).map(|_| ResultCode::Success).map_err(|e| ResultCode::from_backend_error(&e));
-        self.emit(op, id, result, "delete failed", writer).map(|_| false)
+        let result = self
+            .backend
+            .delete(dn)
+            .map(|_| ResultCode::Success)
+            .map_err(|e| ResultCode::from_backend_error(&e));
+        self.emit(op, id, result, "delete failed", writer)
+            .map(|_| false)
     }
 
     fn handle_modify<W: Write>(
@@ -236,8 +268,10 @@ impl Session {
         let result = self
             .backend
             .modify(&req.object, &changes)
-            .map(|_| ResultCode::Success).map_err(|e| ResultCode::from_backend_error(&e));
-        self.emit(op, id, result, "modify failed", writer).map(|_| false)
+            .map(|_| ResultCode::Success)
+            .map_err(|e| ResultCode::from_backend_error(&e));
+        self.emit(op, id, result, "modify failed", writer)
+            .map(|_| false)
     }
 
     fn handle_modify_dn<W: Write>(
@@ -247,8 +281,13 @@ impl Session {
         req: &crate::backend::ModifyDnRequest,
         writer: &mut W,
     ) -> std::io::Result<bool> {
-        let result = self.backend.modify_dn(req).map(|_| ResultCode::Success).map_err(|e| ResultCode::from_backend_error(&e));
-        self.emit(op, id, result, "modify DN failed", writer).map(|_| false)
+        let result = self
+            .backend
+            .modify_dn(req)
+            .map(|_| ResultCode::Success)
+            .map_err(|e| ResultCode::from_backend_error(&e));
+        self.emit(op, id, result, "modify DN failed", writer)
+            .map(|_| false)
     }
 
     /// Emit a result response for `op`, mapping `Ok`/`Err` result codes.
@@ -306,7 +345,10 @@ impl Session {
 
 /// Read a single complete LDAP message from `reader`, accumulating into `buf`
 /// until enough bytes are available. Returns `None` on clean EOF.
-fn read_message<R: Read>(reader: &mut R, buf: &mut Vec<u8>) -> std::io::Result<Option<LdapRequest>> {
+fn read_message<R: Read>(
+    reader: &mut R,
+    buf: &mut Vec<u8>,
+) -> std::io::Result<Option<LdapRequest>> {
     loop {
         match decode_request(buf) {
             Ok((req, consumed)) => {

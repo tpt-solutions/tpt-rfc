@@ -6,8 +6,8 @@
 //! agreement is used).
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{AnyRef, OctetStringRef};
-use der::Tag;
+use der::asn1::Any;
+use der::{Tag, Tagged};
 
 use crate::crypto::{ContentEncryption, HashAlgorithm};
 use crate::error::{CmsError, Result};
@@ -42,7 +42,7 @@ pub fn verify_digested_data(der: &[u8]) -> Result<Vec<u8>> {
             got: ct.to_string(),
         });
     }
-    let seq = AnyRef::from_der(&content_der).map_err(CmsError::Asn1)?;
+    let seq = Any::from_der(&content_der).map_err(CmsError::Asn1)?;
     wire::ensure_tag(seq.tag(), Tag::Sequence)?;
     let mut c = wire::Cursor::new(seq.value());
     let _version = c.take()?;
@@ -93,7 +93,7 @@ pub fn decrypt_encrypted_data(der: &[u8], key: &[u8]) -> Result<Vec<u8>> {
             got: ct.to_string(),
         });
     }
-    let seq = AnyRef::from_der(&content_der).map_err(CmsError::Asn1)?;
+    let seq = Any::from_der(&content_der).map_err(CmsError::Asn1)?;
     wire::ensure_tag(seq.tag(), Tag::Sequence)?;
     let mut c = wire::Cursor::new(seq.value());
     let _version = c.take()?;
@@ -110,7 +110,7 @@ pub fn decrypt_encrypted_data(der: &[u8], key: &[u8]) -> Result<Vec<u8>> {
     } else {
         let e = ec.take()?;
         wire::ensure_tag(e.tag(), wire::ctx_tag_prim(0))?;
-        wire::octet_value(&AnyRef::from_der(e.value()).map_err(CmsError::Asn1)?)?
+        wire::octet_value(&Any::from_der(e.value()).map_err(CmsError::Asn1)?)?
     };
     content_enc.decrypt(key, &iv, &encrypted)
 }
@@ -120,7 +120,7 @@ pub fn decrypt_encrypted_data(der: &[u8], key: &[u8]) -> Result<Vec<u8>> {
 // ---------------------------------------------------------------------------
 
 fn decode_content_info(der: &[u8]) -> Result<(ObjectIdentifier, Vec<u8>)> {
-    let seq = AnyRef::from_der(der).map_err(CmsError::Asn1)?;
+    let seq = Any::from_der(der).map_err(CmsError::Asn1)?;
     wire::ensure_tag(seq.tag(), Tag::Sequence)?;
     let mut c = wire::Cursor::new(seq.value());
     let ct = wire::oid_of(&c.take()?)?;
@@ -135,7 +135,7 @@ fn decode_content_info(der: &[u8]) -> Result<(ObjectIdentifier, Vec<u8>)> {
 }
 
 /// Parse `EncapsulatedContentInfo` ::= SEQUENCE { eContentType, eContent [0] IMPLICIT OCTET STRING }.
-fn parse_encap_content(encap: &AnyRef) -> Result<Vec<u8>> {
+fn parse_encap_content(encap: &Any) -> Result<Vec<u8>> {
     wire::ensure_tag(encap.tag(), Tag::Sequence)?;
     let mut ec = wire::Cursor::new(encap.value());
     let _e_content_type = wire::oid_of(&ec.take()?)?;
