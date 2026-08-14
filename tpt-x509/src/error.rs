@@ -5,6 +5,7 @@ use thiserror::Error;
 /// Errors produced while validating an X.509 certification path.
 #[derive(Debug, Error)]
 #[non_exhaustive]
+#[allow(missing_docs)]
 pub enum ValidationError {
     /// A certificate (or CRL) could not be decoded from DER.
     #[error("DER decoding failed: {0}")]

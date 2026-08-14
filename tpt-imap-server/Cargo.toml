@@ -1,0 +1,29 @@
+[package]
+name = "tpt-imap-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["imap", "rfc9051", "mail", "server", "email"]
+categories = ["network-programming", "email"]
+description = "Clean-room, dual-licensed IMAP4rev2 server (RFC 9051) with a pluggable mailbox storage backend"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# base64 is used only to decode SASL AUTHENTICATE payloads; it is
+# MIT OR Apache-2.0 (dual licensed) and reused, not reimplemented.
+base64 = "0.22"
+
+[dev-dependencies]
+# Used by the integration test harness to exercise the server over TCP.
+base64 = "0.22"
+
+[package.metadata.docs.rs]
+all-features = true

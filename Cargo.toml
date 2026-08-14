@@ -1,17 +1,19 @@
 [workspace]
 resolver = "2"
 members = [
+    "tpt-http-sig",
     "tpt-cbor",
     "tpt-hotp",
     "tpt-ssh",
     "tpt-x509",
-    # Additional crates are added here as they are scaffolded:
-    # "tpt-ed25519",
-    # "tpt-imap-server",
-    # "tpt-doh",
-    # "tpt-http-cache",
-    # "tpt-dhcp",
+    "tpt-imap-server",
+    "tpt-cms",
 ]
+
+# `tpt-x25519` opts out of the parent workspace (it declares its own
+# `[workspace]`) so that it builds and tests independently. Exclude it
+# explicitly to avoid a "multiple workspace roots" conflict.
+exclude = ["tpt-x25519"]
 
 [workspace.package]
 version = "0.1.0"
@@ -35,3 +37,4 @@ unsafe_code = "warn"
 
 [workspace.lints.clippy]
 all = "warn"
+

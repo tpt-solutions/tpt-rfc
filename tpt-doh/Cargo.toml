@@ -1,0 +1,30 @@
+[package]
+name = "tpt-doh"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["doh", "dns", "rfc8484", "https", "resolver"]
+categories = ["network-programming"]
+description = "Clean-room, dual-licensed DNS-over-HTTPS (DoH) client (RFC 8484) with a pluggable HTTP backend"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# Optional, user-brought HTTP transport. The crate core is dependency-free.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"], optional = true }
+
+[features]
+# Default: no transport compiled in; users bring their own `HttpClient`
+# implementation. Enabling `reqwest` provides a ready-made backend.
+default = []
+reqwest = ["dep:reqwest"]
+
+[package.metadata.docs.rs]
+all-features = true

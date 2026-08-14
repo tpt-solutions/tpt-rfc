@@ -1,0 +1,51 @@
+[package]
+name = "tpt-tsp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT OR Apache-2.0"
+authors = ["TPT Solutions <oss@tpt.example>"]
+repository = "https://github.com/tpt-solutions/tpt-rfc"
+homepage = "https://github.com/tpt-solutions/tpt-rfc"
+keywords = ["rfc3161", "timestamp", "tsp", "timestamping", "pkix"]
+categories = ["cryptography"]
+description = "Clean-room, dual-licensed RFC 3161 Time-Stamp Protocol (TSP) — client request/verification and TSA responder"
+readme = "README.md"
+
+# Self-contained workspace so the crate builds and tests independently of the
+# platform root manifest (which is regenerated separately). When folded into the
+# platform workspace, switch these back to `*.workspace = true`.
+[workspace]
+
+[lints]
+rust.unsafe_code = "warn"
+clippy.all = "warn"
+
+[dependencies]
+thiserror = "1"
+# ASN.1 DER + CMS helpers (RustCrypto, MIT/Apache-2.0). Versions pinned to the
+# `der`/`spki`/`x509-cert` 0.8/0.8/0.3 line used across the platform.
+der = { version = "0.8", features = ["derive"] }
+spki = "0.8"
+const-oid = "0.10"
+x509-cert = { version = "0.3", features = ["builder"] }
+# Cryptographic primitives for signing/verifying timestamps (all dual-licensed).
+sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
+rsa = "0.9"            # MIT/Apache-2.0
+ecdsa = { version = "0.17", features = ["spki"] } # MIT/Apache-2.0
+p256 = "0.14"          # MIT/Apache-2.0
+p384 = "0.14"          # MIT/Apache-2.0
+ed25519-compact = "2"  # MIT
+
+# `sha2` (0.11, spki 0.8) is used for digest computation throughout. RSA PKCS#1
+# v1.5 signing needs a hash type implementing `spki::AssociatedOid` for the
+# *older* spki 0.7 that `rsa` 0.9 pins, so pull `sha2` 0.10 (with `oid`) under
+# a renamed dependency purely for the `Pkcs1v15Sign::new::<…>()` generic.
+sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] } # MIT/Apache-2.0
+
+[dev-dependencies]
+hex = "0.4"
+rand_core = "0.6" # MIT/Apache-2.0 (test key generation)
+
+[package.metadata.docs.rs]
+all-features = true

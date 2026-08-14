@@ -1,0 +1,11 @@
+# Changelog
+
+All notable changes to this crate are documented here. The format is based on
+[Keep a Changelog](https://keepachangelog.com/), and this crate adheres to
+[Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+## [0.1.0] - TBD
+
+- Initial release: RFC 8620 (JMAP core) + RFC 8621 (JMAP Mail) server baseline.

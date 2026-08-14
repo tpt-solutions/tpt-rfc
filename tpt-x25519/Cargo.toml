@@ -1,0 +1,39 @@
+[package]
+name = "tpt-x25519"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT OR Apache-2.0"
+authors = ["TPT Solutions <oss@tpt.example>"]
+repository = "https://github.com/tpt-solutions/tpt-rfc"
+homepage = "https://github.com/tpt-solutions/tpt-rfc"
+keywords = ["x25519", "x448", "curve25519", "curve448", "rfc7748"]
+categories = ["cryptography"]
+description = "Clean-room, dual-licensed X25519/X448 key agreement (RFC 7748) with constant-time Montgomery ladder"
+readme = "README.md"
+
+# Detached from the parent workspace so this crate builds and tests
+# independently of the (still-growing) multi-crate platform workspace.
+[workspace]
+
+[lints]
+rust.unsafe_code = "warn"
+clippy.all = "warn"
+
+[dependencies]
+thiserror = "1"
+getrandom = { version = "0.2", optional = true }
+
+[features]
+default = ["getrandom"]
+rand = ["getrandom"]
+
+[dev-dependencies]
+hex = "0.4"
+# Dev-only cross-validation against a reference implementation. NOT a runtime
+# dependency of the published crate (which remains dual MIT/Apache-2.0). Used
+# purely to confirm conformance to RFC 7748 in `tests/compare_dalek.rs`.
+x25519-dalek = "2"
+
+[package.metadata.docs.rs]
+all-features = true

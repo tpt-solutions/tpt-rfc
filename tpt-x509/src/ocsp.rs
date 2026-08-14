@@ -13,7 +13,7 @@
 //! **request** builder, which is useful on its own for callers that want to
 //! query a responder and verify the response with `tpt-ocsp` later.
 
-use der::{Decode, Encode};
+use der::Encode;
 use sha2::{Digest, Sha256};
 use x509_cert::{serial_number::SerialNumber, Certificate};
 

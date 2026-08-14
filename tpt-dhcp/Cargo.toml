@@ -1,0 +1,25 @@
+[package]
+name = "tpt-dhcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["dhcp", "rfc2131", "bootp", "network", "server"]
+categories = ["network-programming"]
+description = "Clean-room, dual-licensed DHCP client/server (RFC 2131) with a pluggable lease backend"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+
+[dev-dependencies]
+thiserror = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

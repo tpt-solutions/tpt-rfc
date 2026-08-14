@@ -129,7 +129,7 @@ fn same_kind(a: &GeneralNameLike, b: &GeneralNameLike) -> bool {
 fn matches(name: &GeneralNameLike, base: &GeneralNameLike) -> bool {
     match (name, base) {
         (GeneralNameLike::Dns(n), GeneralNameLike::Dns(b)) => dns_within(n, b),
-        (GeneralNameLike::Ip(ip), GeneralNameLike::Ip(b)) => ip_within(*ip, b),
+        (GeneralNameLike::Ip(ip), GeneralNameLike::Ip(_)) => ip_within(*ip, base),
         (GeneralNameLike::Dir(dn), GeneralNameLike::Dir(b)) => dn_within(dn, b),
         _ => false,
     }

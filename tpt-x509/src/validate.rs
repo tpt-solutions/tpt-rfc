@@ -7,7 +7,7 @@ use der::Encode;
 use x509_cert::{crl::CertificateList, ext::pkix::certpolicy::CertificatePolicies, Certificate};
 
 use crate::{
-    cert::{basic_constraints, extended_key_usage, is_self_issued, is_self_signed, key_usage, name_constraints, subject_der, issuer_der, TrustAnchor},
+    cert::{basic_constraints, extended_key_usage, is_self_issued, key_usage, name_constraints, subject_der, issuer_der, TrustAnchor},
     constraints::{check_constraints, GeneralSubtreeLike},
     crl,
     error::ValidationError,
@@ -117,34 +117,27 @@ impl PathValidator {
                 chain.pop();
             }
         }
-        // Can `last` terminate the path as (or against) a trust anchor?
+        // Can `last` terminate the path against a trust anchor?
         if let Some(ai) = self.matches_anchor(last) {
             let mut ordered = chain.clone();
             ordered.reverse(); // [top .. EE]
+            // Prepend the anchor's certificate so the returned path runs from
+            // the trust anchor (root) down to the end entity.
+            if let Some(root) = &self.config.trust_anchors[ai].cert {
+                ordered.insert(0, root.clone());
+            }
             out.push((ordered, ai));
         }
     }
 
-    /// Returns the anchor index if `cert` is (or is issued by) a trust anchor.
+    /// Returns the anchor index if `cert` chains to (is issued and signed by)
+    /// a trust anchor: its issuer name matches the anchor name and the anchor's
+    /// public key verifies `cert`'s signature.
     fn matches_anchor(&self, cert: &Certificate) -> Option<usize> {
-        let subj = subject_der(cert).ok()?;
-        let spki = cert.tbs_certificate().subject_public_key_info().to_der().ok()?;
+        let issuer = issuer_der(cert).ok()?;
         for (i, a) in self.config.trust_anchors.iter().enumerate() {
-            let a_name = a.name.to_der().ok();
-            let a_spki = a.spki.to_der().ok();
-            // Self-signed root that is the anchor.
-            if is_self_signed(cert)
-                && a_name.as_deref() == Some(subj.as_slice())
-                && a_spki.as_deref() == Some(spki.as_slice())
-            {
-                return Some(i);
-            }
-            // Externally-anchored: cert's issuer equals the anchor name and the
-            // anchor's key signed it.
-            let iss = issuer_der(cert).ok();
-            if iss.as_deref() == a_name.as_deref()
-                && a_spki.as_deref() == Some(spki.as_slice())
-            {
+            let a_name = a.name.to_der().ok()?;
+            if issuer.as_slice() == a_name.as_slice() && verify_signature(cert, &a.spki).is_ok() {
                 return Some(i);
             }
         }
@@ -177,10 +170,10 @@ impl PathValidator {
             let working_spki = if k == 0 {
                 &anchor.spki
             } else {
-                path[k - 1].tbs_certificate().subject_public_key_info()
+                &path[k - 1].tbs_certificate().subject_public_key_info()
             };
             verify_signature(cert, working_spki).map_err(|e| match e {
-                ValidationError::Signature { issuer, reason } => ValidationError::Signature {
+                ValidationError::Signature { reason, .. } => ValidationError::Signature {
                     issuer: subject_label.clone(),
                     reason,
                 },

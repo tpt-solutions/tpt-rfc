@@ -1,0 +1,42 @@
+[package]
+name = "tpt-http-sig"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["http", "rfc9421", "signature", "message-signature", "http-sig"]
+categories = ["web-programming", "cryptography"]
+description = "Clean-room, dual-licensed (MIT OR Apache-2.0) RFC 9421 HTTP Message Signatures — framework-agnostic signer/verifier"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# All cryptographic primitives are dual-licensed (MIT/Apache-2.0) and reused
+# rather than reimplemented:
+sha2 = "0.10"                                  # MIT/Apache-2.0 — hash digests
+hmac = "0.12"                                 # MIT/Apache-2.0 — HMAC
+rsa = "0.9" # MIT/Apache-2.0
+p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "alloc"] } # MIT/Apache-2.0
+p384 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "alloc"] } # MIT/Apache-2.0
+p521 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "alloc"] } # MIT/Apache-2.0
+spki = "0.8" # MIT/Apache-2.0 — SPKI SubjectPublicKeyInfo decode for public keys
+der = "0.8"  # MIT/Apache-2.0 — DER decoding for SPKI public keys
+ecdsa = "0.17" # MIT/Apache-2.0 — ECDSA sign/verify primitives (re-exported by p256/p384/p521)
+ed25519-compact = { version = "2", features = ["pem"] } # MIT
+base64 = "0.22"                               # MIT/Apache-2.0 — Signature byte-sequence codec
+pem = "3"                                     # MIT — PEM envelope decode for key material
+# Optional `http` crate integration (hyper/reqwest/axum users). Disabled by
+# default to keep the core dependency-free.
+http = { version = "1", optional = true }
+
+[dev-dependencies]
+hex = "0.4" # MIT/Apache-2.0
+
+[package.metadata.docs.rs]
+all-features = true

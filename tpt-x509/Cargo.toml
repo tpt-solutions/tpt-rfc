@@ -25,18 +25,21 @@ x509-cert = { version = "0.3", features = ["builder"] }
 spki = "0.8"
 der = { version = "0.8", features = ["derive"] }
 const-oid = "0.10"
-num-integer = "0.1"    # MIT/Apache-2.0 (BigUint::modpow for RSA verification)
 # Crypto primitives for signature verification (all dual-licensed):
-sha2 = "0.10"          # MIT/Apache-2.0
-rsa = "0.9"            # MIT/Apache-2.0 (used for BigUint only; the RSA
-                       # signature check is implemented in clean room here)
-ecdsa = "0.16"         # MIT/Apache-2.0
-p256 = "0.13"          # MIT/Apache-2.0
-p384 = "0.13"          # MIT/Apache-2.0
+# `sha2` is pinned to 0.11 to match `x509-cert` and must carry the `oid`
+# feature so ECDSA test-cert generation (via the `x509_cert` builder) can map
+# the P-256 hash to its `AssociatedOid`.
+sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
+# `spki` feature required so `ecdsa::Signature` implements `SignatureBitStringEncoding`
+# (needed by the `x509_cert` builder when minting ECDSA test certificates).
+ecdsa = { version = "0.17", features = ["spki", "alloc"] } # MIT/Apache-2.0
+p256 = "0.14"          # MIT/Apache-2.0
+p384 = "0.14"          # MIT/Apache-2.0
 ed25519-compact = "2"  # MIT
 
 [dev-dependencies]
 hex = "0.4"
+flagset = "0.4"
 
 [package.metadata.docs.rs]
 all-features = true

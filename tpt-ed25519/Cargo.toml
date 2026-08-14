@@ -1,0 +1,23 @@
+[package]
+name = "tpt-ed25519"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["ed25519", "eddsa", "rfc8032", "signature", "cryptography"]
+categories = ["cryptography"]
+description = "Clean-room, dual-licensed Ed25519 (RFC 8032) implementation — signing, verification, Ed25519ph and Ed25519ctx"
+readme = "README.md"
+
+[dependencies]
+sha2 = "0.10" # MIT OR Apache-2.0 — SHA-512 used by Ed25519
+thiserror = { workspace = true }
+
+[dev-dependencies]
+hex = "0.4" # MIT OR Apache-2.0
+
+[package.metadata.docs.rs]
+all-features = true

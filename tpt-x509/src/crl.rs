@@ -1,10 +1,10 @@
 //! CRL parsing and revocation checking (RFC 5280 §6.3).
 
-use der::{Decode, Encode};
+use der::{Decode, Encode, Length};
 use x509_cert::{crl::CertificateList, Certificate};
 
 use crate::{
-    cert::{issuer_der, subject_der, TrustAnchor},
+    cert::{subject_der, TrustAnchor},
     error::ValidationError,
     verify::verify_signature_raw,
 };
@@ -16,15 +16,8 @@ pub fn parse_der(der: &[u8]) -> Result<CertificateList, der::Error> {
 
 /// Parse a PEM-encoded CRL (`-----BEGIN X509 CRL-----`).
 pub fn parse_pem(pem: &[u8]) -> Result<CertificateList, der::Error> {
-    let der = pem_to_der(pem).ok_or_else(|| {
-        der::Error::new(
-            der::ErrorKind::TrailingData {
-                decoded: 0,
-                remaining: 0,
-            },
-            der::Length::ZERO,
-        )
-    })?;
+    let der = pem_to_der(pem)
+        .ok_or_else(|| der::Error::new(der::ErrorKind::Failed, Length::ZERO))?;
     CertificateList::from_der(&der)
 }
 

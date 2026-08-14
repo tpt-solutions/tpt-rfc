@@ -1,0 +1,30 @@
+[package]
+name = "tpt-pop3"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["pop3", "rfc1939", "email", "mailbox", "server"]
+categories = ["network-programming", "email"]
+description = "Clean-room, dual-licensed POP3 server (RFC 1939) with a pluggable mailbox backend"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# Dual-licensed (MIT OR Apache-2.0) MD5, used only for the optional APOP
+# command (RFC 1939 §7). No other hashing is required by POP3 itself.
+md-5 = "0.10"
+# Used by the in-memory backend to hex-encode the APOP digest.
+hex = "0.4"
+
+[dev-dependencies]
+hex = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true

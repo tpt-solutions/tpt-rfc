@@ -1,10 +1,11 @@
 //! Certificate parsing and extension-extraction helpers.
 
-use der::{Decode, Encode};
+use der::{Decode, Encode, Length};
 use x509_cert::{
     ext::{
         pkix::{
-            BasicConstraints, ExtendedKeyUsage, KeyUsage, NameConstraints, SubjectAltName,
+            BasicConstraints, CertificatePolicies, ExtendedKeyUsage, KeyUsage, NameConstraints,
+            SubjectAltName,
         },
         Extensions,
     },
@@ -24,15 +25,7 @@ pub fn parse_der(der: &[u8]) -> Result<Certificate, der::Error> {
 ///
 /// Only the "CERTIFICATE" label is accepted.
 pub fn parse_pem(pem: &[u8]) -> Result<Certificate, der::Error> {
-    let der = pem_to_der(pem).ok_or_else(|| {
-        der::Error::new(
-            der::ErrorKind::TrailingData {
-                decoded: 0,
-                remaining: 0,
-            },
-            der::Length::ZERO,
-        )
-    })?;
+    let der = pem_to_der(pem).ok_or_else(pem_error)?;
     Certificate::from_der(&der)
 }
 
@@ -66,7 +59,7 @@ pub fn is_self_signed(cert: &Certificate) -> bool {
     if !is_self_issued(cert) {
         return false;
     }
-    crate::verify::verify_signature(cert, &cert.tbs_certificate().subject_public_key_info()).is_ok()
+    crate::verify::verify_signature(cert, cert.tbs_certificate().subject_public_key_info()).is_ok()
 }
 
 /// Extract the `BasicConstraints` extension, if present.
@@ -114,6 +107,15 @@ pub fn subject_alt_name(cert: &Certificate) -> Option<SubjectAltName> {
         .map(|(_, san)| san)
 }
 
+/// Extract the `CertificatePolicies` extension, if present.
+pub fn certificate_policies(cert: &Certificate) -> Option<CertificatePolicies> {
+    cert.tbs_certificate()
+        .get_extension::<CertificatePolicies>()
+        .ok()
+        .flatten()
+        .map(|(_, cp)| cp)
+}
+
 /// A trust anchor: the name and public key against which the top of a
 /// certification path is validated, plus any name constraints the anchor
 /// imposes on subordinate certificates.
@@ -123,6 +125,10 @@ pub struct TrustAnchor {
     pub name: Name,
     /// The anchor's public key.
     pub spki: SubjectPublicKeyInfo,
+    /// The anchor's certificate, if this anchor was built from a (self-signed)
+    /// root certificate. When present, it is prepended to validated paths so
+    /// the returned path runs from the trust anchor down to the end entity.
+    pub cert: Option<Certificate>,
     /// Permitted subtrees (RFC 5280 §4.2.1.10), if the anchor constrains them.
     pub permitted_subtrees: Option<Vec<crate::constraints::GeneralSubtreeLike>>,
     /// Excluded subtrees, if the anchor constrains them.
@@ -155,11 +161,17 @@ impl TrustAnchor {
         Ok(Self {
             name: cert.tbs_certificate().subject().clone(),
             spki: cert.tbs_certificate().subject_public_key_info().clone(),
+            cert: Some(cert.clone()),
             permitted_subtrees: permitted,
             excluded_subtrees: excluded,
             path_len: basic_constraints(cert).and_then(|bc| bc.path_len_constraint),
         })
     }
+}
+
+/// Convenience accessor for the raw extensions sequence, if present.
+pub fn extensions(cert: &Certificate) -> Option<&Extensions> {
+    cert.tbs_certificate().extensions()
 }
 
 // --- PEM decoding (minimal, dependency-free) ---------------------------------
@@ -186,10 +198,14 @@ fn pem_to_der(pem: &[u8]) -> Option<Vec<u8>> {
     if !in_body {
         return None;
     }
-    base64_decode(&b64)
+    Some(base64_decode(&b64))
 }
 
-fn base64_decode(b64: &[u8]) -> Option<Vec<u8>> {
+fn pem_error() -> der::Error {
+    der::Error::new(der::ErrorKind::Failed, Length::ZERO)
+}
+
+fn base64_decode(b64: &[u8]) -> Vec<u8> {
     const TABLE: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = Vec::with_capacity(b64.len() / 4 * 3);
     let mut buf = 0u32;
@@ -198,7 +214,10 @@ fn base64_decode(b64: &[u8]) -> Option<Vec<u8>> {
         if c == b'=' || c.is_ascii_whitespace() {
             continue;
         }
-        let v = TABLE.iter().position(|&t| t == c)?;
+        let v = match TABLE.iter().position(|&t| t == c) {
+            Some(v) => v,
+            None => return Vec::new(),
+        };
         buf = (buf << 6) | v as u32;
         bits += 6;
         if bits >= 8 {
@@ -206,10 +225,5 @@ fn base64_decode(b64: &[u8]) -> Option<Vec<u8>> {
             out.push((buf >> bits) as u8);
         }
     }
-    Some(out)
-}
-
-/// Convenience accessor for the raw extensions sequence, if present.
-pub fn extensions(cert: &Certificate) -> Option<&Extensions> {
-    cert.tbs_certificate().extensions()
+    out
 }
