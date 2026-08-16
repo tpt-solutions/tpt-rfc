@@ -32,7 +32,7 @@ const-oid = "0.10"
 sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
 # `spki` feature required so `ecdsa::Signature` implements `SignatureBitStringEncoding`
 # (needed by the `x509_cert` builder when minting ECDSA test certificates).
-ecdsa = { version = "0.17", features = ["spki", "alloc"] } # MIT/Apache-2.0
+ecdsa = { version = "0.17", features = ["spki", "alloc", "der"] } # MIT/Apache-2.0
 p256 = "0.14"          # MIT/Apache-2.0
 p384 = "0.14"          # MIT/Apache-2.0
 ed25519-compact = "2"  # MIT

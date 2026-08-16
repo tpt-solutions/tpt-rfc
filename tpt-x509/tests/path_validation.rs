@@ -8,15 +8,10 @@ use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
 use const_oid::ObjectIdentifier;
-use der::asn1::Ia5String;
 use flagset::FlagSet;
 use p256::ecdsa::SigningKey;
 use signature::{Error as SigError, Keypair, Signer};
-use spki::{
-    AlgorithmIdentifier, DynSignatureAlgorithmIdentifier, EncodePublicKey,
-    SignatureBitStringEncoding, SubjectPublicKeyInfoOwned,
-};
-use x509_cert::spki::SubjectPublicKeyInfo;
+use spki::{DynSignatureAlgorithmIdentifier, SubjectPublicKeyInfoOwned};
 use x509_cert::{
     builder::profile::BuilderProfile,
     builder::{Builder, CertificateBuilder},
@@ -57,7 +52,8 @@ struct EcdsaSig(p256::ecdsa::Signature);
 
 impl spki::SignatureBitStringEncoding for EcdsaSig {
     fn to_bitstring(&self) -> der::Result<der::asn1::BitString> {
-        der::asn1::BitString::new(0, self.0.to_vec())
+        let der_sig = self.0.to_der();
+        der::asn1::BitString::new(0, der_sig.as_ref().to_vec())
     }
 }
 
@@ -67,17 +63,15 @@ struct EcdsaSigner(p256::ecdsa::SigningKey);
 impl Keypair for EcdsaSigner {
     type VerifyingKey = p256::ecdsa::VerifyingKey;
     fn verifying_key(&self) -> Self::VerifyingKey {
-        self.0.verifying_key()
+        *self.0.verifying_key()
     }
 }
 
 impl DynSignatureAlgorithmIdentifier for EcdsaSigner {
     fn signature_algorithm_identifier(
         &self,
-    ) -> der::Result<spki::AlgorithmIdentifier<der::asn1::Any>> {
-        self.0
-            .signature_algorithm_identifier()
-            .map_err(spki::Error::from)
+    ) -> Result<spki::AlgorithmIdentifier<der::asn1::Any>, spki::Error> {
+        self.0.signature_algorithm_identifier()
     }
 }
 
@@ -154,11 +148,20 @@ fn valid_now() -> Validity {
     Validity::from_now(Duration::new(3600 * 24 * 365 * 10, 0)).unwrap()
 }
 
-fn build_p256(profile: TestProfile, signer: &SigningKey, serial: u64) -> Certificate {
-    let spki = SubjectPublicKeyInfoOwned::from_key(signer.verifying_key()).unwrap();
-    let mut builder =
+/// Build a certificate whose `subject_public_key_info` is `subject_key`'s
+/// public key, signed by `signer_key` (which may be the same key for a
+/// self-signed root, or the issuer's key for an intermediate/leaf).
+fn build_p256(
+    profile: TestProfile,
+    subject_key: &SigningKey,
+    signer_key: &SigningKey,
+    serial: u64,
+    validity: Validity,
+) -> Certificate {
+    let spki = SubjectPublicKeyInfoOwned::from_key(subject_key.verifying_key()).unwrap();
+    let builder =
         CertificateBuilder::new(profile, SerialNumber::from(serial), validity, spki).unwrap();
-    let wrapped = EcdsaSigner(signer.clone());
+    let wrapped = EcdsaSigner(signer_key.clone());
     builder.build::<_, EcdsaSig>(&wrapped).unwrap()
 }
 
@@ -193,7 +196,13 @@ fn valid_root_leaf_chain() {
     let root_key = signer(1);
     let leaf_key = signer(2);
 
-    let root = build_p256(root_profile("CN=Test Root,O=TPT,C=US", None), &root_key, 1);
+    let root = build_p256(
+        root_profile("CN=Test Root,O=TPT,C=US", None),
+        &root_key,
+        &root_key,
+        1,
+        valid_now(),
+    );
     let leaf = build_p256(
         leaf_profile(
             "CN=leaf.example.com,O=TPT,C=US",
@@ -202,6 +211,7 @@ fn valid_root_leaf_chain() {
             "leaf.example.com",
         ),
         &leaf_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -236,6 +246,7 @@ fn issuer_missing_ca_bit_is_rejected() {
             name_constraints: None,
         },
         &root_key,
+        &root_key,
         1,
         valid_now(),
     );
@@ -247,6 +258,7 @@ fn issuer_missing_ca_bit_is_rejected() {
             "leaf.example.com",
         ),
         &leaf_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -264,7 +276,13 @@ fn issuer_missing_ca_bit_is_rejected() {
 fn expired_certificate_is_rejected() {
     let root_key = signer(1);
     let leaf_key = signer(2);
-    let root = build_p256(root_profile("CN=Root,O=TPT,C=US", None), &root_key, 1);
+    let root = build_p256(
+        root_profile("CN=Root,O=TPT,C=US", None),
+        &root_key,
+        &root_key,
+        1,
+        valid_now(),
+    );
     let leaf = build_p256(
         leaf_profile(
             "CN=old,O=TPT,C=US",
@@ -273,6 +291,7 @@ fn expired_certificate_is_rejected() {
             "old.example.com",
         ),
         &leaf_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -293,7 +312,13 @@ fn expired_certificate_is_rejected() {
 fn eku_mismatch_is_rejected() {
     let root_key = signer(1);
     let leaf_key = signer(2);
-    let root = build_p256(root_profile("CN=Root,O=TPT,C=US", None), &root_key, 1);
+    let root = build_p256(
+        root_profile("CN=Root,O=TPT,C=US", None),
+        &root_key,
+        &root_key,
+        1,
+        valid_now(),
+    );
     let leaf = build_p256(
         leaf_profile(
             "CN=leaf,O=TPT,C=US",
@@ -302,6 +327,7 @@ fn eku_mismatch_is_rejected() {
             "leaf.example.com",
         ),
         &leaf_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -328,7 +354,13 @@ fn name_constraint_violation_is_rejected() {
         }]),
         excluded_subtrees: None,
     };
-    let root = build_p256(root_profile("CN=Root,O=TPT,C=US", Some(nc)), &root_key, 1);
+    let root = build_p256(
+        root_profile("CN=Root,O=TPT,C=US", Some(nc)),
+        &root_key,
+        &root_key,
+        1,
+        valid_now(),
+    );
 
     // Leaf SAN is outside the permitted DNS tree.
     let leaf = build_p256(
@@ -339,6 +371,7 @@ fn name_constraint_violation_is_rejected() {
             "leaf.evil.com",
         ),
         &leaf_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -365,7 +398,13 @@ fn name_constraint_satisfied_is_accepted() {
         }]),
         excluded_subtrees: None,
     };
-    let root = build_p256(root_profile("CN=Root,O=TPT,C=US", Some(nc)), &root_key, 1);
+    let root = build_p256(
+        root_profile("CN=Root,O=TPT,C=US", Some(nc)),
+        &root_key,
+        &root_key,
+        1,
+        valid_now(),
+    );
 
     let leaf = build_p256(
         leaf_profile(
@@ -375,6 +414,7 @@ fn name_constraint_satisfied_is_accepted() {
             "leaf.example.com",
         ),
         &leaf_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -395,7 +435,13 @@ fn intermediate_chain_is_validated() {
     let int_key = signer(2);
     let leaf_key = signer(3);
 
-    let root = build_p256(root_profile("CN=Root,O=TPT,C=US", None), &root_key, 1);
+    let root = build_p256(
+        root_profile("CN=Root,O=TPT,C=US", None),
+        &root_key,
+        &root_key,
+        1,
+        valid_now(),
+    );
     let intermediate = build_p256(
         TestProfile {
             subject: name("CN=Intermediate,O=TPT,C=US"),
@@ -408,6 +454,7 @@ fn intermediate_chain_is_validated() {
             name_constraints: None,
         },
         &int_key,
+        &root_key,
         2,
         valid_now(),
     );
@@ -419,6 +466,7 @@ fn intermediate_chain_is_validated() {
             "leaf.example.com",
         ),
         &leaf_key,
+        &int_key,
         3,
         valid_now(),
     );

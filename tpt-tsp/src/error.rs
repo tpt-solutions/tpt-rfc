@@ -58,4 +58,4 @@ pub enum TspError {
     Io(String),
 }
 
-pub(crate) type Result<T> = std::result::Result<T, TspError>;
+pub type Result<T> = std::result::Result<T, TspError>;

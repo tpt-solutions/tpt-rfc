@@ -5,6 +5,7 @@ use std::time::SystemTime;
 use const_oid::ObjectIdentifier;
 use der::{Decode, Encode};
 use sha1::{Digest as _, Sha1};
+use spki::SubjectPublicKeyInfoRef;
 use x509_cert::Certificate;
 
 use crate::certid::{CertId, CertStatusValue};
@@ -243,7 +244,9 @@ fn verify_responder(
         }
         any_match = true;
         let spki = cert.tbs_certificate().subject_public_key_info();
-        match verify_signature(spki, sig_oid, tbs, sig) {
+        let spki_ref = SubjectPublicKeyInfoRef::try_from(spki)
+            .map_err(|e| OcspError::Crypto(e.to_string()))?;
+        match verify_signature(spki_ref, sig_oid, tbs, sig) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
         }

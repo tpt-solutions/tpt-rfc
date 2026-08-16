@@ -4,7 +4,6 @@
 //! Hash algorithm mapping (RFC 6960 CertID / signature digest algorithm).
 
 use const_oid::ObjectIdentifier;
-use der::asn1::ObjectIdentifierRef;
 use sha1::{Digest as _, Sha1};
 use sha2::{Digest as _, Sha256, Sha384, Sha512};
 use spki::AlgorithmIdentifierRef;
@@ -46,7 +45,7 @@ impl HashAlgorithm {
     pub fn algorithm_id(&self) -> AlgorithmIdentifierRef<'static> {
         AlgorithmIdentifierRef {
             oid: self.oid(),
-            parameters: Some(crate::verify::null_params()),
+            parameters: crate::verify::null_params(),
         }
     }
 

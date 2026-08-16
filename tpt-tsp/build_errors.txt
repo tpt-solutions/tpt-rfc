@@ -1,0 +1,1482 @@
+   Compiling tpt-tsp v0.1.0 (C:\Programming\2 WIP\tpt-rfc\tpt-tsp)
+error: expected `=`
+   --> src\wire.rs:159:5
+    |
+159 |     #[asn1(context_specific = "0", constructed, optional)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:201:5
+    |
+201 |     #[asn1(context_specific = "0", constructed, optional)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:212:5
+    |
+212 |     #[asn1(context_specific = "0", optional)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:223:5
+    |
+223 |     #[asn1(context_specific = "4", tag_mode = "EXPLICIT", constructed)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:235:5
+    |
+235 |     #[asn1(context_specific = "0", constructed)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:250:5
+    |
+250 |     #[asn1(context_specific = "0", constructed, optional)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:273:5
+    |
+273 |     #[asn1(context_specific = "0", constructed, optional)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: expected `=`
+   --> src\wire.rs:313:5
+    |
+313 |     #[asn1(context_specific = "0", constructed, optional)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0106]: missing lifetime specifier
+   --> src\wire.rs:311:14
+    |
+311 |     pub sid: SignerIdentifier,
+    |              ^^^^^^^^^^^^^^^^ expected named lifetime parameter
+    |
+help: consider using the `'a` lifetime
+    |
+311 |     pub sid: SignerIdentifier<'a>,
+    |                              ++++
+
+error[E0425]: cannot find type `Attribute` in this scope
+   --> src\verify.rs:113:39
+    |
+113 |     let attrs = decode_set_elements::<Attribute>(&signed_attrs.0).map_err(der_err)?;
+    |                                       ^^^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+ 50 | pub fn verify_timestamp_response<Attribute>(
+    |                                 +++++++++++
+
+warning: unused import: `crate::oids`
+ --> src\client.rs:9:5
+  |
+9 | use crate::oids;
+  |     ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `ObjectIdentifierRef`
+ --> src\hash.rs:3:35
+  |
+3 | use const_oid::{ObjectIdentifier, ObjectIdentifierRef};
+  |                                   ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `der::Encode`
+ --> src\signer.rs:5:5
+  |
+5 | use der::Encode;
+  |     ^^^^^^^^^^^
+
+warning: unused imports: `Sha256`, `Sha384`, and `Sha512`
+  --> src\signer.rs:11:12
+   |
+11 | use sha2::{Sha256, Sha384, Sha512};
+   |            ^^^^^^  ^^^^^^  ^^^^^^
+
+warning: unused import: `Sequence`
+  --> src\tsa.rs:14:21
+   |
+14 |     Decode, Encode, Sequence,
+   |                     ^^^^^^^^
+
+warning: unused import: `spki::AlgorithmIdentifierRef`
+  --> src\verify.rs:11:5
+   |
+11 | use spki::AlgorithmIdentifierRef;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0107]: struct takes 0 lifetime arguments but 1 lifetime argument was supplied
+   --> src\wire.rs:145:25
+    |
+145 |     pub hashed_message: OctetStringRef<'a>,
+    |                         ^^^^^^^^^^^^^^---- help: remove the unnecessary generics
+    |                         |
+    |                         expected 0 lifetime arguments
+    |
+note: struct defined here, with 0 lifetime parameters
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+
+error[E0107]: struct takes 0 lifetime arguments but 1 lifetime argument was supplied
+   --> src\wire.rs:154:28
+    |
+154 |     pub req_policy: Option<ObjectIdentifierRef<'a>>,
+    |                            ^^^^^^^^^^^^^^^^^^^---- help: remove the unnecessary generics
+    |                            |
+    |                            expected 0 lifetime arguments
+    |
+note: struct defined here, with 0 lifetime parameters
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:297:12
+    |
+297 | pub struct ObjectIdentifierRef {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+error[E0107]: struct takes 0 lifetime arguments but 1 lifetime argument was supplied
+   --> src\wire.rs:191:17
+    |
+191 |     pub policy: ObjectIdentifierRef<'a>,
+    |                 ^^^^^^^^^^^^^^^^^^^---- help: remove the unnecessary generics
+    |                 |
+    |                 expected 0 lifetime arguments
+    |
+note: struct defined here, with 0 lifetime parameters
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:297:12
+    |
+297 | pub struct ObjectIdentifierRef {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+error[E0107]: struct takes 0 lifetime arguments but 1 lifetime argument was supplied
+   --> src\wire.rs:234:23
+    |
+234 |     pub content_type: ObjectIdentifierRef<'a>,
+    |                       ^^^^^^^^^^^^^^^^^^^---- help: remove the unnecessary generics
+    |                       |
+    |                       expected 0 lifetime arguments
+    |
+note: struct defined here, with 0 lifetime parameters
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:297:12
+    |
+297 | pub struct ObjectIdentifierRef {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+error[E0107]: struct takes 0 lifetime arguments but 1 lifetime argument was supplied
+   --> src\wire.rs:249:25
+    |
+249 |     pub e_content_type: ObjectIdentifierRef<'a>,
+    |                         ^^^^^^^^^^^^^^^^^^^---- help: remove the unnecessary generics
+    |                         |
+    |                         expected 0 lifetime arguments
+    |
+note: struct defined here, with 0 lifetime parameters
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:297:12
+    |
+297 | pub struct ObjectIdentifierRef {
+    |            ^^^^^^^^^^^^^^^^^^^
+
+error[E0107]: struct takes 0 lifetime arguments but 1 lifetime argument was supplied
+   --> src\wire.rs:316:20
+    |
+316 |     pub signature: OctetStringRef<'a>,
+    |                    ^^^^^^^^^^^^^^---- help: remove the unnecessary generics
+    |                    |
+    |                    expected 0 lifetime arguments
+    |
+note: struct defined here, with 0 lifetime parameters
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+
+error[E0643]: method `decode` has incompatible signature for trait
+  --> src\wire.rs:34:29
+   |
+34 |     fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
+   |                             ^^^^^^^^^^^^^^^^^^^^ expected generic parameter, found `impl Trait`
+   |
+  ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:63:15
+   |
+63 |     fn decode<R: Reader<'a>>(decoder: &mut R) -> Result<Self, Self::Error>;
+   |               - declaration in trait here
+
+error[E0046]: not all trait items implemented, missing: `Error`
+  --> src\wire.rs:33:1
+   |
+33 | impl<'a> der::Decode<'a> for RawContent {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `Error` in implementation
+   |
+   = help: implement the missing item: `type Error = /* Type */;`
+
+error[E0643]: method `decode` has incompatible signature for trait
+  --> src\wire.rs:92:29
+   |
+92 |     fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
+   |                             ^^^^^^^^^^^^^^^^^^^^ expected generic parameter, found `impl Trait`
+   |
+  ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:63:15
+   |
+63 |     fn decode<R: Reader<'a>>(decoder: &mut R) -> Result<Self, Self::Error>;
+   |               - declaration in trait here
+
+error[E0046]: not all trait items implemented, missing: `Error`
+  --> src\wire.rs:91:1
+   |
+91 | impl<'a> der::Decode<'a> for DigestAlgorithmIdentifiers<'a> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `Error` in implementation
+   |
+   = help: implement the missing item: `type Error = /* Type */;`
+
+error[E0643]: method `decode` has incompatible signature for trait
+   --> src\wire.rs:129:29
+    |
+129 |     fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
+    |                             ^^^^^^^^^^^^^^^^^^^^ expected generic parameter, found `impl Trait`
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:63:15
+    |
+ 63 |     fn decode<R: Reader<'a>>(decoder: &mut R) -> Result<Self, Self::Error>;
+    |               - declaration in trait here
+
+error[E0046]: not all trait items implemented, missing: `Error`
+   --> src\wire.rs:128:1
+    |
+128 | impl<'a> der::Decode<'a> for SignerInfos<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `Error` in implementation
+    |
+    = help: implement the missing item: `type Error = /* Type */;`
+
+error[E0643]: method `decode` has incompatible signature for trait
+   --> src\wire.rs:302:29
+    |
+302 |     fn decode(decoder: &mut impl der::Reader<'a>) -> der::Result<Self> {
+    |                             ^^^^^^^^^^^^^^^^^^^^ expected generic parameter, found `impl Trait`
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:63:15
+    |
+ 63 |     fn decode<R: Reader<'a>>(decoder: &mut R) -> Result<Self, Self::Error>;
+    |               - declaration in trait here
+
+error[E0046]: not all trait items implemented, missing: `Error`
+   --> src\wire.rs:301:1
+    |
+301 | impl<'a> der::Decode<'a> for SignerIdentifier<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `Error` in implementation
+    |
+    = help: implement the missing item: `type Error = /* Type */;`
+
+error[E0277]: the trait bound `&const_oid::ObjectIdentifier<39>: Into<const_oid::ObjectIdentifier<39>>` is not satisfied
+  --> src\client.rs:69:38
+   |
+69 |                     oid: (&hash_oid).into(),
+   |                                      ^^^^ the trait `From<&const_oid::ObjectIdentifier<39>>` is not implemented for `const_oid::ObjectIdentifier<39>`
+   |
+   = note: required for `&const_oid::ObjectIdentifier<39>` to implement `Into<const_oid::ObjectIdentifier<39>>`
+
+error[E0599]: no method named `to_der` found for struct `wire::TimeStampReq<'a>` in the current scope
+   --> src\client.rs:89:13
+    |
+ 89 |         req.to_der().map_err(der_err)
+    |             ^^^^^^ method not found in `wire::TimeStampReq<'_>`
+    |
+   ::: src\wire.rs:150:1
+    |
+150 | pub(crate) struct TimeStampReq<'a> {
+    | ---------------------------------- method `to_der` not found for this struct
+    |
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `to_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Encode`
+            candidate #2: `rsa::pkcs1::der::Encode`
+
+error[E0308]: mismatched types
+  --> src\signer.rs:81:58
+   |
+81 |         SigningKey::EcdsaP256(P256SigningKey::from_bytes(&seed).unwrap())
+   |                               -------------------------- ^^^^^ expected `&Array<u8, UInt<UInt<..., ...>, ...>>`, found `&[u8; 32]`
+   |                               |
+   |                               arguments to this function are incorrect
+   |
+   = note: expected reference `&sha2::digest::hybrid_array::Array<u8, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>>`
+              found reference `&[u8; 32]`
+note: associated function defined here
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\signing.rs:84:12
+   |
+84 |     pub fn from_bytes(bytes: &FieldBytes<C>) -> Result<Self> {
+   |            ^^^^^^^^^^
+help: call `Into::into` on this expression to convert `&[u8; 32]` into `&sha2::digest::hybrid_array::Array<u8, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>>`
+   |
+81 |         SigningKey::EcdsaP256(P256SigningKey::from_bytes((&seed).into()).unwrap())
+   |                                                          +     ++++++++
+
+error[E0599]: the associated function or constant `from_der` exists for struct `wire::TimeStampReq<'_>`, but its trait bounds were not satisfied
+   --> src\tsa.rs:61:33
+    |
+ 61 |         let req = TimeStampReq::from_der(request_der)
+    |                                 ^^^^^^^^ associated function or constant cannot be called on `wire::TimeStampReq<'_>` due to unsatisfied trait bounds
+    |
+   ::: src\wire.rs:150:1
+    |
+150 | pub(crate) struct TimeStampReq<'a> {
+    | ---------------------------------- associated function or constant `from_der` not found for this struct because `wire::TimeStampReq<'_>` doesn't implement `der::DecodeValue` or `der::FixedTag`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::TimeStampReq<'_>: der::DecodeValue<'_>`
+            which is required by `wire::TimeStampReq<'_>: der::Decode<'_>`
+            `wire::TimeStampReq<'_>: der::FixedTag`
+            which is required by `wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&wire::TimeStampReq<'_>: der::DecodeValue<'_>`
+            which is required by `&wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&wire::TimeStampReq<'_>: der::FixedTag`
+            which is required by `&wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&mut wire::TimeStampReq<'_>: der::DecodeValue<'_>`
+            which is required by `&mut wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&mut wire::TimeStampReq<'_>: der::FixedTag`
+            which is required by `&mut wire::TimeStampReq<'_>: der::Decode<'_>`
+note: the traits `der::DecodeValue` and `der::FixedTag` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:31:1
+    |
+ 31 | pub trait FixedTag {
+    | ^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `from_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Decode`
+            candidate #2: `rsa::pkcs1::der::Decode`
+
+error[E0277]: the trait bound `&const_oid::ObjectIdentifier<39>: Into<const_oid::ObjectIdentifier<39>>` is not satisfied
+  --> src\tsa.rs:92:38
+   |
+92 |                     oid: (&hash_oid).into(),
+   |                                      ^^^^ the trait `From<&const_oid::ObjectIdentifier<39>>` is not implemented for `const_oid::ObjectIdentifier<39>`
+   |
+   = note: required for `&const_oid::ObjectIdentifier<39>` to implement `Into<const_oid::ObjectIdentifier<39>>`
+
+error[E0599]: the method `to_der` exists for struct `wire::TstInfo<'_>`, but its trait bounds were not satisfied
+   --> src\tsa.rs:109:29
+    |
+109 |         let e_content = tst.to_der().map_err(der_err)?;
+    |                             ^^^^^^ method cannot be called on `wire::TstInfo<'_>` due to unsatisfied trait bounds
+    |
+   ::: src\wire.rs:189:1
+    |
+189 | pub(crate) struct TstInfo<'a> {
+    | ----------------------------- method `to_der` not found for this struct because it doesn't satisfy `wire::TstInfo<'_>: der::EncodeValue`, `wire::TstInfo<'_>: der::Encode` or `wire::TstInfo<'_>: der::Tagged`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::TstInfo<'_>: der::EncodeValue`
+            which is required by `wire::TstInfo<'_>: der::Encode`
+            `wire::TstInfo<'_>: der::Tagged`
+            which is required by `wire::TstInfo<'_>: der::Encode`
+note: the traits `der::EncodeValue` and `der::Tagged` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\encode.rs:220:1
+    |
+220 | pub trait EncodeValue {
+    | ^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:65:1
+    |
+ 65 | pub trait Tagged {
+    | ^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `to_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Encode`
+            candidate #2: `rsa::pkcs1::der::Encode`
+
+error[E0277]: the trait bound `&const_oid::ObjectIdentifier<39>: Into<const_oid::ObjectIdentifier<39>>` is not satisfied
+   --> src\tsa.rs:138:34
+    |
+138 |                 oid: (&hash_oid).into(),
+    |                                  ^^^^ the trait `From<&const_oid::ObjectIdentifier<39>>` is not implemented for `const_oid::ObjectIdentifier<39>`
+    |
+    = note: required for `&const_oid::ObjectIdentifier<39>` to implement `Into<const_oid::ObjectIdentifier<39>>`
+
+error[E0277]: the trait bound `&const_oid::ObjectIdentifier<39>: Into<const_oid::ObjectIdentifier<39>>` is not satisfied
+   --> src\tsa.rs:161:34
+    |
+161 |                 oid: (&hash_oid).into(),
+    |                                  ^^^^ the trait `From<&const_oid::ObjectIdentifier<39>>` is not implemented for `const_oid::ObjectIdentifier<39>`
+    |
+    = note: required for `&const_oid::ObjectIdentifier<39>` to implement `Into<const_oid::ObjectIdentifier<39>>`
+
+error[E0599]: the method `to_der` exists for struct `wire::SignedData<'_>`, but its trait bounds were not satisfied
+   --> src\tsa.rs:172:43
+    |
+172 |         let signed_data_der = signed_data.to_der().map_err(der_err)?;
+    |                                           ^^^^^^ method cannot be called on `wire::SignedData<'_>` due to unsatisfied trait bounds
+    |
+   ::: src\wire.rs:269:1
+    |
+269 | pub(crate) struct SignedData<'a> {
+    | -------------------------------- method `to_der` not found for this struct because it doesn't satisfy `wire::SignedData<'_>: der::EncodeValue`, `wire::SignedData<'_>: der::Encode` or `wire::SignedData<'_>: der::Tagged`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::SignedData<'_>: der::EncodeValue`
+            which is required by `wire::SignedData<'_>: der::Encode`
+            `wire::SignedData<'_>: der::Tagged`
+            which is required by `wire::SignedData<'_>: der::Encode`
+note: the traits `der::EncodeValue` and `der::Tagged` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\encode.rs:220:1
+    |
+220 | pub trait EncodeValue {
+    | ^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:65:1
+    |
+ 65 | pub trait Tagged {
+    | ^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `to_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Encode`
+            candidate #2: `rsa::pkcs1::der::Encode`
+
+error[E0308]: mismatched types
+   --> src\tsa.rs:240:49
+    |
+240 |         let signer = P256SigningKey::from_bytes(&seed).expect("valid P-256 seed");
+    |                      -------------------------- ^^^^^ expected `&Array<u8, UInt<UInt<..., ...>, ...>>`, found `&[u8; 32]`
+    |                      |
+    |                      arguments to this function are incorrect
+    |
+    = note: expected reference `&sha2::digest::hybrid_array::Array<u8, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>>`
+               found reference `&[u8; 32]`
+note: associated function defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\signing.rs:84:12
+    |
+ 84 |     pub fn from_bytes(bytes: &FieldBytes<C>) -> Result<Self> {
+    |            ^^^^^^^^^^
+help: call `Into::into` on this expression to convert `&[u8; 32]` into `&sha2::digest::hybrid_array::Array<u8, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>>`
+    |
+240 |         let signer = P256SigningKey::from_bytes((&seed).into()).expect("valid P-256 seed");
+    |                                                 +     ++++++++
+
+error[E0277]: the trait bound `ecdsa::Signature<NistP256>: spki::SignatureBitStringEncoding` is not satisfied
+   --> src\tsa.rs:268:25
+    |
+268 |             .build::<_, P256Signature>(&signer)
+    |              -----      ^^^^^^^^^^^^^ the trait `spki::SignatureBitStringEncoding` is not implemented for `ecdsa::Signature<NistP256>`
+    |              |
+    |              required by a bound introduced by this call
+    |
+note: there are multiple different versions of crate `spki` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spki-0.8.0\src\traits.rs:211:1
+    |
+211 | pub trait SignatureBitStringEncoding {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spki-0.7.3\src\traits.rs:181:1
+    |
+181 | pub trait SignatureBitStringEncoding {
+    | ------------------------------------ this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: the trait `spki::SignatureBitStringEncoding` is implemented for `ecdsa::der::Signature<C>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\der.rs:326:1
+    |
+326 | / impl<C> SignatureBitStringEncoding for Signature<C>
+327 | | where
+328 | |     C: EcdsaCurve,
+329 | |     MaxSize<C>: ArraySize,
+330 | |     <FieldBytesSize<C> as Add>::Output: Add<MaxOverhead> + ArraySize,
+    | |_____________________________________________________________________^
+note: required by a bound in `build`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\x509-cert-0.3.0\src\builder.rs:294:20
+    |
+289 |     fn build<S, Signature>(mut self, signer: &S) -> Result<Self::Output>
+    |        ----- required by a bound in this associated function
+...
+294 |         Signature: SignatureBitStringEncoding,
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Builder::build`
+
+error[E0277]: the trait bound `wire::SignedData<'_>: der::Decode<'_>` is not satisfied
+   --> src\verify.rs:79:42
+    |
+ 79 |     let signed_data = token.content_as::<SignedData>().map_err(der_err)?;
+    |                             ----------   ^^^^^^^^^^ unsatisfied trait bound
+    |                             |
+    |                             required by a bound introduced by this call
+    |
+help: the trait `der::DecodeValue<'_>` is not implemented for `wire::SignedData<'_>`
+   --> src\wire.rs:269:1
+    |
+269 | pub(crate) struct SignedData<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `wire::SignedData<'_>`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+    = help: the following other types implement trait `der::DecodeValue<'a>`:
+              `&'a der::asn1::OctetStringRef` implements `der::DecodeValue<'a>`
+              `&'a der::asn1::SequenceRef` implements `der::DecodeValue<'a>`
+              `&'a der::string::StringRef` implements `der::DecodeValue<'a>`
+              `()` implements `der::DecodeValue<'a>`
+              `AccessDescription` implements `der::DecodeValue<'__der_lifetime>`
+              `Attribute` implements `der::DecodeValue<'__der_lifetime>`
+              `AttributeTypeAndValue` implements `der::DecodeValue<'__der_lifetime>`
+              `AuthorityInfoAccessSyntax` implements `der::DecodeValue<'a>`
+            and 110 others
+    = note: required for `wire::SignedData<'_>` to implement `der::Decode<'_>`
+note: required by a bound in `wire::ContentInfo::<'a>::content_as`
+   --> src\wire.rs:241:26
+    |
+241 |     pub fn content_as<T: der::Decode<'a>>(&self) -> der::Result<T> {
+    |                          ^^^^^^^^^^^^^^^ required by this bound in `ContentInfo::<'a>::content_as`
+
+error[E0277]: the trait bound `wire::SignedData<'_>: der::Decode<'_>` is not satisfied
+   --> src\verify.rs:79:42
+    |
+ 79 |     let signed_data = token.content_as::<SignedData>().map_err(der_err)?;
+    |                             ----------   ^^^^^^^^^^ unsatisfied trait bound
+    |                             |
+    |                             required by a bound introduced by this call
+    |
+help: the trait `der::Sequence<'_>` is not implemented for `wire::SignedData<'_>`
+   --> src\wire.rs:269:1
+    |
+269 | pub(crate) struct SignedData<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `wire::SignedData<'_>`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\sequence.rs:15:1
+    |
+ 15 | pub trait Sequence<'a> {}
+    | ^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\sequence.rs:14:1
+    |
+ 14 | pub trait Sequence<'a>: DecodeValue<'a> + EncodeValue {}
+    | ----------------------------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+    = help: the following other types implement trait `der::Sequence<'a>`:
+              `&'a der::asn1::SequenceRef` implements `der::Sequence<'a>`
+              `AccessDescription` implements `der::Sequence<'__der_lifetime>`
+              `Attribute` implements `der::Sequence<'__der_lifetime>`
+              `AttributeTypeAndValue` implements `der::Sequence<'__der_lifetime>`
+              `AuthorityKeyIdentifier` implements `der::Sequence<'__der_lifetime>`
+              `BasicConstraints` implements `der::Sequence<'__der_lifetime>`
+              `Box<T>` implements `der::Sequence<'a>`
+              `CertPathControls<P>` implements `der::Sequence<'__der_lifetime>`
+            and 33 others
+    = note: required for `wire::SignedData<'_>` to implement `der::FixedTag`
+    = note: required for `wire::SignedData<'_>` to implement `der::Decode<'_>`
+note: required by a bound in `wire::ContentInfo::<'a>::content_as`
+   --> src\wire.rs:241:26
+    |
+241 |     pub fn content_as<T: der::Decode<'a>>(&self) -> der::Result<T> {
+    |                          ^^^^^^^^^^^^^^^ required by this bound in `ContentInfo::<'a>::content_as`
+
+error[E0599]: the associated function or constant `from_der` exists for struct `wire::TstInfo<'_>`, but its trait bounds were not satisfied
+   --> src\verify.rs:133:24
+    |
+133 |     let tst = TstInfo::from_der(&e_content).map_err(der_err)?;
+    |                        ^^^^^^^^ associated function or constant cannot be called on `wire::TstInfo<'_>` due to unsatisfied trait bounds
+    |
+   ::: src\wire.rs:189:1
+    |
+189 | pub(crate) struct TstInfo<'a> {
+    | ----------------------------- associated function or constant `from_der` not found for this struct because `wire::TstInfo<'_>` doesn't implement `der::DecodeValue` or `der::FixedTag`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::TstInfo<'_>: der::DecodeValue<'_>`
+            which is required by `wire::TstInfo<'_>: der::Decode<'_>`
+            `wire::TstInfo<'_>: der::FixedTag`
+            which is required by `wire::TstInfo<'_>: der::Decode<'_>`
+            `&wire::TstInfo<'_>: der::DecodeValue<'_>`
+            which is required by `&wire::TstInfo<'_>: der::Decode<'_>`
+            `&wire::TstInfo<'_>: der::FixedTag`
+            which is required by `&wire::TstInfo<'_>: der::Decode<'_>`
+            `&mut wire::TstInfo<'_>: der::DecodeValue<'_>`
+            which is required by `&mut wire::TstInfo<'_>: der::Decode<'_>`
+            `&mut wire::TstInfo<'_>: der::FixedTag`
+            which is required by `&mut wire::TstInfo<'_>: der::Decode<'_>`
+note: the traits `der::DecodeValue` and `der::FixedTag` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:31:1
+    |
+ 31 | pub trait FixedTag {
+    | ^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `from_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Decode`
+            candidate #2: `rsa::pkcs1::der::Decode`
+
+error[E0599]: the associated function or constant `from_der` exists for struct `wire::TimeStampReq<'_>`, but its trait bounds were not satisfied
+   --> src\verify.rs:145:33
+    |
+145 |         let req = TimeStampReq::from_der(req_der).map_err(der_err)?;
+    |                                 ^^^^^^^^ associated function or constant cannot be called on `wire::TimeStampReq<'_>` due to unsatisfied trait bounds
+    |
+   ::: src\wire.rs:150:1
+    |
+150 | pub(crate) struct TimeStampReq<'a> {
+    | ---------------------------------- associated function or constant `from_der` not found for this struct because `wire::TimeStampReq<'_>` doesn't implement `der::DecodeValue` or `der::FixedTag`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::TimeStampReq<'_>: der::DecodeValue<'_>`
+            which is required by `wire::TimeStampReq<'_>: der::Decode<'_>`
+            `wire::TimeStampReq<'_>: der::FixedTag`
+            which is required by `wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&wire::TimeStampReq<'_>: der::DecodeValue<'_>`
+            which is required by `&wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&wire::TimeStampReq<'_>: der::FixedTag`
+            which is required by `&wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&mut wire::TimeStampReq<'_>: der::DecodeValue<'_>`
+            which is required by `&mut wire::TimeStampReq<'_>: der::Decode<'_>`
+            `&mut wire::TimeStampReq<'_>: der::FixedTag`
+            which is required by `&mut wire::TimeStampReq<'_>: der::Decode<'_>`
+note: the traits `der::DecodeValue` and `der::FixedTag` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:31:1
+    |
+ 31 | pub trait FixedTag {
+    | ^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `from_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Decode`
+            candidate #2: `rsa::pkcs1::der::Decode`
+
+error[E0308]: mismatched types
+   --> src\verify.rs:163:42
+    |
+163 |                 && verify_cert_signature(cert, &anchor.tbs_certificate().subject_public_key_info()).is_ok()
+    |                    --------------------- ^^^^ expected `&CertificateInner`, found `CertificateInner`
+    |                    |
+    |                    arguments to this function are incorrect
+    |
+    = note: expected reference `&CertificateInner`
+                  found struct `CertificateInner`
+note: function defined here
+   --> src\verify.rs:251:4
+    |
+251 | fn verify_cert_signature(cert: &Certificate, issuer_spki: &SubjectPublicKeyInfo) -> Result<()> {
+    |    ^^^^^^^^^^^^^^^^^^^^^ ------------------
+help: consider borrowing here
+    |
+163 |                 && verify_cert_signature(&cert, &anchor.tbs_certificate().subject_public_key_info()).is_ok()
+    |                                          +
+
+error[E0599]: no method named `as_bytes` found for reference `&der::AnyRef<'_>` in the current scope
+   --> src\verify.rs:209:36
+    |
+209 |     let set = AnyRef::from_der(any.as_bytes())?;
+    |                                    ^^^^^^^^ method not found in `&der::AnyRef<'_>`
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::DecodeValue<'_>` is not satisfied
+   --> src\verify.rs:212:8
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\octet_string.rs:14:1
+    |
+ 14 | pub struct OctetStringRef<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+help: the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+      but it is implemented for `&der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:77:1
+    |
+ 77 | impl<'a> DecodeValue<'a> for &'a OctetStringRef {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `&der::asn1::OctetStringRef`, found `der::asn1::OctetStringRef`
+    = note: there are multiple different versions of crate `der` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `der::asn1::OctetStringRef` to implement `der::Decode<'_>`
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::Decode<'_>` is not satisfied
+   --> src\verify.rs:212:8
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |        ^^^^^^^^^^^^^^ the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `der::asn1::OctetStringRef`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\octet_string.rs:14:1
+    |
+ 14 | pub struct OctetStringRef<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+help: the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+      but it is implemented for `&der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:77:1
+    |
+ 77 | impl<'a> DecodeValue<'a> for &'a OctetStringRef {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `&der::asn1::OctetStringRef`, found `der::asn1::OctetStringRef`
+    = note: there are multiple different versions of crate `der` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `der::asn1::OctetStringRef` to implement `der::Decode<'_>`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\verify.rs:212:8
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |        ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by a bound in `der::Decode::from_der`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:55:23
+    |
+ 55 | pub trait Decode<'a>: Sized + 'a {
+    |                       ^^^^^ required by this bound in `Decode::from_der`
+...
+ 84 |     fn from_der(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+    |        -------- required by a bound in this associated function
+
+error[E0599]: no method named `as_bytes` found for struct `der::AnyRef<'a>` in the current scope
+   --> src\verify.rs:212:39
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |                                       ^^^^^^^^ method not found in `der::AnyRef<'_>`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\verify.rs:212:8
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by an implicit `Sized` bound in `std::result::Result`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library\core\src\result.rs:557:0
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\verify.rs:212:8
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: required for `std::result::Result<der::asn1::OctetStringRef, _>` to implement `Try`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\verify.rs:212:50
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |                                                  ^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by an implicit `Sized` bound in `ControlFlow`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library\core\src\ops\control_flow.rs:89:0
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\verify.rs:212:8
+    |
+212 |     Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: all local variables must have a statically known size
+
+error[E0599]: no method named `as_bytes` found for reference `&der::AnyRef<'_>` in the current scope
+   --> src\verify.rs:216:36
+    |
+216 |     let set = AnyRef::from_der(any.as_bytes())?;
+    |                                    ^^^^^^^^ method not found in `&der::AnyRef<'_>`
+
+error[E0599]: the associated function or constant `from_der` exists for struct `ObjectIdentifierRef`, but its trait bounds were not satisfied
+   --> src\verify.rs:219:29
+    |
+219 |     Ok(ObjectIdentifierRef::from_der(first.as_bytes())?.to_owned())
+    |                             ^^^^^^^^ associated function or constant cannot be called on `ObjectIdentifierRef` due to unsatisfied trait bounds
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:297:1
+    |
+297 | pub struct ObjectIdentifierRef {
+    | ------------------------------ doesn't satisfy `ObjectIdentifierRef: Sized`, `ObjectIdentifierRef: der::Decode<'_>`, `ObjectIdentifierRef: der::DecodeValue<'_>` or `ObjectIdentifierRef: der::FixedTag`
+    |
+    = note: the following trait bounds were not satisfied:
+            `ObjectIdentifierRef: Sized`
+            which is required by `ObjectIdentifierRef: der::Decode<'_>`
+            `ObjectIdentifierRef: der::DecodeValue<'_>`
+            which is required by `ObjectIdentifierRef: der::Decode<'_>`
+            `ObjectIdentifierRef: der::FixedTag`
+            which is required by `ObjectIdentifierRef: der::Decode<'_>`
+            `&ObjectIdentifierRef: der::DecodeValue<'_>`
+            which is required by `&ObjectIdentifierRef: der::Decode<'_>`
+            `&ObjectIdentifierRef: der::FixedTag`
+            which is required by `&ObjectIdentifierRef: der::Decode<'_>`
+            `&mut ObjectIdentifierRef: der::DecodeValue<'_>`
+            which is required by `&mut ObjectIdentifierRef: der::Decode<'_>`
+            `&mut ObjectIdentifierRef: der::FixedTag`
+            which is required by `&mut ObjectIdentifierRef: der::Decode<'_>`
+
+error[E0599]: no method named `as_bytes` found for struct `der::AnyRef<'a>` in the current scope
+   --> src\verify.rs:219:44
+    |
+219 |     Ok(ObjectIdentifierRef::from_der(first.as_bytes())?.to_owned())
+    |                                            ^^^^^^^^ method not found in `der::AnyRef<'_>`
+
+error[E0061]: this function takes 2 arguments but 1 argument was supplied
+   --> src\verify.rs:236:5
+    |
+236 |     der::Error::new(der::ErrorKind::Failed)
+    |     ^^^^^^^^^^^^^^^------------------------ argument #2 of type `der::Length` is missing
+    |
+note: associated function defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\error.rs:48:18
+    |
+ 48 |     pub const fn new(kind: ErrorKind, position: Length) -> Error {
+    |                  ^^^
+help: provide the argument
+    |
+236 |     der::Error::new(der::ErrorKind::Failed, /* der::Length */)
+    |                                           +++++++++++++++++++
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:301:19
+    |
+301 |         o if o == Oid::new_unwrap(oids::SHA256_RSA) => Sha256::digest(msg).to_vec(),
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+301 -         o if o == Oid::new_unwrap(oids::SHA256_RSA) => Sha256::digest(msg).to_vec(),
+301 +         o if o == Ord::new_unwrap(oids::SHA256_RSA) => Sha256::digest(msg).to_vec(),
+    |
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:302:19
+    |
+302 |         o if o == Oid::new_unwrap(oids::SHA384_RSA) => Sha384::digest(msg).to_vec(),
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+302 -         o if o == Oid::new_unwrap(oids::SHA384_RSA) => Sha384::digest(msg).to_vec(),
+302 +         o if o == Ord::new_unwrap(oids::SHA384_RSA) => Sha384::digest(msg).to_vec(),
+    |
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:303:19
+    |
+303 |         o if o == Oid::new_unwrap(oids::SHA512_RSA) => Sha512::digest(msg).to_vec(),
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+303 -         o if o == Oid::new_unwrap(oids::SHA512_RSA) => Sha512::digest(msg).to_vec(),
+303 +         o if o == Ord::new_unwrap(oids::SHA512_RSA) => Sha512::digest(msg).to_vec(),
+    |
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:319:19
+    |
+319 |         o if o == Oid::new_unwrap(oids::SHA256_RSA) => &[
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+319 -         o if o == Oid::new_unwrap(oids::SHA256_RSA) => &[
+319 +         o if o == Ord::new_unwrap(oids::SHA256_RSA) => &[
+    |
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:323:19
+    |
+323 |         o if o == Oid::new_unwrap(oids::SHA384_RSA) => &[
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+323 -         o if o == Oid::new_unwrap(oids::SHA384_RSA) => &[
+323 +         o if o == Ord::new_unwrap(oids::SHA384_RSA) => &[
+    |
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:327:19
+    |
+327 |         o if o == Oid::new_unwrap(oids::SHA512_RSA) => &[
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+327 -         o if o == Oid::new_unwrap(oids::SHA512_RSA) => &[
+327 +         o if o == Ord::new_unwrap(oids::SHA512_RSA) => &[
+    |
+
+error[E0599]: the associated function or constant `from_der` exists for struct `ObjectIdentifierRef`, but its trait bounds were not satisfied
+   --> src\verify.rs:411:42
+    |
+411 |     let curve_oid = ObjectIdentifierRef::from_der(&der).map_err(|e| e.to_string())?;
+    |                                          ^^^^^^^^ associated function or constant cannot be called on `ObjectIdentifierRef` due to unsatisfied trait bounds
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:297:1
+    |
+297 | pub struct ObjectIdentifierRef {
+    | ------------------------------ doesn't satisfy `ObjectIdentifierRef: Sized`, `ObjectIdentifierRef: der::Decode<'_>`, `ObjectIdentifierRef: der::DecodeValue<'_>` or `ObjectIdentifierRef: der::FixedTag`
+    |
+    = note: the following trait bounds were not satisfied:
+            `ObjectIdentifierRef: Sized`
+            which is required by `ObjectIdentifierRef: der::Decode<'_>`
+            `ObjectIdentifierRef: der::DecodeValue<'_>`
+            which is required by `ObjectIdentifierRef: der::Decode<'_>`
+            `ObjectIdentifierRef: der::FixedTag`
+            which is required by `ObjectIdentifierRef: der::Decode<'_>`
+            `&ObjectIdentifierRef: der::DecodeValue<'_>`
+            which is required by `&ObjectIdentifierRef: der::Decode<'_>`
+            `&ObjectIdentifierRef: der::FixedTag`
+            which is required by `&ObjectIdentifierRef: der::Decode<'_>`
+            `&mut ObjectIdentifierRef: der::DecodeValue<'_>`
+            which is required by `&mut ObjectIdentifierRef: der::Decode<'_>`
+            `&mut ObjectIdentifierRef: der::FixedTag`
+            which is required by `&mut ObjectIdentifierRef: der::Decode<'_>`
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:413:19
+    |
+413 |         c if c == Oid::new_unwrap(oids::P256) => Ok(Curve::P256),
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+413 -         c if c == Oid::new_unwrap(oids::P256) => Ok(Curve::P256),
+413 +         c if c == Ord::new_unwrap(oids::P256) => Ok(Curve::P256),
+    |
+
+error[E0433]: cannot find type `Oid` in this scope
+   --> src\verify.rs:414:19
+    |
+414 |         c if c == Oid::new_unwrap(oids::P384) => Ok(Curve::P384),
+    |                   ^^^ use of undeclared type `Oid`
+    |
+help: a trait with a similar name exists
+    |
+414 -         c if c == Oid::new_unwrap(oids::P384) => Ok(Curve::P384),
+414 +         c if c == Ord::new_unwrap(oids::P384) => Ok(Curve::P384),
+    |
+
+error[E0599]: no method named `as_bytes` found for struct `der::AnyRef<'a>` in the current scope
+  --> src\wire.rs:60:28
+   |
+60 |         let consumed = any.as_bytes().len();
+   |                            ^^^^^^^^ method not found in `der::AnyRef<'_>`
+
+error[E0599]: no method named `as_bytes` found for struct `der::AnyRef<'a>` in the current scope
+  --> src\wire.rs:61:34
+   |
+61 |         out.push(T::from_der(any.as_bytes())?);
+   |                                  ^^^^^^^^ method not found in `der::AnyRef<'_>`
+
+error[E0277]: `?` couldn't convert the error to `der::Error`
+  --> src\wire.rs:61:45
+   |
+55 | pub(crate) fn decode_set_elements<'a, T: der::Decode<'a>>(data: &'a [u8]) -> der::Result<Vec<T>> {
+   |                                                                              ------------------- expected `der::Error` because of this
+...
+61 |         out.push(T::from_der(any.as_bytes())?);
+   |                  ---------------------------^ the trait `From<<T as der::Decode<'_>>::Error>` is not implemented for `der::Error`
+   |                  |
+   |                  this can't be annotated with `?` because it has type `Result<_, <T as der::Decode<'_>>::Error>`
+   |
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: item with same name found
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\error.rs:19:1
+   |
+19 | pub struct Error {
+   | ^^^^^^^^^^^^^^^^
+   = note: there are multiple different versions of crate `der` in the dependency graph
+help: consider introducing a `where` clause, but there might be an alternative better way to express this requirement
+   |
+55 | pub(crate) fn decode_set_elements<'a, T: der::Decode<'a>>(data: &'a [u8]) -> der::Result<Vec<T>> where der::Error: From<<T as der::Decode<'_>>::Error> {
+   |                                                                                                  +++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0223]: ambiguous associated type
+  --> src\wire.rs:95:24
+   |
+95 |             return Err(der::Error::TagUnexpected {
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: if there were a trait named `Example` with associated type `TagUnexpected` implemented for `der::Error`, you could use the fully-qualified path
+   |
+95 -             return Err(der::Error::TagUnexpected {
+95 +             return Err(<der::Error as Example>::TagUnexpected {
+   |
+
+error[E0599]: the method `to_der` exists for reference `&wire::SignerInfo<'_>`, but its trait bounds were not satisfied
+   --> src\wire.rs:113:24
+    |
+113 |             .map(|s| s.to_der())
+    |                        ^^^^^^ method cannot be called on `&wire::SignerInfo<'_>` due to unsatisfied trait bounds
+...
+309 | pub(crate) struct SignerInfo<'a> {
+    | -------------------------------- doesn't satisfy `wire::SignerInfo<'_>: der::EncodeValue`, `wire::SignerInfo<'_>: der::Encode` or `wire::SignerInfo<'_>: der::Tagged`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::SignerInfo<'_>: der::EncodeValue`
+            which is required by `wire::SignerInfo<'_>: der::Encode`
+            `wire::SignerInfo<'_>: der::Tagged`
+            which is required by `wire::SignerInfo<'_>: der::Encode`
+            `&wire::SignerInfo<'_>: der::EncodeValue`
+            which is required by `&wire::SignerInfo<'_>: der::Encode`
+            `&wire::SignerInfo<'_>: der::Tagged`
+            which is required by `&wire::SignerInfo<'_>: der::Encode`
+note: the traits `der::EncodeValue` and `der::Tagged` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\encode.rs:220:1
+    |
+220 | pub trait EncodeValue {
+    | ^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:65:1
+    |
+ 65 | pub trait Tagged {
+    | ^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `to_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Encode`
+            candidate #2: `rsa::pkcs1::der::Encode`
+
+error[E0599]: the method `to_der` exists for reference `&wire::SignerInfo<'_>`, but its trait bounds were not satisfied
+   --> src\wire.rs:121:24
+    |
+121 |             .map(|s| s.to_der())
+    |                        ^^^^^^ method cannot be called on `&wire::SignerInfo<'_>` due to unsatisfied trait bounds
+...
+309 | pub(crate) struct SignerInfo<'a> {
+    | -------------------------------- doesn't satisfy `wire::SignerInfo<'_>: der::EncodeValue`, `wire::SignerInfo<'_>: der::Encode` or `wire::SignerInfo<'_>: der::Tagged`
+    |
+    = note: the following trait bounds were not satisfied:
+            `wire::SignerInfo<'_>: der::EncodeValue`
+            which is required by `wire::SignerInfo<'_>: der::Encode`
+            `wire::SignerInfo<'_>: der::Tagged`
+            which is required by `wire::SignerInfo<'_>: der::Encode`
+            `&wire::SignerInfo<'_>: der::EncodeValue`
+            which is required by `&wire::SignerInfo<'_>: der::Encode`
+            `&wire::SignerInfo<'_>: der::Tagged`
+            which is required by `&wire::SignerInfo<'_>: der::Encode`
+note: the traits `der::EncodeValue` and `der::Tagged` must be implemented
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\encode.rs:220:1
+    |
+220 | pub trait EncodeValue {
+    | ^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\tag.rs:65:1
+    |
+ 65 | pub trait Tagged {
+    | ^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `to_der`, perhaps you need to implement one of them:
+            candidate #1: `der::Encode`
+            candidate #2: `rsa::pkcs1::der::Encode`
+
+error[E0223]: ambiguous associated type
+   --> src\wire.rs:132:24
+    |
+132 |             return Err(der::Error::TagUnexpected {
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: if there were a trait named `Example` with associated type `TagUnexpected` implemented for `der::Error`, you could use the fully-qualified path
+    |
+132 -             return Err(der::Error::TagUnexpected {
+132 +             return Err(<der::Error as Example>::TagUnexpected {
+    |
+
+error[E0277]: the trait bound `wire::SignerInfo<'_>: der::Decode<'_>` is not satisfied
+   --> src\wire.rs:137:24
+    |
+137 |         Ok(SignerInfos(decode_set_elements(any.value())?))
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+help: the trait `der::DecodeValue<'_>` is not implemented for `wire::SignerInfo<'_>`
+   --> src\wire.rs:309:1
+    |
+309 | pub(crate) struct SignerInfo<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `wire::SignerInfo<'_>`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+    = help: the following other types implement trait `der::DecodeValue<'a>`:
+              `&'a der::asn1::OctetStringRef` implements `der::DecodeValue<'a>`
+              `&'a der::asn1::SequenceRef` implements `der::DecodeValue<'a>`
+              `&'a der::string::StringRef` implements `der::DecodeValue<'a>`
+              `()` implements `der::DecodeValue<'a>`
+              `AccessDescription` implements `der::DecodeValue<'__der_lifetime>`
+              `Attribute` implements `der::DecodeValue<'__der_lifetime>`
+              `AttributeTypeAndValue` implements `der::DecodeValue<'__der_lifetime>`
+              `AuthorityInfoAccessSyntax` implements `der::DecodeValue<'a>`
+            and 109 others
+    = note: required for `wire::SignerInfo<'_>` to implement `der::Decode<'_>`
+note: required by a bound in `wire::decode_set_elements`
+   --> src\wire.rs:55:42
+    |
+ 55 | pub(crate) fn decode_set_elements<'a, T: der::Decode<'a>>(data: &'a [u8]) -> der::Result<Vec<T>> {
+    |                                          ^^^^^^^^^^^^^^^ required by this bound in `decode_set_elements`
+
+error[E0277]: the trait bound `wire::SignerInfo<'_>: der::Decode<'_>` is not satisfied
+   --> src\wire.rs:137:24
+    |
+137 |         Ok(SignerInfos(decode_set_elements(any.value())?))
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+    |
+help: the trait `der::Sequence<'_>` is not implemented for `wire::SignerInfo<'_>`
+   --> src\wire.rs:309:1
+    |
+309 | pub(crate) struct SignerInfo<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `wire::SignerInfo<'_>`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\sequence.rs:15:1
+    |
+ 15 | pub trait Sequence<'a> {}
+    | ^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\sequence.rs:14:1
+    |
+ 14 | pub trait Sequence<'a>: DecodeValue<'a> + EncodeValue {}
+    | ----------------------------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+    = help: the following other types implement trait `der::Sequence<'a>`:
+              `&'a der::asn1::SequenceRef` implements `der::Sequence<'a>`
+              `AccessDescription` implements `der::Sequence<'__der_lifetime>`
+              `Attribute` implements `der::Sequence<'__der_lifetime>`
+              `AttributeTypeAndValue` implements `der::Sequence<'__der_lifetime>`
+              `AuthorityKeyIdentifier` implements `der::Sequence<'__der_lifetime>`
+              `BasicConstraints` implements `der::Sequence<'__der_lifetime>`
+              `Box<T>` implements `der::Sequence<'a>`
+              `CertPathControls<P>` implements `der::Sequence<'__der_lifetime>`
+            and 32 others
+    = note: required for `wire::SignerInfo<'_>` to implement `der::FixedTag`
+    = note: required for `wire::SignerInfo<'_>` to implement `der::Decode<'_>`
+note: required by a bound in `wire::decode_set_elements`
+   --> src\wire.rs:55:42
+    |
+ 55 | pub(crate) fn decode_set_elements<'a, T: der::Decode<'a>>(data: &'a [u8]) -> der::Result<Vec<T>> {
+    |                                          ^^^^^^^^^^^^^^^ required by this bound in `decode_set_elements`
+
+error[E0277]: the `?` operator can only be applied to values that implement `Try`
+   --> src\wire.rs:142:17
+    |
+142 | #[derive(Clone, Sequence)]
+    |                 ^^^^^^^^ the `?` operator cannot be applied to type `der::Length`
+    |
+    = help: the nightly-only, unstable trait `Try` is not implemented for `der::Length`
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\length.rs:28:1
+    |
+ 28 | pub struct Length(u32);
+    | ^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+
+error[E0277]: the trait bound `Option<wire::ContentInfo<'_>>: der::Decode<'a>` is not satisfied
+   --> src\wire.rs:180:17
+    |
+180 | #[derive(Clone, Sequence)]
+    |                 ^^^^^^^^ the trait `der::Decode<'a>` is not implemented for `Option<wire::ContentInfo<'_>>`
+    |
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `Option<wire::ContentInfo<'_>>`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:55:1
+    |
+ 55 | pub trait Decode<'a>: Sized + 'a {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:19:1
+    |
+ 19 | pub trait Decode<'a>: Sized {
+    | ---------------------------
+    | |
+    | this is the found trait
+    | this is the found trait
+    = help: you can use `cargo tree` to explore your dependency tree
+help: the trait `der::Decode<'_>` is implemented for `Option<T>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\optional.rs:6:1
+    |
+  6 | / impl<'a, T> Decode<'a> for Option<T>
+  7 | | where
+  8 | |     T: Choice<'a>, // NOTE: all `Decode + Tagged` types receive a blanket `Choice` impl
+    | |__________________^
+note: required by a bound in `der::Reader::decode`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\reader.rs:75:18
+    |
+ 75 |     fn decode<T: Decode<'r>>(&mut self) -> Result<T, T::Error> {
+    |                  ^^^^^^^^^^ required by this bound in `Reader::decode`
+    = note: this error originates in the derive macro `Sequence` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0599]: no method named `encoded_len` found for enum `Option<T>` in the current scope
+   --> src\wire.rs:180:17
+    |
+180 | #[derive(Clone, Sequence)]
+    |                 ^^^^^^^^ method not found in `Option<wire::ContentInfo<'a>>`
+    |
+    = note: this error originates in the derive macro `Sequence` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the `?` operator can only be applied to values that implement `Try`
+   --> src\wire.rs:180:17
+    |
+180 | #[derive(Clone, Sequence)]
+    |                 ^^^^^^^^ the `?` operator cannot be applied to type `der::Length`
+    |
+    = help: the nightly-only, unstable trait `Try` is not implemented for `der::Length`
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\length.rs:28:1
+    |
+ 28 | pub struct Length(u32);
+    | ^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+
+error[E0599]: no method named `encode` found for enum `Option<T>` in the current scope
+   --> src\wire.rs:180:17
+    |
+180 | #[derive(Clone, Sequence)]
+    |                 ^^^^^^^^ method not found in `Option<wire::ContentInfo<'a>>`
+    |
+    = note: this error originates in the derive macro `Sequence` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> src\wire.rs:242:9
+    |
+241 |     pub fn content_as<T: der::Decode<'a>>(&self) -> der::Result<T> {
+    |                                                     -------------- expected `std::result::Result<T, der::Error>` because of return type
+242 |         T::from_der(self.content.value())
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<T, Error>`, found `Result<T, <T as Decode<'_>>::Error>`
+    |
+    = note: expected enum `std::result::Result<_, der::Error>`
+               found enum `std::result::Result<_, <T as der::Decode<'_>>::Error>`
+help: consider constraining the associated type `<T as der::Decode<'_>>::Error` to `der::Error`
+    |
+241 |     pub fn content_as<T: der::Decode<'a, Error = der::Error>>(&self) -> der::Result<T> {
+    |                                        ++++++++++++++++++++
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::DecodeValue<'_>` is not satisfied
+   --> src\wire.rs:259:26
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\octet_string.rs:14:1
+    |
+ 14 | pub struct OctetStringRef<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+help: the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+      but it is implemented for `&der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:77:1
+    |
+ 77 | impl<'a> DecodeValue<'a> for &'a OctetStringRef {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `&der::asn1::OctetStringRef`, found `der::asn1::OctetStringRef`
+    = note: there are multiple different versions of crate `der` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `der::asn1::OctetStringRef` to implement `der::Decode<'_>`
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::Decode<'_>` is not satisfied
+   --> src\wire.rs:259:26
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                          ^^^^^^^^^^^^^^ the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `der::asn1::OctetStringRef`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\octet_string.rs:14:1
+    |
+ 14 | pub struct OctetStringRef<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+help: the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+      but it is implemented for `&der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:77:1
+    |
+ 77 | impl<'a> DecodeValue<'a> for &'a OctetStringRef {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `&der::asn1::OctetStringRef`, found `der::asn1::OctetStringRef`
+    = note: there are multiple different versions of crate `der` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `der::asn1::OctetStringRef` to implement `der::Decode<'_>`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\wire.rs:259:26
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                          ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by a bound in `der::Decode::from_der`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:55:23
+    |
+ 55 | pub trait Decode<'a>: Sized + 'a {
+    |                       ^^^^^ required by this bound in `Decode::from_der`
+...
+ 84 |     fn from_der(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+    |        -------- required by a bound in this associated function
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\wire.rs:259:26
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by an implicit `Sized` bound in `std::result::Result`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library\core\src\result.rs:557:0
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\wire.rs:259:26
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: required for `std::result::Result<der::asn1::OctetStringRef, _>` to implement `Try`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\wire.rs:259:63
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                                                               ^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by an implicit `Sized` bound in `ControlFlow`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library\core\src\ops\control_flow.rs:89:0
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\wire.rs:259:26
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: all local variables must have a statically known size
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> src\wire.rs:259:21
+    |
+259 |                 let os = OctetStringRef::from_der(any.value())?;
+    |                     ^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: all local variables must have a statically known size
+
+Some errors have detailed explanations: E0046, E0061, E0106, E0107, E0223, E0277, E0308, E0425, E0433...
+For more information about an error, try `rustc --explain E0046`.
+warning: `tpt-tsp` (lib) generated 6 warnings
+error: could not compile `tpt-tsp` (lib) due to 85 previous errors; 6 warnings emitted

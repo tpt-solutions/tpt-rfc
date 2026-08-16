@@ -75,14 +75,14 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 4 — `tpt-x509` (RFC 5280 — chain/path validation)
 
-- [ ] Read RFC 5280 in full (focus: certificate/CRL profile, path validation algorithm §6); write `SPEC-NOTES.md`
-- [ ] Decide on parsing dependency: reuse an existing dual-licensed parser (e.g. `x509-parser`/`x509-cert`) for decoding, and build clean-room *validation* logic on top (the actual gap) rather than reimplementing ASN.1 parsing
-- [ ] Implement path validation algorithm (RFC 5280 §6.1): trust anchor handling, signature chaining, validity period checks, name constraints, policy constraints
-- [ ] Implement basic constraints / key usage / extended key usage enforcement
-- [ ] Implement revocation checking: CRL support
-- [ ] Implement revocation checking: OCSP support (or explicitly scope out with documented rationale if deferred)
+- [x] Read RFC 5280 in full (focus: certificate/CRL profile, path validation algorithm §6); write `SPEC-NOTES.md`
+- [x] Decide on parsing dependency: reuse an existing dual-licensed parser (`x509-cert`) for decoding, and build clean-room *validation* logic on top (the actual gap) rather than reimplementing ASN.1 parsing
+- [x] Implement path validation algorithm (RFC 5280 §6.1): trust anchor handling, signature chaining, validity period checks, name constraints, policy constraints
+- [x] Implement basic constraints / key usage / extended key usage enforcement
+- [x] Implement revocation checking: CRL support
+- [x] Implement OCSP *request* builder (full OCSP client/responder verification scoped out to `tpt-ocsp` with documented rationale in `src/ocsp.rs`)
 - [ ] Source NIST PKITS test vectors (standard X.509 path-validation conformance suite) and wire into test harness
-- [ ] Write docs.rs-quality API documentation
+- [x] Write docs.rs-quality API documentation
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-x509`
 - [ ] Mark crate "spec-complete" once PKITS test suite passes
 

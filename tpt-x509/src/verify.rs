@@ -103,7 +103,7 @@ fn verify_rsa(
     // big-endian byte arrays (no `rsa`/bignum dependency).
     let s = bn_reduce(sig, modulus);
     let m = bn_modpow(&s, exponent, modulus);
-    let k = modulus.len(); // modulus byte length
+    let _k = modulus.len(); // modulus byte length
     pkcs1_v15_check(&m, &t)
 }
 
@@ -259,13 +259,13 @@ fn verify_ecdsa(
         Curve::P256 => {
             // hash is implied by the curve (SHA-256)
             let vk = P256Vk::from_sec1_bytes(raw).map_err(|e| e.to_string())?;
-            let sig = P256Sig::from_slice(sig).map_err(|e| format!("bad ECDSA sig: {e}"))?;
+            let sig = P256Sig::from_der(sig).map_err(|e| format!("bad ECDSA sig: {e}"))?;
             vk.verify(msg, &sig)
                 .map_err(|e| format!("P-256 verification failed: {e}"))
         }
         Curve::P384 => {
             let vk = P384Vk::from_sec1_bytes(raw).map_err(|e| e.to_string())?;
-            let sig = P384Sig::from_slice(sig).map_err(|e| format!("bad ECDSA sig: {e}"))?;
+            let sig = P384Sig::from_der(sig).map_err(|e| format!("bad ECDSA sig: {e}"))?;
             vk.verify(msg, &sig)
                 .map_err(|e| format!("P-384 verification failed: {e}"))
         }

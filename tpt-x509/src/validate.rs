@@ -175,7 +175,7 @@ impl PathValidator {
             let working_spki = if k == 0 {
                 &anchor.spki
             } else {
-                &path[k - 1].tbs_certificate().subject_public_key_info()
+                path[k - 1].tbs_certificate().subject_public_key_info()
             };
             verify_signature(cert, working_spki).map_err(|e| match e {
                 ValidationError::Signature { reason, .. } => ValidationError::Signature {
@@ -269,21 +269,21 @@ impl PathValidator {
 
         // (j) extended key usage end-entity check.
         if let Some(req) = self.config.required_eku {
-            let leaf_eku = path.last().and_then(|c| extended_key_usage(c)).map(|e| e.0);
+            let leaf_eku = path.last().and_then(extended_key_usage).map(|e| e.0);
             if let Some(set) = &eku_allowed {
-                if !set.iter().any(|o| *o == req || *o == any) {
+                if !set.contains(&req) && !set.contains(&any) {
                     return Err(ValidationError::EkuViolation(req.to_string()));
                 }
             }
             if let Some(set) = &leaf_eku {
-                if !set.iter().any(|o| *o == req) {
+                if !set.contains(&req) {
                     return Err(ValidationError::EkuViolation(req.to_string()));
                 }
             }
             if let Some(set) = &eku_allowed {
                 if let Some(leaf) = &leaf_eku {
                     for e in leaf {
-                        if *e != any && !set.iter().any(|o| *o == *e) {
+                        if *e != any && !set.contains(e) {
                             return Err(ValidationError::EkuViolation(e.to_string()));
                         }
                     }
@@ -342,7 +342,7 @@ fn is_issuer_of(issuer: &Certificate, subject: &Certificate) -> bool {
     if !basic_constraints(issuer).map(|b| b.ca).unwrap_or(false) {
         return false;
     }
-    verify_signature(subject, &issuer.tbs_certificate().subject_public_key_info()).is_ok()
+    verify_signature(subject, issuer.tbs_certificate().subject_public_key_info()).is_ok()
 }
 
 fn validity_covers(cert: &Certificate, time: SystemTime) -> bool {

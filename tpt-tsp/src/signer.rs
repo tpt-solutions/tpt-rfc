@@ -40,7 +40,7 @@ impl SigningKey {
                     ));
                 }
                 let sig: P256Signature =
-                    ecdsa::hazmat::sign_prehash(key, digest).map_err(|e| TspError::Crypto(e.to_string()))?;
+                    key.sign_prehash(digest).map_err(|e| TspError::Crypto(e.to_string()))?;
                 Ok((oids::oid(oids::ECDSA_SHA256), sig.to_vec()))
             }
             SigningKey::EcdsaP384(key) => {
@@ -50,7 +50,7 @@ impl SigningKey {
                     ));
                 }
                 let sig: P384Signature =
-                    ecdsa::hazmat::sign_prehash(key, digest).map_err(|e| TspError::Crypto(e.to_string()))?;
+                    key.sign_prehash(digest).map_err(|e| TspError::Crypto(e.to_string()))?;
                 Ok((oids::oid(oids::ECDSA_SHA384), sig.to_vec()))
             }
             SigningKey::Rsa(key) => {

@@ -33,7 +33,6 @@ pub fn check_revocation(
     anchor: &TrustAnchor,
 ) -> Option<ValidationError> {
     let serial = cert.tbs_certificate().serial_number().as_bytes().to_vec();
-    let mut saw_crl_for_issuer = false;
 
     for crl in crls {
         let crl_issuer = match crl.tbs_cert_list.issuer.to_der() {
@@ -53,8 +52,6 @@ pub fn check_revocation(
                     None
                 }
             })?; // `?` here means "this CRL isn't from a CA we know" -> skip it
-
-        saw_crl_for_issuer = true;
 
         let signed = match crl.tbs_cert_list.to_der() {
             Ok(d) => d,
@@ -79,11 +76,10 @@ pub fn check_revocation(
         }
     }
 
-    if saw_crl_for_issuer {
-        None
-    } else {
-        None
-    }
+    // If we saw a CRL issued by this cert's CA and the cert was not listed as
+    // revoked, it is clean; if we never saw a matching CRL we simply don't
+    // assert anything (callers decide whether missing CRLs are fatal).
+    None
 }
 
 const PEM_BEGIN: &[u8] = b"-----BEGIN X509 CRL-----";

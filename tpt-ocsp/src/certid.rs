@@ -7,6 +7,8 @@ use der::{
     Decode,
 };
 
+use x509_cert::Certificate;
+
 use crate::error::{OcspError, OcspResult};
 use crate::hash::HashAlgorithm;
 use crate::wire::CertIdWire;

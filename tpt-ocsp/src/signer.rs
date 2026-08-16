@@ -1,7 +1,11 @@
+// Copyright 2026 TPT Solutions
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Private-key abstraction for signing OCSP `BasicOCSPResponse` structures.
 
 use const_oid::ObjectIdentifier;
-use ecdsa::signature::{PrehashSigner, SignatureEncoding};
+use ecdsa::signature::hazmat::PrehashSigner;
+use ecdsa::signature::SignatureEncoding;
 use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey};
 use p384::ecdsa::{Signature as P384Signature, SigningKey as P384SigningKey};
 use rsa::pkcs1v15::Pkcs1v15Sign;
@@ -88,13 +92,8 @@ impl SigningKey {
             }
             SigningKey::Ed25519(key) => {
                 let sig = key.sign(tbs, None);
-                Ok((oids::oid(oids::ED25519), sig.to_bytes().to_vec()))
+                Ok((oids::oid(oids::ED25519), sig.bytes().to_vec()))
             }
         }
-    }
-
-    /// Generate a fresh, deterministic P-256 signing key (for tests/examples).
-    pub fn demo_p256(seed: [u8; 32]) -> SigningKey {
-        SigningKey::EcdsaP256(P256SigningKey::from_bytes(&seed).unwrap())
     }
 }

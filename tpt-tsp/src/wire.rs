@@ -150,11 +150,11 @@ pub(crate) struct MessageImprint<'a> {
 pub(crate) struct TimeStampReq<'a> {
     pub version: UintRef<'a>,
     pub message_imprint: MessageImprint<'a>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub req_policy: Option<ObjectIdentifierRef<'a>>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub nonce: Option<UintRef<'a>>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub cert_req: Option<bool>,
     #[asn1(context_specific = "0", constructed, optional)]
     pub extensions: Option<AnyRef<'a>>,
@@ -170,9 +170,9 @@ impl<'a> TimeStampReq<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct PkiStatusInfo<'a> {
     pub status: UintRef<'a>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub status_string: Option<der::asn1::AnyRef<'a>>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub fail_info: Option<der::asn1::BitStringRef<'a>>,
 }
 
@@ -180,7 +180,7 @@ pub(crate) struct PkiStatusInfo<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct TimeStampResp<'a> {
     pub status: PkiStatusInfo<'a>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub token: Option<ContentInfo<'a>>,
 }
 
@@ -192,11 +192,11 @@ pub(crate) struct TstInfo<'a> {
     pub message_imprint: MessageImprint<'a>,
     pub serial_number: UintRef<'a>,
     pub gen_time: GeneralizedTime,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub accuracy: Option<Accuracy<'a>>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub ordering: Option<bool>,
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub nonce: Option<UintRef<'a>>,
     #[asn1(context_specific = "0", constructed, optional)]
     pub tsa: Option<GeneralName<'a>>,
@@ -207,7 +207,7 @@ pub(crate) struct TstInfo<'a> {
 /// `Accuracy` (RFC 3161 §2.4.3).
 #[derive(Clone, Sequence)]
 pub(crate) struct Accuracy<'a> {
-    #[asn1(optional)]
+    #[asn1(optional = "true")]
     pub seconds: Option<UintRef<'a>>,
     #[asn1(context_specific = "0", optional)]
     pub millis: Option<UintRef<'a>>,

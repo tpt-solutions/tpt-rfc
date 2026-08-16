@@ -9,14 +9,11 @@ use thiserror::Error;
 /// OCSP messages.
 #[derive(Debug, Error)]
 pub enum OcspError {
-    #[error("ASN.1/DER encoding error: {0}")]
-    Encode(#[from] der::Error),
-
     #[error("ASN.1/DER decoding error: {0}")]
     Decode(#[from] der::Error),
 
-    #[error("unsupported or unknown signature algorithm OID: {0}")]
-    UnsupportedSignature(String),
+    #[error("unsupported or unknown hash algorithm OID: {0}")]
+    UnsupportedHash(String),
 
     #[error("unsupported public key algorithm OID: {0}")]
     UnsupportedKey(String),
@@ -62,4 +59,4 @@ impl From<der::Error> for OcspError {
     }
 }
 
-pub(crate) type OcspResult<T> = std::result::Result<T, OcspError>;
+pub type OcspResult<T> = std::result::Result<T, OcspError>;

@@ -1,0 +1,50 @@
+[package]
+name = "tpt-ipsec"
+version.workspace = true
+edition.workspace = true
+# `orion` (X25519) requires Rust >= 1.86; this crate's MSRV follows its
+# crypto primitives rather than the workspace-wide 1.74 baseline.
+rust-version = "1.86"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["ipsec", "ikev2", "rfc7296", "rfc4301", "vpn", "security"]
+categories = ["network-programming", "cryptography"]
+description = "Clean-room, dual-licensed IKEv2 / IPsec implementation (RFC 7296 + RFC 4301)"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+# All cryptographic primitives are dual-licensed (MIT/Apache-2.0 or MIT) and
+# reused rather than reimplemented, consistent with the platform's clean-room
+# policy:
+#   sha1 / sha2        — PRF + integrity hashes        MIT/Apache-2.0
+#   hmac               — HMAC PRF / integrity          MIT/Apache-2.0
+#   num-bigint         — MODP Diffie-Hellman groups    MIT/Apache-2.0
+#   orion              — X25519 ECDH (MIT)             MIT
+#   ed25519-compact    — Ed25519 AUTH signatures (MIT) MIT
+#   aes / cbc / aes-gcm— AES-CBC + AES-GCM ENCR         MIT/Apache-2.0
+#   subtle             — constant-time comparisons      BSD-2/ISC (permissive)
+sha1 = "0.10"
+sha2 = "0.10"
+hmac = "0.12"
+num-bigint = "0.4"
+num-integer = "0.1"
+orion = "0.17"
+ed25519-compact = { version = "2", features = ["getrandom"] }
+aes = "0.8"
+cbc = "0.1"
+cipher = "0.4"
+aes-gcm = "0.10"
+subtle = "2"
+getrandom = "0.2"
+
+[dev-dependencies]
+hex = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true

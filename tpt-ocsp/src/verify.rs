@@ -1,8 +1,13 @@
+// Copyright 2026 TPT Solutions
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Signature verification and OCSP extension helpers.
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{AnyRef, OctetStringRef};
-use spki::{SubjectPublicKeyInfo, SubjectPublicKeyInfoRef};
+use der::{asn1::AnyRef, Decode};
+use ecdsa::signature::hazmat::PrehashVerifier;
+use sha1::{Digest as _, Sha1};
+use spki::SubjectPublicKeyInfoRef;
 
 use crate::error::{OcspError, OcspResult};
 use crate::hash::HashAlgorithm;
@@ -22,7 +27,7 @@ pub(crate) fn build_nonce_ext<'a>(nonce: &'a [u8]) -> Extension<'a> {
     Extension {
         extn_id: oids::oid(oids::OCSP_NONCE),
         critical: false,
-        extn_value: OctetStringRef::new(nonce).expect("nonce fits in an OCTET STRING"),
+        extn_value: der::asn1::OctetStringRef::new(nonce).expect("nonce fits in an OCTET STRING"),
     }
 }
 
@@ -40,7 +45,7 @@ pub(crate) fn extract_nonce(exts: &Option<Vec<Extension>>) -> Option<Vec<u8>> {
 /// Verify a signature over `tbs` against the public key described by `spki`,
 /// using the signature scheme identified by `sig_alg_oid`.
 pub(crate) fn verify_signature(
-    spki: &SubjectPublicKeyInfo,
+    spki: SubjectPublicKeyInfoRef<'_>,
     sig_alg_oid: &ObjectIdentifier,
     tbs: &[u8],
     signature: &[u8],
@@ -57,30 +62,25 @@ pub(crate) fn verify_signature(
     };
     let digest = hash.digest(tbs);
 
-    let spki_ref = SubjectPublicKeyInfoRef::try_from(spki)
-        .map_err(|e| OcspError::Crypto(e.to_string()))?;
     let key_oid = spki.algorithm.oid;
 
     if *key_oid == oids::oid(oids::RSA_ENCRYPTION) {
-        let pubkey = rsa::RsaPublicKey::try_from(spki_ref)
+        let pubkey = rsa::RsaPublicKey::try_from(spki)
             .map_err(|e| OcspError::Crypto(e.to_string()))?;
         let sig = rsa::pkcs1v15::Signature::try_from(signature)
             .map_err(|e| OcspError::Signature(e.to_string()))?;
         match hash {
             HashAlgorithm::Sha256 => {
-                use sha2::Sha256;
                 rsa::pkcs1v15::VerifyingKey::<Sha256>::new(pubkey)
                     .verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
             }
             HashAlgorithm::Sha384 => {
-                use sha2::Sha384;
                 rsa::pkcs1v15::VerifyingKey::<Sha384>::new(pubkey)
                     .verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
             }
             HashAlgorithm::Sha512 => {
-                use sha2::Sha512;
                 rsa::pkcs1v15::VerifyingKey::<Sha512>::new(pubkey)
                     .verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
@@ -99,28 +99,26 @@ pub(crate) fn verify_signature(
             .map(|p| ObjectIdentifier::from_der(p.as_bytes()))
             .transpose()
             .map_err(|e| OcspError::Crypto(e.to_string()))?;
-        match curve.as_ref().map(|c| c.to_string()) {
-            Some(ref s) if s == oids::P256 => {
+        let curve_str = curve.as_ref().map(|c| c.to_string());
+        match curve_str.as_deref() {
+            Some(oids::P256) => {
                 let vk = p256::ecdsa::VerifyingKey::from_sec1_bytes(point)
                     .map_err(|e| OcspError::Crypto(e.to_string()))?;
                 let sig = p256::ecdsa::Signature::from_der(signature)
                     .map_err(|e| OcspError::Signature(e.to_string()))?;
-                use ecdsa::signature::PrehashVerifier;
                 vk.verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
             }
-            Some(ref s) if s == oids::P384 => {
+            Some(oids::P384) => {
                 let vk = p384::ecdsa::VerifyingKey::from_sec1_bytes(point)
                     .map_err(|e| OcspError::Crypto(e.to_string()))?;
                 let sig = p384::ecdsa::Signature::from_der(signature)
                     .map_err(|e| OcspError::Signature(e.to_string()))?;
-                use ecdsa::signature::PrehashVerifier;
                 vk.verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
             }
-            _ => Err(OcspError::UnsupportedKey(
-                curve.map(|c| c.to_string()).unwrap_or_default(),
-            )),
+            Some(other) => Err(OcspError::UnsupportedKey(other.to_string())),
+            None => Err(OcspError::UnsupportedKey("EC without curve".into())),
         }
     } else if *key_oid == oids::oid(oids::ED25519) {
         let key_bytes = spki

@@ -8,8 +8,8 @@ use der::{
     asn1::{AnyRef, OctetStringRef, UintRef},
     Decode, Encode,
 };
-use spki::{AlgorithmIdentifierRef, SubjectPublicKeyInfo};
-use x509_cert::Certificate;
+use spki::AlgorithmIdentifierRef;
+use x509_cert::{Certificate, SubjectPublicKeyInfo};
 
 use crate::error::{Result, TspError};
 use crate::hash::HashAlgorithm;

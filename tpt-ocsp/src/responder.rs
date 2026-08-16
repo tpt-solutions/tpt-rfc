@@ -10,7 +10,7 @@ use std::time::{Duration, SystemTime};
 
 use der::{
     asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, OctetStringRef},
-    Encode,
+    Decode, Encode,
 };
 use sha1::{Digest as _, Sha1};
 use spki::AlgorithmIdentifierRef;

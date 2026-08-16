@@ -1,0 +1,484 @@
+   Compiling tpt-ipsec v0.1.0 (C:\Programming\2 WIP\tpt-rfc\tpt-ipsec)
+warning: unused import: `key_agreement`
+   --> tpt-ipsec\src\crypto.rs:436:41
+    |
+436 |     use orion::hazardous::ecc::x25519::{key_agreement, PrivateKey, PublicKey};
+    |                                         ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Prf`
+ --> tpt-ipsec\src\message.rs:3:34
+  |
+3 | use crate::crypto::{Encr, Integ, Prf};
+  |                                  ^^^
+
+warning: unused import: `ProtocolId`
+  --> tpt-ipsec\src\state.rs:17:12
+   |
+17 |     PrfId, ProtocolId,
+   |            ^^^^^^^^^^
+
+error[E0747]: constant provided when a type was expected
+   --> tpt-ipsec\src\crypto.rs:310:54
+    |
+310 |     fn encrypt_block(&self, b: &mut GenericArray<u8, 16>) {
+    |                                                      ^^
+
+error[E0747]: constant provided when a type was expected
+   --> tpt-ipsec\src\crypto.rs:317:54
+    |
+317 |     fn decrypt_block(&self, b: &mut GenericArray<u8, 16>) {
+    |                                                      ^^
+
+error[E0034]: multiple applicable items in scope
+  --> tpt-ipsec\src\crypto.rs:19:36
+   |
+19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+   |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+64 |             Prf::Sha1 => hmac_vec!(Sha1, key, data),
+   |                          -------------------------- in this macro invocation
+   |
+   = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+   = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+   = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<Sha1Core>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<Sha1Core>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+
+error[E0034]: multiple applicable items in scope
+  --> tpt-ipsec\src\crypto.rs:19:36
+   |
+19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+   |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+65 |             Prf::Sha256 => hmac_vec!(Sha256, key, data),
+   |                            ---------------------------- in this macro invocation
+   |
+   = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+   = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+   = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha256VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha256>>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha256VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha256>>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+
+error[E0034]: multiple applicable items in scope
+  --> tpt-ipsec\src\crypto.rs:19:36
+   |
+19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+   |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+66 |             Prf::Sha384 => hmac_vec!(Sha384, key, data),
+   |                            ---------------------------- in this macro invocation
+   |
+   = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+   = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+   = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B1>, B0>, B0>, B0>, B0>, sha2::OidSha384>>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B1>, B0>, B0>, B0>, B0>, sha2::OidSha384>>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+
+error[E0034]: multiple applicable items in scope
+  --> tpt-ipsec\src\crypto.rs:19:36
+   |
+19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+   |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+67 |             Prf::Sha512 => hmac_vec!(Sha512, key, data),
+   |                            ---------------------------- in this macro invocation
+   |
+   = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+   = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+   = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha512>>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha512>>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+   |
+
+error[E0034]: multiple applicable items in scope
+   --> tpt-ipsec\src\crypto.rs:19:36
+    |
+ 19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+    |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+133 |             Integ::HmacSha1_96 => hmac_vec!(Sha1, key, data),
+    |                                   -------------------------- in this macro invocation
+    |
+    = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+    = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+    = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<Sha1Core>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<Sha1Core>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+
+error[E0034]: multiple applicable items in scope
+   --> tpt-ipsec\src\crypto.rs:19:36
+    |
+ 19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+    |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+134 |             Integ::HmacSha256_128 => hmac_vec!(Sha256, key, data),
+    |                                      ---------------------------- in this macro invocation
+    |
+    = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+    = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+    = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha256VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha256>>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha256VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha256>>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+
+error[E0034]: multiple applicable items in scope
+   --> tpt-ipsec\src\crypto.rs:19:36
+    |
+ 19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+    |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+135 |             Integ::HmacSha384_192 => hmac_vec!(Sha384, key, data),
+    |                                      ---------------------------- in this macro invocation
+    |
+    = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+    = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+    = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B1>, B0>, B0>, B0>, B0>, sha2::OidSha384>>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B1>, B0>, B0>, B0>, B0>, sha2::OidSha384>>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+
+error[E0034]: multiple applicable items in scope
+   --> tpt-ipsec\src\crypto.rs:19:36
+    |
+ 19 |         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+    |                                    ^^^^^^^^^^^^^^ multiple `new_from_slice` found
+...
+136 |             Integ::HmacSha512_256 => hmac_vec!(Sha512, key, data),
+    |                                      ---------------------------- in this macro invocation
+    |
+    = note: candidate #1 is defined in an impl of the trait `KeyInit` for the type `CoreWrapper<T>`
+    = note: candidate #2 is defined in an impl of the trait `Mac` for the type `T`
+    = note: this error originates in the macro `hmac_vec` (in Nightly builds, run with -Z macro-backtrace for more info)
+help: use fully-qualified syntax to disambiguate
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha512>>>> as KeyInit>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+ 19 -         let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+ 19 +         let mut m = <CoreWrapper<HmacCore<CoreWrapper<CtVariableCoreWrapper<Sha512VarCore, UInt<UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>, B0>, sha2::OidSha512>>>> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
+    |
+
+error[E0599]: no method named `map_err` found for struct `PrivateKey` in the current scope
+   --> tpt-ipsec\src\crypto.rs:437:37
+    |
+437 |     let sk = PrivateKey::generate().map_err(err)?;
+    |                                     ^^^^^^^ method not found in `PrivateKey`
+
+error[E0599]: no associated function or constant named `from_bytes` found for struct `PrivateKey` in the current scope
+   --> tpt-ipsec\src\crypto.rs:444:26
+    |
+444 |     let sk = PrivateKey::from_bytes(private).map_err(err)?;
+    |                          ^^^^^^^^^^ associated function or constant not found in `PrivateKey`
+    |
+note: if you're trying to build a new `PrivateKey` consider using one of the following associated functions:
+      PrivateKey::from_slice
+      PrivateKey::generate
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\orion-0.17.15\src\hazardous\ecc\x25519.rs:560:5
+    |
+560 |     pub fn from_slice(slice: &[u8]) -> Result<Self, UnknownCryptoError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+591 |     pub fn generate() -> PrivateKey {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no associated function or constant named `from_bytes` found for struct `PrivateKey` in the current scope
+   --> tpt-ipsec\src\crypto.rs:451:26
+    |
+451 |     let sk = PrivateKey::from_bytes(private).map_err(err)?;
+    |                          ^^^^^^^^^^ associated function or constant not found in `PrivateKey`
+    |
+note: if you're trying to build a new `PrivateKey` consider using one of the following associated functions:
+      PrivateKey::from_slice
+      PrivateKey::generate
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\orion-0.17.15\src\hazardous\ecc\x25519.rs:560:5
+    |
+560 |     pub fn from_slice(slice: &[u8]) -> Result<Self, UnknownCryptoError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+591 |     pub fn generate() -> PrivateKey {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no associated function or constant named `from_bytes` found for struct `orion::kex::PublicKey` in the current scope
+   --> tpt-ipsec\src\crypto.rs:452:25
+    |
+452 |     let pk = PublicKey::from_bytes(peer_public).map_err(err)?;
+    |                         ^^^^^^^^^^ associated function or constant not found in `orion::kex::PublicKey`
+    |
+note: if you're trying to build a new `orion::kex::PublicKey`, consider using `orion::kex::PublicKey::from_slice` which returns `std::result::Result<orion::kex::PublicKey, UnknownCryptoError>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\orion-0.17.15\src\hazardous\ecc\x25519.rs:451:5
+    |
+451 |     pub fn from_slice(slice: &[u8]) -> Result<Self, UnknownCryptoError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is a method `to_bytes` with a similar name, but with different arguments
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\orion-0.17.15\src\hazardous\ecc\x25519.rs:480:5
+    |
+480 |     pub fn to_bytes(&self) -> [u8; 32] {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `as_bytes` found for struct `SharedKey` in the current scope
+   --> tpt-ipsec\src\crypto.rs:454:11
+    |
+454 |     Ok(sh.as_bytes().to_vec())
+    |           ^^^^^^^^ method not found in `SharedKey`
+
+error[E0599]: no associated function or constant named `from_secret_key_slice` found for struct `ed25519_compact::KeyPair` in the current scope
+   --> tpt-ipsec\src\state.rs:375:35
+    |
+375 |                 let kp = KeyPair::from_secret_key_slice(own_secret)
+    |                                   ^^^^^^^^^^^^^^^^^^^^^ associated function or constant not found in `ed25519_compact::KeyPair`
+    |
+note: if you're trying to build a new `ed25519_compact::KeyPair` consider using one of the following associated functions:
+      ed25519_compact::KeyPair::generate
+      ed25519_compact::KeyPair::from_seed
+      ed25519_compact::KeyPair::from_slice
+      ed25519_compact::pem::<impl ed25519_compact::KeyPair>::from_der
+      ed25519_compact::pem::<impl ed25519_compact::KeyPair>::from_pem
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ed25519-compact-2.4.0\src\pem.rs:13:5
+    |
+ 13 |     pub fn from_der(der: &[u8]) -> Result<Self, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 24 |     pub fn from_pem(pem: &str) -> Result<Self, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ed25519-compact-2.4.0\src\ed25519.rs:400:5
+    |
+400 |     pub fn generate() -> KeyPair {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+405 |     pub fn from_seed(seed: Seed) -> KeyPair {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+424 |     pub fn from_slice(bytes: &[u8]) -> Result<Self, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no associated function or constant named `from_secret_key_slice` found for struct `ed25519_compact::KeyPair` in the current scope
+   --> tpt-ipsec\src\state.rs:753:35
+    |
+753 |                 let kp = KeyPair::from_secret_key_slice(own_secret)
+    |                                   ^^^^^^^^^^^^^^^^^^^^^ associated function or constant not found in `ed25519_compact::KeyPair`
+    |
+note: if you're trying to build a new `ed25519_compact::KeyPair` consider using one of the following associated functions:
+      ed25519_compact::KeyPair::generate
+      ed25519_compact::KeyPair::from_seed
+      ed25519_compact::KeyPair::from_slice
+      ed25519_compact::pem::<impl ed25519_compact::KeyPair>::from_der
+      ed25519_compact::pem::<impl ed25519_compact::KeyPair>::from_pem
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ed25519-compact-2.4.0\src\pem.rs:13:5
+    |
+ 13 |     pub fn from_der(der: &[u8]) -> Result<Self, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 24 |     pub fn from_pem(pem: &str) -> Result<Self, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ed25519-compact-2.4.0\src\ed25519.rs:400:5
+    |
+400 |     pub fn generate() -> KeyPair {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+405 |     pub fn from_seed(seed: Seed) -> KeyPair {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+424 |     pub fn from_slice(bytes: &[u8]) -> Result<Self, Error> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> tpt-ipsec\src\state.rs:880:86
+    |
+880 |         let inner = sk.decrypt(encr, self.params.integ(), &req.header, &sk_e, &sk_a, &salt)?;
+    |                        ------- arguments to this method are incorrect                ^^^^^ expected `&[u8]`, found `&Option<Vec<u8>>`
+    |
+    = note: expected reference `&[u8]`
+               found reference `&Option<Vec<u8>>`
+note: method defined here
+   --> tpt-ipsec\src\message.rs:780:12
+    |
+780 |     pub fn decrypt(
+    |            ^^^^^^^
+...
+787 |         salt: &[u8],
+    |         -----------
+
+error[E0658]: use of unstable library feature `str_as_str`
+   --> tpt-ipsec\src\state.rs:961:40
+    |
+961 |                 || bool::from(expected.as_slice().ct_eq(received))
+    |                                        ^^^^^^^^
+    |
+    = note: see issue #130366 <https://github.com/rust-lang/rust/issues/130366> for more information
+
+error[E0599]: no method named `ct_eq` found for reference `&[u8]` in the current scope
+   --> tpt-ipsec\src\state.rs:961:51
+    |
+961 |                 || bool::from(expected.as_slice().ct_eq(received))
+    |                                                   ^^^^^ method not found in `&[u8]`
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `ConstantTimeEq` which provides `ct_eq` is implemented but not in scope; perhaps you want to import it
+    |
+  8 + use subtle::ConstantTimeEq;
+    |
+
+error[E0658]: use of unstable library feature `str_as_str`
+   --> tpt-ipsec\src\state.rs:964:40
+    |
+964 |                 if bool::from(expected.as_slice().ct_eq(received)) {
+    |                                        ^^^^^^^^
+    |
+    = note: see issue #130366 <https://github.com/rust-lang/rust/issues/130366> for more information
+
+error[E0599]: no method named `ct_eq` found for reference `&[u8]` in the current scope
+   --> tpt-ipsec\src\state.rs:964:51
+    |
+964 |                 if bool::from(expected.as_slice().ct_eq(received)) {
+    |                                                   ^^^^^ method not found in `&[u8]`
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `ConstantTimeEq` which provides `ct_eq` is implemented but not in scope; perhaps you want to import it
+    |
+  8 + use subtle::ConstantTimeEq;
+    |
+
+error[E0308]: mismatched types
+   --> tpt-ipsec\src\state.rs:976:33
+    |
+976 |             pk.verify(expected, received)
+    |                ------           ^^^^^^^^ expected `&Signature`, found `&[u8]`
+    |                |
+    |                arguments to this method are incorrect
+    |
+    = note: expected reference `&Signature`
+               found reference `&[u8]`
+note: method defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ed25519-compact-2.4.0\src\ed25519.rs:266:12
+    |
+266 |     pub fn verify(&self, message: impl AsRef<[u8]>, signature: &Signature) -> Result<(), Error> {
+    |            ^^^^^^
+
+error[E0004]: non-exhaustive patterns: `Encr::AesGcm { key_len: 0_usize..=15_usize }`, `Encr::AesGcm { key_len: 17_usize..=23_usize }`, `Encr::AesGcm { key_len: 25_usize..=31_usize }` and 1 more not covered
+   --> tpt-ipsec\src\crypto.rs:231:15
+    |
+231 |         match self {
+    |               ^^^^ patterns `Encr::AesGcm { key_len: 0_usize..=15_usize }`, `Encr::AesGcm { key_len: 17_usize..=23_usize }`, `Encr::AesGcm { key_len: 25_usize..=31_usize }` and 1 more not covered
+    |
+note: `Encr` defined here
+   --> tpt-ipsec\src\crypto.rs:153:10
+    |
+153 | pub enum Encr {
+    |          ^^^^
+154 |     AesCbc { key_len: usize },
+155 |     AesGcm { key_len: usize },
+    |     ------ not covered
+    = note: the matched value is of type `Encr`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown, or multiple match arms
+    |
+243 ~             Encr::AesCbc { .. } => Err(Error::Crypto("algorithm is not AEAD".into())),
+244 ~             _ => todo!(),
+    |
+
+error[E0004]: non-exhaustive patterns: `Encr::AesGcm { key_len: 0_usize..=15_usize }`, `Encr::AesGcm { key_len: 17_usize..=23_usize }`, `Encr::AesGcm { key_len: 25_usize..=31_usize }` and 1 more not covered
+   --> tpt-ipsec\src\crypto.rs:260:25
+    |
+260 |         let res = match self {
+    |                         ^^^^ patterns `Encr::AesGcm { key_len: 0_usize..=15_usize }`, `Encr::AesGcm { key_len: 17_usize..=23_usize }`, `Encr::AesGcm { key_len: 25_usize..=31_usize }` and 1 more not covered
+    |
+note: `Encr` defined here
+   --> tpt-ipsec\src\crypto.rs:153:10
+    |
+153 | pub enum Encr {
+    |          ^^^^
+154 |     AesCbc { key_len: usize },
+155 |     AesGcm { key_len: usize },
+    |     ------ not covered
+    = note: the matched value is of type `Encr`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern as shown, or multiple match arms
+    |
+274 ~             Encr::AesCbc { .. } => return Err(Error::Crypto("algorithm is not AEAD".into())),
+275 ~             _ => todo!(),
+    |
+
+warning: unused variable: `prop_len`
+   --> tpt-ipsec\src\message.rs:236:13
+    |
+236 |         let prop_len = 8 + spi.len() + prop.transforms.iter().map(|t| transform_len(t)).sum::<usize>();
+    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_prop_len`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `o` is never read
+   --> tpt-ipsec\src\spd.rs:117:13
+    |
+117 |             o += integ_len;
+    |             ^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+   --> tpt-ipsec\src\state.rs:292:13
+    |
+292 |         let mut msg = Message {
+    |             ----^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `auth_data`
+   --> tpt-ipsec\src\state.rs:279:13
+    |
+279 |         let auth_data = self.compute_auth(true, &id_bytes)?;
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_auth_data`
+
+warning: unused variable: `sk_p`
+   --> tpt-ipsec\src\state.rs:308:9
+    |
+308 |         sk_p: &[u8],
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_sk_p`
+
+Some errors have detailed explanations: E0004, E0034, E0308, E0599, E0658, E0747.
+For more information about an error, try `rustc --explain E0004`.
+warning: `tpt-ipsec` (lib) generated 8 warnings
+error: could not compile `tpt-ipsec` (lib) due to 25 previous errors; 8 warnings emitted
