@@ -131,7 +131,11 @@ pub struct TrafficKeys {
 
 impl TrafficKeys {
     /// Derive traffic keys for `suite` from `traffic_secret`.
-    pub fn from_secret(ks: &KeySchedule, suite: crate::crypto::CipherSuite, traffic_secret: &[u8]) -> Self {
+    pub fn from_secret(
+        ks: &KeySchedule,
+        suite: crate::crypto::CipherSuite,
+        traffic_secret: &[u8],
+    ) -> Self {
         let (key, iv) = ks.derive_traffic_keys(traffic_secret, suite.key_len(), suite.iv_len());
         Self {
             key,

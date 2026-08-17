@@ -5,9 +5,9 @@
 
 use tpt_dtls::crypto::CipherSuite;
 use tpt_dtls::handshake::{
-    fragment_message, Certificate, CertificateVerify, ClientHello, EncryptedExtensions,
-    Finished, HandshakeBody, HandshakeMessage, HandshakeType, KeyShareEntry, Reassembler,
-    ServerHello, HRR_RANDOM,
+    fragment_message, Certificate, CertificateVerify, ClientHello, EncryptedExtensions, Finished,
+    HandshakeBody, HandshakeMessage, HandshakeType, KeyShareEntry, Reassembler, ServerHello,
+    HRR_RANDOM,
 };
 
 fn sample_ch() -> ClientHello {
@@ -130,7 +130,10 @@ fn finished_round_trip() {
 
 #[test]
 fn fragment_and_reassemble() {
-    let ee = HandshakeMessage::new(HandshakeBody::EncryptedExtensions(EncryptedExtensions::default()), 2);
+    let ee = HandshakeMessage::new(
+        HandshakeBody::EncryptedExtensions(EncryptedExtensions::default()),
+        2,
+    );
     let full = ee.encode();
     // Fragment into 5-byte chunks.
     let frags = fragment_message(&full, 2, 5);

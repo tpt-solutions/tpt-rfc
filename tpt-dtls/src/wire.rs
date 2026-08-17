@@ -10,17 +10,6 @@
 
 use crate::error::{DtlsError, Result};
 
-/// Errors specific to wire encoding/decoding.
-impl DtlsError {
-    /// Build a [`DtlsError::LengthExceedsBuffer`].
-    pub(crate) fn len_err(declared: usize, remaining: usize) -> DtlsError {
-        DtlsError::LengthExceedsBuffer {
-            declared,
-            remaining,
-        }
-    }
-}
-
 /// Accumulates big-endian wire-encoded bytes.
 #[derive(Debug, Default, Clone)]
 pub struct Writer {

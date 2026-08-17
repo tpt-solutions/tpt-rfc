@@ -38,20 +38,6 @@ fn rfc8032_ed25519_one_byte() {
 }
 
 #[test]
-fn rfc8032_one_byte_debug() {
-    let sk = h("4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb6a6fb");
-    let pk = h("3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c");
-    let msg = h("72");
-    let sk = SigningKey::from_bytes(sk.as_slice().try_into().unwrap());
-    let vk = VerifyingKey::from_bytes(pk.as_slice().try_into().unwrap());
-    let produced = sk.sign(&msg);
-    eprintln!("produced = {:?}", produced.as_bytes());
-    eprintln!("vk from sk = {:?}", sk.verifying_key().to_bytes());
-    eprintln!("vk expected = {:?}", vk.to_bytes());
-    eprintln!("verify produced = {:?}", vk.verify(&msg, &produced).is_ok());
-}
-
-#[test]
 fn rfc8032_ed25519_two_bytes() {
     let sk = h("c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7");
     let pk = h("fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025");

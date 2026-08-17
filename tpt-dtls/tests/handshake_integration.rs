@@ -9,9 +9,7 @@
 
 use tpt_dtls::crypto::{CipherSuite, Ed25519KeyPair};
 use tpt_dtls::handshake::{group, sigscheme};
-use tpt_dtls::{
-    AcceptAllVerifier, ClientConfig, Connection, DtlsError, ServerConfig,
-};
+use tpt_dtls::{AcceptAllVerifier, ClientConfig, Connection, DtlsError, ServerConfig};
 
 fn client_cfg(identity: Ed25519KeyPair) -> ClientConfig {
     ClientConfig {
@@ -40,8 +38,10 @@ fn server_cfg(identity: Ed25519KeyPair) -> ServerConfig {
 /// Drive both endpoints to completion. `drop_first_client_flight` simulates
 /// loss of the very first ClientHello to exercise retransmission.
 fn run_handshake(drop_first_client_flight: bool) -> (Connection, Connection) {
-    let mut client = Connection::new_client(client_cfg(Ed25519KeyPair::from_seed(&[1u8; 32]).unwrap())).unwrap();
-    let mut server = Connection::new_server(server_cfg(Ed25519KeyPair::from_seed(&[2u8; 32]).unwrap())).unwrap();
+    let mut client =
+        Connection::new_client(client_cfg(Ed25519KeyPair::from_seed(&[1u8; 32]).unwrap())).unwrap();
+    let mut server =
+        Connection::new_server(server_cfg(Ed25519KeyPair::from_seed(&[2u8; 32]).unwrap())).unwrap();
 
     client.start().unwrap();
     let mut first_client_flight = client.take_output();
@@ -105,8 +105,10 @@ fn application_data_round_trips() {
 
 #[test]
 fn wrong_cookie_is_rejected() {
-    let mut client = Connection::new_client(client_cfg(Ed25519KeyPair::from_seed(&[1u8; 32]).unwrap())).unwrap();
-    let mut server = Connection::new_server(server_cfg(Ed25519KeyPair::from_seed(&[2u8; 32]).unwrap())).unwrap();
+    let mut client =
+        Connection::new_client(client_cfg(Ed25519KeyPair::from_seed(&[1u8; 32]).unwrap())).unwrap();
+    let mut server =
+        Connection::new_server(server_cfg(Ed25519KeyPair::from_seed(&[2u8; 32]).unwrap())).unwrap();
 
     client.start().unwrap();
     let ch1 = client.take_output();

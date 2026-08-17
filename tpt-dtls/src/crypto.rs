@@ -130,22 +130,28 @@ pub(crate) fn aead_seal(
     plaintext: &[u8],
 ) -> Result<Vec<u8>> {
     use aead::{Aead, KeyInit, Payload};
-    let payload = Payload { msg: plaintext, aad };
+    let payload = Payload {
+        msg: plaintext,
+        aad,
+    };
     match suite {
         CipherSuite::TlsAes128GcmSha256 => {
             let c = aes_gcm::Aes128Gcm::new_from_slice(key).map_err(crypto_err)?;
             let nonce = aead::Nonce::<aes_gcm::Aes128Gcm>::from_slice(nonce);
-            c.encrypt(&nonce, payload).map_err(|_| DtlsError::DecryptFailed)
+            c.encrypt(nonce, payload)
+                .map_err(|_| DtlsError::DecryptFailed)
         }
         CipherSuite::TlsAes256GcmSha384 => {
             let c = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(crypto_err)?;
             let nonce = aead::Nonce::<aes_gcm::Aes256Gcm>::from_slice(nonce);
-            c.encrypt(&nonce, payload).map_err(|_| DtlsError::DecryptFailed)
+            c.encrypt(nonce, payload)
+                .map_err(|_| DtlsError::DecryptFailed)
         }
         CipherSuite::TlsChacha20Poly1305Sha256 => {
             let c = chacha20poly1305::ChaCha20Poly1305::new_from_slice(key).map_err(crypto_err)?;
             let nonce = aead::Nonce::<chacha20poly1305::ChaCha20Poly1305>::from_slice(nonce);
-            c.encrypt(&nonce, payload).map_err(|_| DtlsError::DecryptFailed)
+            c.encrypt(nonce, payload)
+                .map_err(|_| DtlsError::DecryptFailed)
         }
     }
 }
@@ -160,22 +166,28 @@ pub(crate) fn aead_open(
     ciphertext: &[u8],
 ) -> Result<Vec<u8>> {
     use aead::{Aead, KeyInit, Payload};
-    let payload = Payload { msg: ciphertext, aad };
+    let payload = Payload {
+        msg: ciphertext,
+        aad,
+    };
     match suite {
         CipherSuite::TlsAes128GcmSha256 => {
             let c = aes_gcm::Aes128Gcm::new_from_slice(key).map_err(crypto_err)?;
             let nonce = aead::Nonce::<aes_gcm::Aes128Gcm>::from_slice(nonce);
-            c.decrypt(&nonce, payload).map_err(|_| DtlsError::DecryptFailed)
+            c.decrypt(nonce, payload)
+                .map_err(|_| DtlsError::DecryptFailed)
         }
         CipherSuite::TlsAes256GcmSha384 => {
             let c = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(crypto_err)?;
             let nonce = aead::Nonce::<aes_gcm::Aes256Gcm>::from_slice(nonce);
-            c.decrypt(&nonce, payload).map_err(|_| DtlsError::DecryptFailed)
+            c.decrypt(nonce, payload)
+                .map_err(|_| DtlsError::DecryptFailed)
         }
         CipherSuite::TlsChacha20Poly1305Sha256 => {
             let c = chacha20poly1305::ChaCha20Poly1305::new_from_slice(key).map_err(crypto_err)?;
             let nonce = aead::Nonce::<chacha20poly1305::ChaCha20Poly1305>::from_slice(nonce);
-            c.decrypt(&nonce, payload).map_err(|_| DtlsError::DecryptFailed)
+            c.decrypt(nonce, payload)
+                .map_err(|_| DtlsError::DecryptFailed)
         }
     }
 }
@@ -227,9 +239,8 @@ pub struct Ed25519KeyPair {
 impl Ed25519KeyPair {
     /// Build a key pair from a 32-byte seed/secret.
     pub fn from_seed(seed: &[u8]) -> Result<Self> {
-        let seed = Seed::from_slice(seed).map_err(|e| {
-            DtlsError::HandshakeIncomplete(format!("ed25519 seed: {e}").leak())
-        })?;
+        let seed = Seed::from_slice(seed)
+            .map_err(|e| DtlsError::HandshakeIncomplete(format!("ed25519 seed: {e}").leak()))?;
         let kp = KeyPair::from_seed(seed);
         Ok(Self { kp })
     }

@@ -8,6 +8,8 @@ use crate::error::ValidationError;
 
 // Algorithm OIDs (RFC 3279 / RFC 4055 / RFC 8410).
 pub(crate) const RSA_ENCRYPTION: &str = "1.2.840.113549.1.1.1";
+pub(crate) const SHA1_RSA: &str = "1.2.840.113549.1.1.5";
+pub(crate) const SHA224_RSA: &str = "1.2.840.113549.1.1.14";
 pub(crate) const SHA256_RSA: &str = "1.2.840.113549.1.1.11";
 pub(crate) const SHA384_RSA: &str = "1.2.840.113549.1.1.12";
 pub(crate) const SHA512_RSA: &str = "1.2.840.113549.1.1.13";
@@ -78,7 +80,7 @@ fn verify_rsa(
     sig: &[u8],
 ) -> Result<(), String> {
     use sha2::Digest;
-    use sha2::{Sha256, Sha384, Sha512};
+    use sha2::{Sha224, Sha256, Sha384, Sha512};
 
     // `subject_public_key` is the DER encoding of the PKCS#1 RSAPublicKey.
     #[derive(der::Sequence)]
@@ -91,7 +93,9 @@ fn verify_rsa(
     let pk = RsaPubKeyDer::from_der(raw).map_err(|e| format!("bad RSA public key: {e}"))?;
     let modulus = pk.modulus.as_bytes();
     let exponent = pk.public_exponent.as_bytes();
-    let digest = match sig_oid {
+    let digest: Vec<u8> = match sig_oid {
+        o if o == oid(SHA1_RSA) => sha1_digest(msg).to_vec(),
+        o if o == oid(SHA224_RSA) => Sha224::digest(msg).to_vec(),
         o if o == oid(SHA256_RSA) => Sha256::digest(msg).to_vec(),
         o if o == oid(SHA384_RSA) => Sha384::digest(msg).to_vec(),
         o if o == oid(SHA512_RSA) => Sha512::digest(msg).to_vec(),
@@ -99,107 +103,90 @@ fn verify_rsa(
     };
     let t = digest_info(sig_oid, &digest)?;
 
-    // RSA public-key operation: m = s^e mod n, implemented in clean room over
-    // big-endian byte arrays (no `rsa`/bignum dependency).
-    let s = bn_reduce(sig, modulus);
-    let m = bn_modpow(&s, exponent, modulus);
-    let _k = modulus.len(); // modulus byte length
-    pkcs1_v15_check(&m, &t)
+    // RSA public-key operation: m = s^e mod n. The modular exponentiation uses
+    // `num-bigint` (dual MIT/Apache-2.0) purely as an arbitrary-precision
+    // arithmetic backend; the PKCS#1 v1.5 EMSA check below is our own code.
+    use num_bigint::BigUint;
+    let n = BigUint::from_bytes_be(modulus);
+    let e = BigUint::from_bytes_be(exponent);
+    let s = BigUint::from_bytes_be(sig);
+    let m = s.modpow(&e, &n);
+    let em = m.to_bytes_be();
+    pkcs1_v15_check(&em, &t)
 }
 
-// --- Minimal big-endian arbitrary-precision helpers (for RSA only) ----------
+// --- Minimal clean-room SHA-1 (RFC 3174) -----------------------------------
+//
+// Implemented inline (rather than pulling in a `sha1` crate) to avoid dragging
+// in a second `digest` major version that conflicts with the `sha2 = "0.11"`
+// pin required by the `x509-cert` builder. Only used to verify legacy
+// RSA-with-SHA-1 PKITS certificates.
 
-use std::cmp::Ordering;
-
-fn bn_trim(v: &[u8]) -> &[u8] {
-    let mut start = 0;
-    while start < v.len() - 1 && v[start] == 0 {
-        start += 1;
+fn sha1_digest(msg: &[u8]) -> [u8; 20] {
+    let mut h: [u32; 5] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+    let ml = (msg.len() as u64).wrapping_mul(8);
+    let mut m = msg.to_vec();
+    m.push(0x80);
+    while m.len() % 64 != 56 {
+        m.push(0);
     }
-    &v[start..]
-}
+    m.extend_from_slice(&ml.to_be_bytes());
 
-fn bn_cmp(a: &[u8], b: &[u8]) -> Ordering {
-    let a = bn_trim(a);
-    let b = bn_trim(b);
-    if a.len() != b.len() {
-        return a.len().cmp(&b.len());
-    }
-    for i in 0..a.len() {
-        if a[i] != b[i] {
-            return a[i].cmp(&b[i]);
+    let mut w = [0u32; 80];
+    for chunk in m.chunks_exact(64) {
+        for i in 0..16 {
+            w[i] = u32::from_be_bytes(chunk[i * 4..i * 4 + 4].try_into().unwrap());
         }
-    }
-    Ordering::Equal
-}
-
-/// `a - b` where `a >= b`, big-endian. Panics if `a < b` (callers guarantee it).
-fn bn_sub(a: &[u8], b: &[u8]) -> Vec<u8> {
-    let mut out = vec![0u8; a.len()];
-    let mut borrow = 0i32;
-    for i in (0..a.len()).rev() {
-        let av = a[i] as i32;
-        let bv = if i >= a.len() - b.len() {
-            b[i - (a.len() - b.len())] as i32
-        } else {
-            0
-        };
-        let mut d = av - bv - borrow;
-        if d < 0 {
-            d += 256;
-            borrow = 1;
-        } else {
-            borrow = 0;
+        for i in 16..80 {
+            w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
         }
-        out[i] = d as u8;
-    }
-    bn_trim(&out).to_vec()
-}
-
-fn bn_mul(a: &[u8], b: &[u8]) -> Vec<u8> {
-    let mut out = vec![0u8; a.len() + b.len()];
-    for i in (0..a.len()).rev() {
-        let mut carry = 0u32;
-        for j in (0..b.len()).rev() {
-            let t = out[i + j + 1] as u32 + (a[i] as u32) * (b[j] as u32) + carry;
-            out[i + j + 1] = (t & 0xff) as u8;
-            carry = t >> 8;
+        let (mut a, mut b, mut c, mut d, mut e) = (h[0], h[1], h[2], h[3], h[4]);
+        for i in 0..80 {
+            let (f, k) = if i < 20 {
+                ((b & c) | ((!b) & d), 0x5A827999)
+            } else if i < 40 {
+                (b ^ c ^ d, 0x6ED9EBA1)
+            } else if i < 60 {
+                ((b & c) | (b & d) | (c & d), 0x8F1BBCDC)
+            } else {
+                (b ^ c ^ d, 0xCA62C1D6)
+            };
+            let tmp = a
+                .rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(w[i]);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = tmp;
         }
-        out[i] = (out[i] as u32 + carry) as u8;
+        h[0] = h[0].wrapping_add(a);
+        h[1] = h[1].wrapping_add(b);
+        h[2] = h[2].wrapping_add(c);
+        h[3] = h[3].wrapping_add(d);
+        h[4] = h[4].wrapping_add(e);
+    }
+    let mut out = [0u8; 20];
+    for (i, word) in h.iter().enumerate() {
+        out[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
     }
     out
-}
-
-/// Reduce `v` modulo `modulus` (which is `>=` every intermediate `v`).
-fn bn_reduce(v: &[u8], modulus: &[u8]) -> Vec<u8> {
-    let mut v = bn_trim(v).to_vec();
-    while bn_cmp(&v, modulus) != Ordering::Less {
-        v = bn_sub(&v, modulus);
-    }
-    let mut out = vec![0u8; modulus.len().saturating_sub(v.len())];
-    out.extend_from_slice(&v);
-    out
-}
-
-/// `base^exp mod modulus` via textbook square-and-multiply.
-fn bn_modpow(base: &[u8], exp: &[u8], modulus: &[u8]) -> Vec<u8> {
-    let mut result = vec![0u8; modulus.len()];
-    result[modulus.len() - 1] = 1; // result = 1
-    let base = bn_reduce(base, modulus);
-    for &byte in exp {
-        for bit in (0..8).rev() {
-            result = bn_reduce(&bn_mul(&result, &result), modulus);
-            if (byte >> bit) & 1 == 1 {
-                result = bn_reduce(&bn_mul(&result, &base), modulus);
-            }
-        }
-    }
-    result
 }
 
 /// Build the DER `DigestInfo` T value for the hash algorithm `sig_oid`.
 fn digest_info(sig_oid: ObjectIdentifier, digest: &[u8]) -> Result<Vec<u8>, String> {
     let prefix: &[u8] = match sig_oid {
+        o if o == oid(SHA1_RSA) => &[
+            0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04,
+            0x14,
+        ],
+        o if o == oid(SHA224_RSA) => &[
+            0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02,
+            0x04, 0x05, 0x00, 0x04, 0x1c,
+        ],
         o if o == oid(SHA256_RSA) => &[
             0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02,
             0x01, 0x05, 0x00, 0x04, 0x20,

@@ -23,6 +23,7 @@ use crate::record::{
     build_cleartext, build_protected, open_protected, ConnectionId, CONTENT_APPLICATION_DATA,
     CONTENT_HANDSHAKE,
 };
+use crate::replay::ReplayWindow;
 use crate::retransmit::{RetransmitEvent, RetransmitTimer};
 
 /// Ed25519 `CertificateVerify` context string for the server.
@@ -165,6 +166,8 @@ pub struct Connection {
     /// Decrypted application-data records awaiting `recv_app_data`.
     app_inbox: Vec<Vec<u8>>,
     connected: bool,
+    /// Per-epoch anti-replay windows (indices 0,1,2) for received records.
+    recv_replay: Vec<ReplayWindow>,
 }
 
 impl Connection {
@@ -253,6 +256,7 @@ impl Connection {
             client_address: Vec::new(),
             app_inbox: Vec::new(),
             connected: false,
+            recv_replay: vec![ReplayWindow::new(64); 3],
         }
     }
 
@@ -320,7 +324,11 @@ impl Connection {
         let msg = HandshakeMessage::new(body, msg_seq);
         let bytes = msg.encode();
         self.msg_seq_counter += 1;
-        let epoch = if self.connected { 2 } else { self.handshake_epoch() };
+        let epoch = if self.connected {
+            2
+        } else {
+            self.handshake_epoch()
+        };
         let datagram = self.encrypt(epoch, CONTENT_HANDSHAKE, &bytes)?;
         self.transcript.extend_from_slice(&bytes);
         self.out.push(datagram);
@@ -450,10 +458,7 @@ impl Connection {
     pub fn process_datagram(&mut self, datagram: &[u8]) -> Result<()> {
         let mut pos = 0;
         while pos < datagram.len() {
-            let (header, rest) = match crate::record::RecordHeader::decode(&datagram[pos..]) {
-                Ok(x) => x,
-                Err(e) => return Err(e),
-            };
+            let (header, rest) = crate::record::RecordHeader::decode(&datagram[pos..])?;
             let body_len = header.length as usize;
             if rest.len() < body_len {
                 return Err(DtlsError::RecordLengthMismatch(body_len, rest.len()));
@@ -479,15 +484,16 @@ impl Connection {
                 // Cleartext handshake record (ClientHello / ServerHello).
                 self.handle_handshake_bytes(body)?;
             } else if header.epoch >= 1 {
+                // Anti-replay (RFC 9147 §4.4): drop records whose sequence is
+                // outside or already-seen within the sliding window.
+                let ep = header.epoch as usize;
+                if !self.recv_replay[ep].check(header.sequence)? {
+                    pos += 13 + advance;
+                    continue;
+                }
                 let keys = self.incoming_keys(header.epoch)?.clone();
-                let (inner_type, content) = open_protected(
-                    self.suite,
-                    &keys.key,
-                    &keys.iv,
-                    &header,
-                    body,
-                    cid.as_ref(),
-                )?;
+                let (inner_type, content) =
+                    open_protected(self.suite, &keys.key, &keys.iv, &header, body, cid.as_ref())?;
                 if inner_type == CONTENT_HANDSHAKE {
                     self.handle_handshake_bytes(&content)?;
                 } else if inner_type == CONTENT_APPLICATION_DATA {
@@ -597,10 +603,9 @@ impl Connection {
     /// to receive the server's encrypted flight.
     fn handle_server_hello(&mut self, sh: ServerHello, msg_seq: u16) -> Result<()> {
         self.server_random = sh.random;
-        let ks_entry = sh
-            .key_share
-            .as_ref()
-            .ok_or(DtlsError::HandshakeIncomplete("server hello missing key_share"))?;
+        let ks_entry = sh.key_share.as_ref().ok_or(DtlsError::HandshakeIncomplete(
+            "server hello missing key_share",
+        ))?;
         let client_ks = self
             .client_ks
             .as_ref()
@@ -757,10 +762,9 @@ impl Connection {
         if !crate::replay::ct_eq(&expected, ch.cookie.as_ref().unwrap()) {
             return Err(DtlsError::CookieMismatch);
         }
-        let ks_entry = ch
-            .key_share
-            .first()
-            .ok_or(DtlsError::HandshakeIncomplete("client hello missing key_share"))?;
+        let ks_entry = ch.key_share.first().ok_or(DtlsError::HandshakeIncomplete(
+            "client hello missing key_share",
+        ))?;
         let server_ks = self
             .server_ks
             .as_ref()
@@ -792,7 +796,9 @@ impl Connection {
     /// Server: send EncryptedExtensions / Certificate / CertificateVerify /
     /// Finished under the server handshake keys.
     fn send_server_flight(&mut self) -> Result<()> {
-        self.send_handshake(HandshakeBody::EncryptedExtensions(EncryptedExtensions::default()))?;
+        self.send_handshake(HandshakeBody::EncryptedExtensions(
+            EncryptedExtensions::default(),
+        ))?;
 
         let cert = Certificate {
             request_context: Vec::new(),
@@ -927,7 +933,6 @@ impl Connection {
         let s_hs = self.ks.derive_secret(&hs_secret, "s hs traffic", &hs_hash);
         self.client_hs = Some(TrafficKeys::from_secret(&self.ks, self.suite, &c_hs));
         self.server_hs = Some(TrafficKeys::from_secret(&self.ks, self.suite, &s_hs));
-        eprintln!("DHS role={:?} tlen={} dhe={:02x?} hash={:02x?} shs_key={:02x?}", self.role, self.transcript.len(), &dhe[..4], &hs_hash[..4], self.server_hs.as_ref().unwrap().key);
         self.handshake_secret = Some(hs_secret);
         Ok(())
     }

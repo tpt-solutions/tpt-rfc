@@ -36,11 +36,16 @@ ecdsa = { version = "0.17", features = ["spki", "alloc", "der"] } # MIT/Apache-2
 p256 = "0.14"          # MIT/Apache-2.0
 p384 = "0.14"          # MIT/Apache-2.0
 ed25519-compact = "2"  # MIT
+# Arbitrary-precision integer backend (dual MIT/Apache-2.0) used solely for RSA
+# modular exponentiation in `verify`. The PKCS#1 v1.5 EMSA logic is our own;
+# `num-bigint` provides only the big-integer arithmetic (no RSA implementation).
+num-bigint = "0.4"      # MIT/Apache-2.0
 
 [dev-dependencies]
 hex = "0.4"
 flagset = "0.4"
 signature = "3"
+regex = "1"
 
 [package.metadata.docs.rs]
 all-features = true

@@ -100,7 +100,6 @@ fn reduce_fe(limbs: &[u64]) -> FieldElement {
         }
     }
     let mut r = [v[0], v[1], v[2], v[3]];
-    eprintln!("reduce_fe post-fold v={:?}", &v[..4]);
     if ge4(&r, &P) {
         r = sub_limb4(&r, &P);
     }

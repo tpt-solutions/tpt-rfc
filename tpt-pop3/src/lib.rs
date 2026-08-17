@@ -7,10 +7,11 @@
 //! Protocol, Version 3 of [RFC 1939](https://www.rfc-editor.org/rfc/rfc1939).
 //!
 //! This crate provides a POP3 **server** behind a pluggable mailbox backend so
-//! that callers can bring their own storage. The only production-grade Rust
-//! POP3 server ([Stalwart](https://github.com/stalwartlabs)) is AGPL-3.0, which
-//! is why this crate exists within the dual MIT/Apache-2.0 TPT Solutions
-//! platform.
+//! that callers can bring their own storage, *and* a clean-room POP3
+//! **client** ([`client`]) for talking to any RFC 1939 server. The only
+//! production-grade Rust POP3 server ([Stalwart](https://github.com/stalwartlabs))
+//! is AGPL-3.0, which is why this crate exists within the dual MIT/Apache-2.0
+//! TPT Solutions platform.
 //!
 //! ## Architecture
 //!
@@ -20,6 +21,8 @@
 //! - [`session::Session`] — the RFC 1939 state machine, transport-agnostic.
 //! - [`server::Server`] — a `std::net` TCP listener that runs a `Session` per
 //!   connection.
+//! - [`client`] — a clean-room POP3 **client** (RFC 1939) over any
+//!   `BufRead + Write`, with a [`client::TcpClient`] convenience wrapper.
 //!
 //! ## Example
 //!
@@ -48,12 +51,14 @@
 #![deny(missing_docs)]
 
 pub mod backend;
+pub mod client;
 pub mod error;
 pub mod memory;
 pub mod server;
 pub mod session;
 
 pub use backend::{BackendError, MailboxBackend, MailboxMessage};
+pub use client::{Client, Entry, Error as ClientError, Stat, TcpClient};
 pub use memory::MemoryBackend;
 pub use server::Server;
 pub use session::Session;

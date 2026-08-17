@@ -6,8 +6,8 @@
 
 use tpt_dtls::crypto::CipherSuite;
 use tpt_dtls::record::{
-    build_cleartext, build_protected, open_protected, split_datagram, ConnectionId,
-    DTLS_LEGACY_VERSION, RecordHeader, CONTENT_APPLICATION_DATA, CONTENT_HANDSHAKE,
+    build_cleartext, build_protected, open_protected, split_datagram, ConnectionId, RecordHeader,
+    CONTENT_APPLICATION_DATA, CONTENT_HANDSHAKE, DTLS_LEGACY_VERSION,
 };
 use tpt_dtls::wire::Writer;
 
@@ -88,14 +88,18 @@ fn protected_record_with_cid() {
     )
     .unwrap();
 
-    // The record length excludes the trailing CID.
+    // The record length counts `content || inner_type || tag` (25), NOT the
+    // trailing CID (which is excluded from the length field).
     let (header, _body, _tail) = split_datagram(&dgram, 0).unwrap();
-    assert_eq!(header.length as usize, suite.tag_len() + b"app data".len());
+    assert_eq!(
+        header.length as usize,
+        suite.tag_len() + b"app data".len() + 1
+    );
 
     // Receiver expects a 2-byte CID.
     let (header, body, got_cid) = split_datagram(&dgram, 2).unwrap();
-    let (inner, content) = open_protected(suite, &key, &iv, &header, &body, got_cid.as_ref())
-        .unwrap();
+    let (inner, content) =
+        open_protected(suite, &key, &iv, &header, &body, got_cid.as_ref()).unwrap();
     assert_eq!(inner, CONTENT_APPLICATION_DATA);
     assert_eq!(content, b"app data");
     assert_eq!(got_cid.unwrap().as_bytes(), &[0xaa, 0xbb]);
@@ -107,8 +111,15 @@ fn chacha_round_trip() {
     let key = vec![0x55u8; suite.key_len()];
     let iv = vec![0x66u8; suite.iv_len()];
     let dgram = build_protected(
-        suite, &key, &iv, 1, 3, CONTENT_APPLICATION_DATA, CONTENT_HANDSHAKE,
-        b"integrity", None,
+        suite,
+        &key,
+        &iv,
+        1,
+        3,
+        CONTENT_APPLICATION_DATA,
+        CONTENT_HANDSHAKE,
+        b"integrity",
+        None,
     )
     .unwrap();
     let (header, body, _cid) = split_datagram(&dgram, 0).unwrap();

@@ -68,11 +68,7 @@ impl<S: MailboxStore> Session<S> {
     {
         proto::write_untagged(&mut w, "OK IMAP4rev2 server ready")?;
         w.flush()?;
-        loop {
-            let req = match proto::read_request(&mut r, &mut w)? {
-                Some(req) => req,
-                None => break,
-            };
+        while let Some(req) = proto::read_request(&mut r, &mut w)? {
             if req.command == "LOGOUT" {
                 self.cmd_logout(&mut w, &req.tag)?;
                 break;
@@ -874,7 +870,7 @@ impl<S: MailboxStore> Session<S> {
         tag: &str,
         args: &[Token],
     ) -> std::io::Result<()> {
-        let set = match args.first().map(|t| parse_seqset(t)) {
+        let set = match args.first().map(parse_seqset) {
             Some(Ok(v)) => v,
             _ => return self.bad(w, tag, "UID EXPUNGE requires a uid set"),
         };
@@ -928,11 +924,7 @@ impl<S: MailboxStore> Session<S> {
     {
         proto::write_continuation(w, "idling")?;
         w.flush()?;
-        loop {
-            let line = match proto::read_line(r)? {
-                Some(l) => l,
-                None => break,
-            };
+        while let Some(line) = proto::read_line(r)? {
             if trim_bytes(&line).eq_ignore_ascii_case(b"DONE") {
                 break;
             }

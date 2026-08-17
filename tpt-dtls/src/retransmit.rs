@@ -99,9 +99,18 @@ mod tests {
         let mut t = RetransmitTimer::new(Duration::from_millis(10), Duration::from_millis(80), 3);
         t.arm();
         assert_eq!(t.tick(Duration::from_millis(5)), RetransmitEvent::None);
-        assert_eq!(t.tick(Duration::from_millis(5)), RetransmitEvent::Retransmit); // 10ms, retry 1
-        assert_eq!(t.tick(Duration::from_millis(20)), RetransmitEvent::Retransmit); // 20ms, retry 2
-        assert_eq!(t.tick(Duration::from_millis(40)), RetransmitEvent::Retransmit); // 40ms, retry 3
+        assert_eq!(
+            t.tick(Duration::from_millis(5)),
+            RetransmitEvent::Retransmit
+        ); // 10ms, retry 1
+        assert_eq!(
+            t.tick(Duration::from_millis(20)),
+            RetransmitEvent::Retransmit
+        ); // 20ms, retry 2
+        assert_eq!(
+            t.tick(Duration::from_millis(40)),
+            RetransmitEvent::Retransmit
+        ); // 40ms, retry 3
         assert_eq!(t.tick(Duration::from_millis(80)), RetransmitEvent::Abort); // retries>3
         assert!(!t.is_armed());
     }
@@ -110,9 +119,15 @@ mod tests {
     fn progress_rearms() {
         let mut t = RetransmitTimer::new(Duration::from_millis(10), Duration::from_millis(80), 3);
         t.arm();
-        assert_eq!(t.tick(Duration::from_millis(10)), RetransmitEvent::Retransmit);
+        assert_eq!(
+            t.tick(Duration::from_millis(10)),
+            RetransmitEvent::Retransmit
+        );
         t.arm(); // progress
         assert_eq!(t.tick(Duration::from_millis(5)), RetransmitEvent::None);
-        assert_eq!(t.tick(Duration::from_millis(5)), RetransmitEvent::Retransmit);
+        assert_eq!(
+            t.tick(Duration::from_millis(5)),
+            RetransmitEvent::Retransmit
+        );
     }
 }

@@ -64,7 +64,7 @@ fn read_exact<R: Read>(r: &mut R, n: usize) -> io::Result<Vec<u8>> {
 fn expect_crlf<R: BufRead>(r: &mut R) -> io::Result<()> {
     let mut crlf = [0u8; 2];
     r.read_exact(&mut crlf)?;
-    if crlf == [b'\r', b'\n'] {
+    if crlf == *b"\r\n" {
         Ok(())
     } else {
         Err(io::Error::new(io::ErrorKind::InvalidData, "expected CRLF"))
@@ -141,19 +141,16 @@ where
     W: Write,
 {
     let mut toks: Vec<Token> = Vec::new();
-    let mut got_any = false;
     loop {
         let line = match read_line(r)? {
             Some(l) => l,
             None => return Ok(None),
         };
-        if line.is_empty() && !got_any {
-            // Tolerate leading blank lines.
+        if line.is_empty() {
+            // Tolerate leading/superfluous blank lines.
             continue;
         }
-        got_any = true;
         let mut i = 0usize;
-        let mut had_literal = false;
         while i < line.len() {
             while i < line.len() && (line[i] == b' ' || line[i] == b'\t') {
                 i += 1;
@@ -193,7 +190,6 @@ where
                     expect_crlf(r)?;
                     toks.push(Token::Literal(lit));
                     i = ni;
-                    had_literal = true;
                 }
                 _ => {
                     let (s, ni) = read_atom(&line, i);
@@ -206,7 +202,6 @@ where
         // consumed above; any tokens following the literal on the same
         // logical line have also been scanned. The command is therefore
         // complete — do not read another line.
-        let _ = had_literal;
         break;
     }
 

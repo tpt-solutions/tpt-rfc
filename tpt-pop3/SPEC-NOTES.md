@@ -32,20 +32,38 @@ backend and asserts the RFC-required command/response behaviour.
   a connection over any `BufRead + Write`.
 - `server::Server` — std::net TCP listener that spawns a `Session` per
   connection.
+- `client` — clean-room POP3 **client** (RFC 1939):
+  - `client::Client<R, W>` — transport-agnostic protocol core over any
+    `BufRead + Write` (consumes the greeting, sends commands, parses single- and
+    multi-line responses with dot-unstuffing).
+  - `client::TcpClient` — convenience wrapper running the protocol over a
+    `TcpStream`; exposes `connect`, `login`, `apop`, `stat`, `list`, `uidl`,
+    `retr`, `top`, `dele`, `rset`, `noop`, `quit`, and `greeting`.
+  - `client::Stat` / `client::Entry` — response data types.
+  - `client::Error` — client-side error type (I/O, server `-ERR`, malformed
+    responses, invalid arguments).
 
 ## Test vectors
 
 - [x] RFC 1939 §7/§11 examples — session harness in `tests/pop3_session.rs`
       covering authorization, STAT/LIST/RETR/UIDL, deletion + RSET, TOP, and
       UPDATE-state expunge on QUIT.
+- [x] Client harness in `tests/pop3_client.rs` — parser-level tests over
+      hand-authored RFC 1939 scripts (status, multi-line listing, server-error
+      propagation, dot-unstuffing) plus two end-to-end TCP tests driving the
+      in-crate `Session`/`Server` with `TcpClient` (USER/PASS + full command set,
+      and APOP authentication).
 
 ## spec-complete checklist
 
 - [x] Core command set implemented per RFC
 - [x] Optional commands (TOP, UIDL, APOP) implemented
+- [x] POP3 client implemented (USER/PASS + APOP, STAT/LIST/RETR/TOP/DELE/UIDL/RSET/NOOP/QUIT, multi-line parsing)
 - [x] Session harness passing (covers RFC-required behaviour)
+- [x] Client↔server TCP harness passing (both USER/PASS and APOP)
+- [x] `tpt-pop3` wired into the workspace `members` list
 - [x] `cargo clippy` + `cargo fmt` clean
 - [x] docs.rs-quality documentation
-- [ ] Interop-test against a real POP3 client (BLOCKED: no POP3 client in this
-      environment — verified by session harness instead)
-- [ ] Tagged `0.1.0` and published to crates.io (pending platform-wide launch)
+- [ ] Interop-test against a real POP3 client (BLOCKED: no external POP3 peer in this
+      environment — verified by session + client↔server harnesses instead)
+- [ ] Tagged `0.1.0` and published to crates.io (NOT published this pass; pending platform-wide launch)

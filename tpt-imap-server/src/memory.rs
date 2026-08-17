@@ -120,7 +120,7 @@ impl InMemoryStore {
 impl MailboxStore for InMemoryStore {
     fn authenticate(&self, username: &str, password: &str) -> Result<bool> {
         let g = self.inner.lock().unwrap();
-        Ok(g.users.get(username).map_or(false, |p| p == password))
+        Ok(g.users.get(username).is_some_and(|p| p == password))
     }
 
     fn list(&self, username: &str, reference: &str, pattern: &str) -> Result<Vec<ListEntry>> {
@@ -318,7 +318,7 @@ impl MailboxStore for InMemoryStore {
             .ok_or(ImapError::NoSuchMailbox)?;
         match op {
             FlagOp::Replace => {
-                m.flags = flags.to_vec().into_iter().collect();
+                m.flags = flags.iter().cloned().collect();
             }
             FlagOp::Add => {
                 for f in flags {

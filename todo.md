@@ -113,18 +113,18 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 7 — `tpt-imap-server` (RFC 3501 / RFC 9051 IMAP4rev2)
 
-- [ ] Note: target RFC 9051 (IMAP4rev2, which obsoletes RFC 3501) as the primary spec; the only full-featured Rust IMAP server (Stalwart) is AGPL-3.0-licensed, so this remains a genuine MIT-chain gap regardless of which RFC version is targeted
-- [ ] Read RFC 9051 in full (noting deltas from RFC 3501); write `SPEC-NOTES.md` covering command set, states (not authenticated/authenticated/selected/logout), response syntax
-- [ ] Design server architecture: connection/session state machine, pluggable mailbox storage backend trait (so users can plug in their own storage)
-- [ ] Implement core commands: CAPABILITY, LOGIN/AUTHENTICATE, SELECT/EXAMINE, LOGOUT
-- [ ] Implement mailbox management commands: CREATE, DELETE, RENAME, LIST, LSUB, STATUS
-- [ ] Implement message commands: FETCH, STORE, COPY, SEARCH, EXPUNGE
-- [ ] Implement IDLE extension (widely expected by real clients)
-- [ ] Provide a reference in-memory mailbox backend for testing/examples
-- [ ] Interop-test against real IMAP clients (Thunderbird, mutt, or a Rust IMAP client crate) against the reference backend
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-imap-server`
-- [ ] Mark crate "spec-complete" once core command set + IDLE pass interop testing
+- [x] Note: target RFC 9051 (IMAP4rev2, which obsoletes RFC 3501) as the primary spec; the only full-featured Rust IMAP server (Stalwart) is AGPL-3.0-licensed, so this remains a genuine MIT-chain gap regardless of which RFC version is targeted
+- [x] Read RFC 9051 in full (noting deltas from RFC 3501); write `SPEC-NOTES.md` covering command set, states (not authenticated/authenticated/selected/logout), response syntax
+- [x] Design server architecture: connection/session state machine, pluggable mailbox storage backend trait (so users can plug in their own storage)
+- [x] Implement core commands: CAPABILITY, LOGIN/AUTHENTICATE, SELECT/EXAMINE, LOGOUT
+- [x] Implement mailbox management commands: CREATE, DELETE, RENAME, LIST, LSUB, STATUS
+- [x] Implement message commands: FETCH, STORE, COPY, SEARCH, EXPUNGE
+- [x] Implement IDLE extension (widely expected by real clients)
+- [x] Provide a reference in-memory mailbox backend for testing/examples
+- [ ] Interop-test against real IMAP clients (Thunderbird, mutt, or a Rust IMAP client crate) against the reference backend (BLOCKED: no IMAP client in this environment; verified by the in-crate TCP integration harness in `tests/integration.rs` instead)
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-imap-server` (NOT published — deferred per explicit instruction this phase)
+- [ ] Mark crate "spec-complete" once core command set + IDLE pass interop testing (interop-test blocked; harness passes)
 
 ## Phase 8 — `tpt-pop3` (RFC 1939 POP3)
 
@@ -134,10 +134,12 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [x] Implement core commands: USER/PASS, STAT, LIST, RETR, DELE, NOOP, RSET, QUIT
 - [x] Implement optional commands: TOP, UIDL, APOP
 - [x] Provide a reference in-memory mailbox backend for testing/examples
-- [ ] Interop-test against real POP3 clients against the reference backend (BLOCKED: no POP3 client in this environment; verified by the in-crate session harness instead)
+- [x] **Add a clean-room POP3 client** (`src/client.rs`): transport-agnostic `Client<R,W>` core + `TcpClient` wrapper; USER/PASS + APOP, STAT/LIST/RETR/TOP/DELE/UIDL/RSET/NOOP/QUIT, multi-line parsing with dot-unstuffing; tested against the in-crate server over TCP
+- [ ] Interop-test against real POP3 clients/servers against the reference backend (BLOCKED: no external POP3 peer in this environment; verified by the in-crate client↔server TCP harness instead)
+- [x] Wire `tpt-pop3` into the workspace `members` list so it builds/tests/lints with the rest of the platform
 - [x] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-pop3` (pending platform-wide launch)
-- [ ] Mark crate "spec-complete" once core command set passes interop testing (interop test blocked; session harness passes)
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-pop3` (NOT published this pass — per request; pending platform-wide launch)
+- Provide crate "spec-complete" once core command set + client round-trip pass interop testing (interop test blocked; session + client↔server harnesses pass)
 
 ## Phase 9 — `tpt-jmap` (RFC 8620/8621 JMAP)
 
@@ -362,15 +364,15 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 26 — `tpt-dtls` (RFC 9147 DTLS 1.3)
 
-- [ ] Read RFC 9147 in full; write `SPEC-NOTES.md` covering handshake differences from TLS 1.3, record layer, replay protection, retransmission
-- [ ] Reuse dual-licensed TLS 1.3 crypto/handshake-message primitives where structurally shared (e.g. via `rustls`'s lower-level building blocks if permissible) rather than reimplementing crypto
-- [ ] Implement DTLS record layer: sequence numbers, epoch handling, anti-replay window
-- [ ] Implement handshake: ClientHello/ServerHello flow with cookie exchange (HelloRetryRequest-based), retransmission timers
-- [ ] Implement connection ID support (RFC 9146) if in scope
-- [ ] Source official test vectors / interop-test against OpenSSL DTLS 1.3 and a real UDP-based use case (e.g. via `tpt-coap`)
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-dtls`
-- [ ] Mark crate "spec-complete" once handshake+record layer pass interop testing against OpenSSL
+- [x] Read RFC 9147 in full; write `SPEC-NOTES.md` covering handshake differences from TLS 1.3, record layer, replay protection, retransmission
+- [x] Reuse dual-licensed TLS 1.3 crypto/handshake-message primitives where structurally shared (RustCrypto `sha2`/`hkdf`/`hmac`, `orion` X25519, `ed25519-compact`, `aes-gcm`/`chacha20poly1305`) rather than reimplementing crypto
+- [x] Implement DTLS record layer: sequence numbers, epoch handling, anti-replay window (wired into the receive path, RFC 9147 §4.4)
+- [x] Implement handshake: ClientHello/ServerHello flow with cookie exchange (HelloRetryRequest-based), retransmission timers
+- [x] Implement connection ID support (RFC 9146)
+- [ ] Source official test vectors / interop-test against OpenSSL DTLS 1.3 and a real UDP-based use case (e.g. via `tpt-coap`) (BLOCKED: no OpenSSL toolchain in this environment; verified by the in-crate end-to-end handshake harness in `tests/handshake_integration.rs`)
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-dtls` (BLOCKED: no crates.io credentials in this environment)
+- [ ] Mark crate "spec-complete" once handshake+record layer pass interop testing against OpenSSL (BLOCKED: no OpenSSL toolchain in this environment; in-crate integration harness passes)
 
 ## Phase 27 — `tpt-sip` (RFC 3261 SIP)
 

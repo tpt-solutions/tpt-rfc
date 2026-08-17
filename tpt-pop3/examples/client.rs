@@ -1,20 +1,29 @@
 // Copyright 2026 TPT Solutions
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Example: a tiny interactive POP3 client for interop-checking a server.
+//! Example: an interactive POP3 client built on `tpt_pop3::client::TcpClient`.
 //!
 //! ```no_run
 //! cargo run --example client -- 127.0.0.1:1110 alice secret
 //! ```
 //!
-//! Reads commands from stdin (one per line) and prints the server's responses.
-//! Useful for manually exercising `tpt-pop3` (or any POP3 server) during
-//! development.
+//! Connects, authenticates with USER/PASS, then prints the mailbox summary and
+//! drops you into a tiny REPL that accepts `STAT`, `LIST`, `UIDL`, `RETR n`,
+//! `TOP n k`, `DELE n`, `RSET`, and `QUIT`. Handy for exercising `tpt-pop3`
+//! (or any POP3 server) during development.
 
-use std::io::{BufRead, BufReader, Write};
-use std::net::TcpStream;
+use std::io::{BufRead, Write};
 
-fn main() -> std::io::Result<()> {
+use tpt_pop3::client::{Error, TcpClient};
+
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("error: {}", e);
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), Error> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 4 {
         eprintln!("usage: client <host:port> <user> <pass>");
@@ -24,57 +33,96 @@ fn main() -> std::io::Result<()> {
     let user = &args[2];
     let pass = &args[3];
 
-    let stream = TcpStream::connect(addr)?;
-    let mut reader = BufReader::new(stream.try_clone()?);
-    let mut writer = stream;
+    let mut client = TcpClient::connect(addr)?;
+    client.login(user, pass)?;
+    println!("connected; greeting: {}", client.greeting());
 
-    // Server greeting.
-    println!("S: {}", read_line(&mut reader)?);
-
-    send(&mut writer, &mut reader, &format!("USER {}", user))?;
-    send(&mut writer, &mut reader, &format!("PASS {}", pass))?;
+    let stat = client.stat()?;
+    println!("STAT: {} messages, {} octets", stat.count, stat.octets);
 
     let stdin = std::io::stdin();
+    print_help();
     for line in stdin.lock().lines() {
-        let line = line?;
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => break,
+        };
+        let line = line.trim();
         if line.is_empty() {
             continue;
         }
-        send(&mut writer, &mut reader, &line)?;
-        if line.eq_ignore_ascii_case("QUIT") {
+        if !dispatch(&mut client, line) {
             break;
         }
+        println!("---");
     }
+
+    client.quit()?;
     Ok(())
 }
 
-fn send(writer: &mut impl Write, reader: &mut impl BufRead, line: &str) -> std::io::Result<()> {
-    writer.write_all(line.as_bytes())?;
-    writer.write_all(b"\r\n")?;
-    writer.flush()?;
-
-    let status = read_line(reader)?;
-    println!("S: {}", status);
+/// Returns `false` if the session should end (QUIT/EOF).
+fn dispatch(client: &mut TcpClient, line: &str) -> bool {
     let upper = line.to_ascii_uppercase();
-    if upper.starts_with("RETR")
-        || upper.starts_with("TOP")
-        || upper.starts_with("LIST")
-        || upper.starts_with("UIDL")
-    {
-        // Drain the multi-line response up to the terminating ".".
-        loop {
-            let l = read_line(reader)?;
-            println!("S: {}", l);
-            if l == "." {
-                break;
-            }
+    match upper.split_whitespace().collect::<Vec<_>>().as_slice() {
+        ["QUIT"] => {
+            let _ = client.quit();
+            return false;
         }
+        ["STAT"] => match client.stat() {
+            Ok(s) => println!("{} messages, {} octets", s.count, s.octets),
+            Err(e) => println!("error: {}", e),
+        },
+        ["LIST"] => match client.list(None) {
+            Ok(entries) => {
+                for e in entries {
+                    println!("{}: {} octets", e.num, e.size.unwrap_or(0));
+                }
+            }
+            Err(e) => println!("error: {}", e),
+        },
+        ["UIDL"] => match client.uidl(None) {
+            Ok(entries) => {
+                for e in entries {
+                    println!("{}: {}", e.num, e.uid.clone().unwrap_or_default());
+                }
+            }
+            Err(e) => println!("error: {}", e),
+        },
+        ["RETR", n] => match n.parse::<usize>() {
+            Ok(num) => match client.retr(num) {
+                Ok(bytes) => {
+                    let _ = std::io::stdout().write_all(&bytes);
+                }
+                Err(e) => println!("error: {}", e),
+            },
+            Err(_) => println!("usage: RETR <n>"),
+        },
+        ["TOP", n, k] => match (n.parse::<usize>(), k.parse::<usize>()) {
+            (Ok(num), Ok(k)) => match client.top(num, k) {
+                Ok(bytes) => {
+                    let _ = std::io::stdout().write_all(&bytes);
+                }
+                Err(e) => println!("error: {}", e),
+            },
+            _ => println!("usage: TOP <n> <k>"),
+        },
+        ["DELE", n] => match n.parse::<usize>() {
+            Ok(num) => match client.dele(num) {
+                Ok(()) => println!("message {} marked deleted", num),
+                Err(e) => println!("error: {}", e),
+            },
+            Err(_) => println!("usage: DELE <n>"),
+        },
+        ["RSET"] => match client.rset() {
+            Ok(()) => println!("deletions reset"),
+            Err(e) => println!("error: {}", e),
+        },
+        _ => print_help(),
     }
-    Ok(())
+    true
 }
 
-fn read_line(reader: &mut impl BufRead) -> std::io::Result<String> {
-    let mut buf = String::new();
-    reader.read_line(&mut buf)?;
-    Ok(buf.trim_end().to_string())
+fn print_help() {
+    println!("commands: STAT LIST UIDL RETR n TOP n k DELE n RSET QUIT");
 }

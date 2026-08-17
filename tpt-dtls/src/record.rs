@@ -110,7 +110,7 @@ impl RecordHeader {
             version,
             epoch,
             sequence,
-            length: length,
+            length,
         };
         Ok((header, &buf[Self::SIZE..]))
     }
@@ -163,6 +163,7 @@ pub fn build_cleartext(content_type: u8, epoch: u16, sequence: u64, content: &[u
 /// Build a protected record: AEAD-seal `content` (the inner payload, not
 /// including the trailing inner content-type byte) under `inner_type`, append
 /// an optional `cid`, and return the full datagram.
+#[allow(clippy::too_many_arguments)]
 pub fn build_protected(
     suite: CipherSuite,
     key: &[u8],
@@ -187,7 +188,6 @@ pub fn build_protected(
     let aad = build_aad(outer_type, epoch, sequence, length);
 
     let ct = aead_seal(suite, key, &nonce, &aad, &plaintext)?;
-    eprintln!("BUILD suite={:?} keylen={} epoch={} seq={} aadlen={} ctlen={}", suite, key.len(), epoch, sequence, aad.len(), ct.len());
 
     let header = RecordHeader {
         content_type: outer_type,
@@ -224,12 +224,7 @@ pub fn open_protected(
         header.sequence,
         aead_output.len() as u16,
     );
-    let plaintext = aead_open(suite, key, &nonce, &aad, aead_output);
-    match &plaintext {
-        Ok(_) => {}
-        Err(e) => eprintln!("OPEN-FAIL suite={:?} keylen={} ivlen={} epoch={} seq={} aadlen={} ctlen={} err={:?}", suite, key.len(), iv.len(), header.epoch, header.sequence, aad.len(), aead_output.len(), e),
-    }
-    let plaintext = plaintext?;
+    let plaintext = aead_open(suite, key, &nonce, &aad, aead_output)?;
     if plaintext.is_empty() {
         return Err(DtlsError::DecryptFailed);
     }

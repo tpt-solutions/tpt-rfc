@@ -300,12 +300,8 @@ impl HandshakeBody {
     pub fn parse(msg_type: HandshakeType, bytes: &[u8]) -> Result<HandshakeBody> {
         let mut r = Reader::new(bytes);
         Ok(match msg_type {
-            HandshakeType::ClientHello => {
-                HandshakeBody::ClientHello(ClientHello::parse(&mut r)?)
-            }
-            HandshakeType::ServerHello => {
-                HandshakeBody::ServerHello(ServerHello::parse(&mut r)?)
-            }
+            HandshakeType::ClientHello => HandshakeBody::ClientHello(ClientHello::parse(&mut r)?),
+            HandshakeType::ServerHello => HandshakeBody::ServerHello(ServerHello::parse(&mut r)?),
             HandshakeType::EncryptedExtensions => {
                 HandshakeBody::EncryptedExtensions(EncryptedExtensions::parse(&mut r)?)
             }
@@ -313,11 +309,9 @@ impl HandshakeBody {
             HandshakeType::CertificateVerify => {
                 HandshakeBody::CertificateVerify(CertificateVerify::parse(&mut r)?)
             }
-            HandshakeType::Finished => {
-                HandshakeBody::Finished(Finished {
-                    verify_data: bytes.to_vec(),
-                })
-            }
+            HandshakeType::Finished => HandshakeBody::Finished(Finished {
+                verify_data: bytes.to_vec(),
+            }),
         })
     }
 }
@@ -346,8 +340,10 @@ fn read_extensions(r: &mut Reader) -> Result<Vec<(u16, Vec<u8>)>> {
     Ok(out)
 }
 
-fn find_ext<'a>(exts: &'a [(u16, Vec<u8>)], ty: u16) -> Option<&'a [u8]> {
-    exts.iter().find(|(t, _)| *t == ty).map(|(_, d)| d.as_slice())
+fn find_ext(exts: &[(u16, Vec<u8>)], ty: u16) -> Option<&[u8]> {
+    exts.iter()
+        .find(|(t, _)| *t == ty)
+        .map(|(_, d)| d.as_slice())
 }
 
 impl ClientHello {
@@ -411,7 +407,12 @@ impl ClientHello {
         let mut random = [0u8; 32];
         random.copy_from_slice(r.read_bytes(32)?);
         let session_id = r.read_vec_u8()?.to_vec();
-        let _cs = r.read_vec_u16()?;
+        let cs_list = r.read_vec_u16()?;
+        let mut csr = Reader::new(cs_list);
+        let mut cipher_suites = Vec::new();
+        while !csr.eof() {
+            cipher_suites.push(csr.read_u16()?);
+        }
         let _comp = r.read_vec_u8()?;
         let exts = read_extensions(r)?;
 
@@ -432,7 +433,10 @@ impl ClientHello {
                 while !lr.eof() {
                     let group = lr.read_u16()?;
                     let key_exchange = lr.read_vec_u16()?.to_vec();
-                    out.push(KeyShareEntry { group, key_exchange });
+                    out.push(KeyShareEntry {
+                        group,
+                        key_exchange,
+                    });
                 }
                 out
             }
@@ -446,7 +450,7 @@ impl ClientHello {
         Ok(ClientHello {
             random,
             session_id,
-            cipher_suites: vec![crate::crypto::CipherSuite::TlsAes128GcmSha256.code()],
+            cipher_suites,
             groups,
             sig_algs,
             key_share,
@@ -465,7 +469,10 @@ impl ServerHello {
 
         let mut exts: Vec<(u16, Vec<u8>)> = Vec::new();
         // supported_versions: single u16.
-        exts.push((ext::SUPPORTED_VERSIONS, DTLS_1_3_VERSION.to_be_bytes().to_vec()));
+        exts.push((
+            ext::SUPPORTED_VERSIONS,
+            DTLS_1_3_VERSION.to_be_bytes().to_vec(),
+        ));
         if let Some(ks) = &self.key_share {
             let mut e = Writer::new();
             e.put_u16(ks.group).put_vec_u16(&ks.key_exchange);
@@ -495,7 +502,10 @@ impl ServerHello {
                 let mut kr = Reader::new(ks);
                 let group = kr.read_u16()?;
                 let key_exchange = kr.read_vec_u16()?.to_vec();
-                Some(KeyShareEntry { group, key_exchange })
+                Some(KeyShareEntry {
+                    group,
+                    key_exchange,
+                })
             }
             None => None,
         };
@@ -552,7 +562,10 @@ impl CertificateVerify {
     fn parse(r: &mut Reader) -> Result<CertificateVerify> {
         let algorithm = r.read_u16()?;
         let signature = r.read_vec_u16()?.to_vec();
-        Ok(CertificateVerify { algorithm, signature })
+        Ok(CertificateVerify {
+            algorithm,
+            signature,
+        })
     }
 }
 
@@ -607,7 +620,6 @@ pub fn fragment_message(full: &[u8], seq: u16, max_fragment: usize) -> Vec<Vec<u
 /// Reassembles DTLS handshake message fragments keyed by `message_seq`.
 #[derive(Debug)]
 pub struct Reassembler {
-    seq: u16,
     total: u32,
     buffer: Vec<u8>,
     filled: Vec<bool>,
@@ -616,9 +628,8 @@ pub struct Reassembler {
 impl Reassembler {
     /// Begin reassembling the message identified by `seq` with total length
     /// `total`.
-    pub fn new(seq: u16, total: u32) -> Self {
+    pub fn new(_seq: u16, total: u32) -> Self {
         Self {
-            seq,
             total,
             buffer: vec![0u8; total as usize],
             filled: vec![false; total as usize],
@@ -634,9 +645,7 @@ impl Reassembler {
     /// when reassembly completes.
     pub fn add(&mut self, offset: u32, data: &[u8]) -> Result<Option<Vec<u8>>> {
         let end = offset as usize + data.len();
-        if end > self.buffer.len()
-            || data.len() as u32 > self.total.saturating_sub(offset)
-        {
+        if end > self.buffer.len() || data.len() as u32 > self.total.saturating_sub(offset) {
             return Err(DtlsError::FragmentOutOfRange {
                 offset,
                 len: data.len() as u32,

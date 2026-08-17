@@ -3,14 +3,17 @@ resolver = "2"
 members = [
     "tpt-cbor",
     "tpt-hotp",
+    "tpt-doh",
     "tpt-ssh",
     "tpt-x509",
+    "tpt-http-cache",
     "tpt-ed25519",
     "tpt-privacy-pass",
     "tpt-cms",
     "tpt-dhcpv6",
     "tpt-ospf",
     "tpt-imap-server",
+    "tpt-pop3",
     "tpt-bfd",
     "tpt-snmp",
     "tpt-smtp",
@@ -22,6 +25,7 @@ members = [
     "tpt-bgp",
     "tpt-radius",
     "tpt-ipsec",
+    "tpt-jmap",
 ]
 
 # `tpt-x25519` opts out of the parent workspace (it declares its own
@@ -51,3 +55,9 @@ unsafe_code = "warn"
 
 [workspace.lints.clippy]
 all = "warn"
+
+# `tpt-x509`'s RSA signature verification performs modular exponentiation; build
+# it optimized even in dev/test profiles so the PKITS conformance harness runs
+# in reasonable time (the crate's dependencies stay at the dev opt-level).
+[profile.dev.package.tpt-x509]
+opt-level = 3
