@@ -102,6 +102,22 @@ fn protected_record_with_cid() {
 }
 
 #[test]
+fn chacha_round_trip() {
+    let suite = CipherSuite::TlsChacha20Poly1305Sha256;
+    let key = vec![0x55u8; suite.key_len()];
+    let iv = vec![0x66u8; suite.iv_len()];
+    let dgram = build_protected(
+        suite, &key, &iv, 1, 3, CONTENT_APPLICATION_DATA, CONTENT_HANDSHAKE,
+        b"integrity", None,
+    )
+    .unwrap();
+    let (header, body, _cid) = split_datagram(&dgram, 0).unwrap();
+    let (inner, content) = open_protected(suite, &key, &iv, &header, &body, None).unwrap();
+    assert_eq!(inner, CONTENT_HANDSHAKE);
+    assert_eq!(content, b"integrity");
+}
+
+#[test]
 fn tampered_record_fails() {
     let suite = CipherSuite::TlsChacha20Poly1305Sha256;
     let key = vec![0x55u8; suite.key_len()];

@@ -17,15 +17,20 @@ workspace = true
 
 [dependencies]
 # All cryptographic primitives are dual-licensed (MIT/Apache-2.0) and reused
-# rather than reimplemented:
-p256 = { version = "0.14", default-features = false, features = ["hash2curve", "arithmetic", "alloc"] } # MIT/Apache-2.0
-p384 = { version = "0.14", default-features = false, features = ["hash2curve", "arithmetic", "alloc"] } # MIT/Apache-2.0
+# rather than reimplemented. `hash2curve` only ships a `0.14` generation, which
+# in turn fixes `elliptic-curve`/`p256`/`p384` at `0.14`; the crate code is
+# written against that generation's APIs (`Group::generator`, `Group::IDENTITY`,
+# `PrimeField::MODULUS`, `ToSec1Point::to_sec1_point`, `getrandom::fill`).
+p256 = { version = "0.14", default-features = false, features = ["hash2curve", "group-digest", "arithmetic", "alloc"] } # MIT/Apache-2.0
+p384 = { version = "0.14", default-features = false, features = ["hash2curve", "group-digest", "arithmetic", "alloc"] } # MIT/Apache-2.0
 elliptic-curve = { version = "0.14", default-features = false, features = ["arithmetic", "alloc"] } # MIT/Apache-2.0
+generic-array = "1" # MIT/Apache-2.0 — `ArrayLength` bound used on the `Suite` trait
 hash2curve = "0.14" # MIT/Apache-2.0 — RFC 9380 hash_to_curve (SSWU) for P-256/P-384
 sha2 = "0.11"       # MIT/Apache-2.0 — hashing (Sha256/Sha384)
 digest = "0.11"     # MIT/Apache-2.0 — hashing traits used by the above
 getrandom = { version = "0.3", features = ["std"] } # MIT/Apache-2.0 — CSPRNG for blind/key generation
 thiserror = { workspace = true }
+typenum = "1"     # MIT/Apache-2.0 — type-level arithmetic used in the `Suite` trait bounds
 
 [dev-dependencies]
 hex = "0.4" # MIT/Apache-2.0

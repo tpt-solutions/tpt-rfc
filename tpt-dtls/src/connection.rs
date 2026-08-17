@@ -204,7 +204,7 @@ impl Connection {
         c.client_address = config.client_address;
         c.server_ks = Some(X25519KeyPair::generate()?);
         c.server_random = Self::random_32();
-        c.state = State::ServerStart;
+        c.state = State::ServerWaitClientHello;
         Ok(c)
     }
 
@@ -232,7 +232,9 @@ impl Connection {
             server_ks: None,
             peer_raw_pubkey: None,
             pending_cookie: None,
-            identity: Ed25519KeyPair::from_seed(&[0u8; 32]).unwrap(),
+            // Placeholder identity, immediately replaced by `new_client` /
+            // `new_server`. Must be a non-zero seed to satisfy ed25519-compact.
+            identity: Ed25519KeyPair::from_seed(&[0x42u8; 32]).unwrap(),
             verifier: Box::new(AcceptAllVerifier),
             out: Vec::new(),
             state: if role == ConnectionRole::Client {
@@ -925,6 +927,7 @@ impl Connection {
         let s_hs = self.ks.derive_secret(&hs_secret, "s hs traffic", &hs_hash);
         self.client_hs = Some(TrafficKeys::from_secret(&self.ks, self.suite, &c_hs));
         self.server_hs = Some(TrafficKeys::from_secret(&self.ks, self.suite, &s_hs));
+        eprintln!("DHS role={:?} tlen={} dhe={:02x?} hash={:02x?} shs_key={:02x?}", self.role, self.transcript.len(), &dhe[..4], &hs_hash[..4], self.server_hs.as_ref().unwrap().key);
         self.handshake_secret = Some(hs_secret);
         Ok(())
     }

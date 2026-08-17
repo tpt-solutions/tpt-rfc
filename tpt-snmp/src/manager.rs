@@ -294,10 +294,8 @@ impl Manager {
             return Err(SnmpError::Malformed);
         }
         let v3 = V3Message::decode(bytes)?;
-        if v3.header.auth() {
-            if !v3.verify_auth(bytes, &self.auth_key, self.auth_proto) {
-                return Err(SnmpError::AuthFailure);
-            }
+        if v3.header.auth() && !v3.verify_auth(bytes, &self.auth_key, self.auth_proto) {
+            return Err(SnmpError::AuthFailure);
         }
         // Record engine time from the response for synchronisation.
         if !v3.security_parameters.authoritative_engine_id.is_empty() {

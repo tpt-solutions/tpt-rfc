@@ -1,6 +1,6 @@
 //! IKEv2 message and payload codec (RFC 7296 §3).
 
-use crate::crypto::{Encr, Integ, Prf};
+use crate::crypto::{Encr, Integ};
 use crate::error::{Error, Result};
 use crate::transforms::{Proposal, SaPayload, Transform};
 use crate::types::{

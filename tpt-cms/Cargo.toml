@@ -17,16 +17,21 @@ workspace = true
 
 [dependencies]
 thiserror = { workspace = true }
-# ASN.1 DER + X.509 primitives (RustCrypto, MIT/Apache-2.0). Pinned to the same
-# `der`/`spki`/`const-oid` 0.8/0.8/0.10 line already used by `tpt-x509`/`tpt-tsp`
-# so the `Decode`/`Sequence`/`AlgorithmIdentifierRef` types line up across the
-# workspace. CMS wire structures are hand-rolled on top (clean room).
+# ASN.1 DER + X.509 primitives (RustCrypto, MIT/Apache-2.0). `x509-cert` 0.3
+# depends on `der`/`spki`/`const-oid` 0.8/0.8/0.10, so we pin to the SAME
+# versions so the hand-rolled CMS wire structures and the `x509-cert` types
+# (Certificate, SubjectPublicKeyInfo<Any, BitString>, …) line up.
 der = { version = "0.8", features = ["derive"] }
 spki = "0.8"
 const-oid = "0.10"
 x509-cert = { version = "0.3", features = ["builder"] }
 # Cryptographic primitives for signing/verifying (all dual-licensed).
 sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
+# Renamed copy of `sha2` 0.10 (digest 0.10 / const-oid 0.9) used ONLY for the
+# RSA PKCS#1 v1.5 `Pkcs1v15Sign::new::<…>()` generic, which must match the
+# *older* `const-oid` 0.9 / `digest` 0.10 that `rsa` 0.9 (the only cached RSA
+# crate) pins. This avoids a digest/const-oid version clash with `sha2` 0.11.
+sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] } # MIT/Apache-2.0
 ecdsa = { version = "0.17", features = ["spki", "alloc"] } # MIT/Apache-2.0
 p256 = { version = "0.14", features = ["ecdh"] }          # MIT/Apache-2.0
 p384 = { version = "0.14", features = ["ecdh"] }          # MIT/Apache-2.0

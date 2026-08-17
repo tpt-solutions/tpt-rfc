@@ -37,9 +37,9 @@ pub struct Proof<C: Suite> {
 pub fn random_scalar<C: Suite>() -> ScalarE<C> {
     loop {
         let mut buf = [0u8; 64];
-        getrandom::fill(&mut buf).ok().expect("getrandom failure");
+        getrandom::fill(&mut buf).expect("getrandom failure");
         let fb = FieldBytes::<C>::clone_from_slice(&buf[..C::NS]);
-        if let Some(sp) = Option::from(ScalarE::<C>::from_repr(fb)) {
+        if let Some(sp) = ScalarE::<C>::from_repr(fb).into_option() {
             if !bool::from(sp.is_zero()) {
                 return sp;
             }
@@ -103,7 +103,7 @@ pub fn blind_evaluate_voprf<C: Suite>(
     let evaluated = *blinded * *sk;
     let proof = generate_proof::<C>(
         sk,
-        &PointE::<C>::GENERATOR,
+        &PointE::<C>::generator(),
         pk,
         &[*blinded],
         &[evaluated],
@@ -124,7 +124,7 @@ pub fn finalize_voprf<C: Suite>(
     proof: &Proof<C>,
 ) -> Result<Vec<u8>, OprfError> {
     if !verify_proof::<C>(
-        &PointE::<C>::GENERATOR,
+        &PointE::<C>::generator(),
         pk,
         &[*blinded],
         &[*evaluated],
@@ -164,7 +164,7 @@ pub fn blind_poprf<C: Suite>(
 ) -> (PointE<C>, PointE<C>) {
     let framed = frame_info(info);
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
-    let t = PointE::<C>::GENERATOR * m;
+    let t = PointE::<C>::generator() * m;
     let tweaked = t + *pk;
     assert!(
         !bool::from(tweaked.is_identity()),
@@ -187,12 +187,12 @@ pub fn blind_evaluate_poprf<C: Suite>(
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
     let t = *sk + m;
     assert!(!bool::from(t.is_zero()), "POPRF inverse of zero");
-    let t_inv = Option::from(t.invert()).expect("t invertible");
-    let evaluated = *blinded * t_inv;
-    let tweaked_key = PointE::<C>::GENERATOR * t;
+    let t_inv = t.invert().into_option().expect("t invertible");
+    let evaluated: PointE<C> = *blinded * t_inv;
+    let tweaked_key = PointE::<C>::generator() * t;
     let proof = generate_proof::<C>(
         &t,
-        &PointE::<C>::GENERATOR,
+        &PointE::<C>::generator(),
         &tweaked_key,
         &[*evaluated],
         &[*blinded],
@@ -213,7 +213,7 @@ pub fn finalize_poprf<C: Suite>(
     tweaked: &PointE<C>,
 ) -> Result<Vec<u8>, OprfError> {
     if !verify_proof::<C>(
-        &PointE::<C>::GENERATOR,
+        &PointE::<C>::generator(),
         tweaked,
         &[*evaluated],
         &[*blinded],
@@ -233,7 +233,7 @@ pub fn evaluate_poprf<C: Suite>(sk: &ScalarE<C>, input: &[u8], info: &[u8]) -> V
     let framed = frame_info(info);
     let m = C::hash_to_scalar(&framed, &dst_scalar::<C>(0x02));
     let t = *sk + m;
-    let t_inv = Option::from(t.invert()).expect("t invertible");
+        let t_inv = t.invert().into_option().expect("t invertible");
     let dst = dst_group::<C>(0x02);
     let ie = C::hash_to_group(input, &dst).expect("hash_to_group");
     let ev = ie * t_inv;
@@ -319,7 +319,7 @@ pub fn verify_proof<C: Suite>(
     let (m, z) = compute_composites::<C>(b, c, d, mode);
     let chal = &proof.c;
     let s = &proof.s;
-    let t2 = (a * *s) + (b * *chal);
+    let t2 = (a * s) + (b * chal);
     let t3 = (m * *s) + (z * *chal);
     let bm = serialize_element::<C>(b);
     let a0 = serialize_element::<C>(&m);
@@ -329,7 +329,7 @@ pub fn verify_proof<C: Suite>(
     let ct = challenge_transcript(&bm, &a0, &a1, &a2, &a3);
     let dst = dst_scalar::<C>(mode);
     let expected = C::hash_to_scalar(&ct, &dst);
-    expected == chal
+    expected == *chal
 }
 
 /// `ComputeCompositesFast` (RFC 9497 §2.2.1) — server side, knows `k`.
@@ -341,7 +341,7 @@ fn compute_composites_fast<C: Suite>(
     mode: u8,
 ) -> (PointE<C>, PointE<C>) {
     let seed = seed_for::<C>(b, mode);
-    let mut m = PointE::<C>::IDENTITY;
+    let mut m = PointE::<C>::identity();
     for i in 0..c.len() {
         let ci = serialize_element::<C>(&c[i]);
         let di = serialize_element::<C>(&d[i]);
@@ -361,8 +361,8 @@ fn compute_composites<C: Suite>(
     mode: u8,
 ) -> (PointE<C>, PointE<C>) {
     let seed = seed_for::<C>(b, mode);
-    let mut m = PointE::<C>::IDENTITY;
-    let mut z = PointE::<C>::IDENTITY;
+    let mut m = PointE::<C>::identity();
+    let mut z = PointE::<C>::identity();
     for i in 0..c.len() {
         let ci = serialize_element::<C>(&c[i]);
         let di = serialize_element::<C>(&d[i]);
@@ -461,6 +461,6 @@ pub fn derive_key_pair<C: Suite>(seed: &[u8], info: &[u8], mode: u8) -> (ScalarE
             break;
         }
     }
-    let pk = PointE::<C>::GENERATOR * sk;
+    let pk = PointE::<C>::generator() * sk;
     (sk, pk)
 }

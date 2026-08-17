@@ -7,7 +7,7 @@
 
 use const_oid::ObjectIdentifier;
 use der::asn1::Any;
-use der::{Tag, Tagged};
+use der::{Decode, Tag, Tagged};
 
 use crate::crypto::{ContentEncryption, HashAlgorithm};
 use crate::error::{CmsError, Result};

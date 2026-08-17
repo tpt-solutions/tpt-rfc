@@ -181,17 +181,20 @@ pub fn build_protected(
     plaintext.push(inner_type);
 
     let nonce = nonce_for(iv, sequence);
-    let length = plaintext.len() as u16;
+    // The AAD `length` is the AEAD output length (the record `length` field),
+    // which equals `plaintext.len() + tag_len` for every TLS 1.3 AEAD.
+    let length = (plaintext.len() + suite.tag_len()) as u16;
     let aad = build_aad(outer_type, epoch, sequence, length);
 
     let ct = aead_seal(suite, key, &nonce, &aad, &plaintext)?;
+    eprintln!("BUILD suite={:?} keylen={} epoch={} seq={} aadlen={} ctlen={}", suite, key.len(), epoch, sequence, aad.len(), ct.len());
 
     let header = RecordHeader {
         content_type: outer_type,
         version: DTLS_LEGACY_VERSION,
         epoch,
         sequence,
-        length: ct.len() as u16,
+        length,
     };
     let mut w = Writer::new();
     header.encode(&mut w);
@@ -221,7 +224,12 @@ pub fn open_protected(
         header.sequence,
         aead_output.len() as u16,
     );
-    let plaintext = aead_open(suite, key, &nonce, &aad, aead_output)?;
+    let plaintext = aead_open(suite, key, &nonce, &aad, aead_output);
+    match &plaintext {
+        Ok(_) => {}
+        Err(e) => eprintln!("OPEN-FAIL suite={:?} keylen={} ivlen={} epoch={} seq={} aadlen={} ctlen={} err={:?}", suite, key.len(), iv.len(), header.epoch, header.sequence, aad.len(), aead_output.len(), e),
+    }
+    let plaintext = plaintext?;
     if plaintext.is_empty() {
         return Err(DtlsError::DecryptFailed);
     }

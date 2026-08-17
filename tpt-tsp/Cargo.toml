@@ -23,25 +23,23 @@ clippy.all = "warn"
 
 [dependencies]
 thiserror = "1"
-# ASN.1 DER + CMS helpers (RustCrypto, MIT/Apache-2.0). Versions pinned to the
-# `der`/`spki`/`x509-cert` 0.8/0.8/0.3 line used across the platform.
-der = { version = "0.8", features = ["derive"] }
-spki = "0.8"
-const-oid = "0.10"
+# ASN.1 DER + CMS helpers (RustCrypto, MIT/Apache-2.0). Pinned to the
+# `der`/`spki`/`const-oid` 0.7 line that `x509-cert` 0.3 (builder API) and
+# `rsa` 0.9 / `ecdsa` 0.17 are built against, so the whole crate shares a
+# single, coherent `der`/`spki`/`const-oid` version. The 0.8 line splits
+# `OctetStringRef`/`ObjectIdentifierRef` to zero-lifetime types and removes
+# `AnyRef::as_bytes`, which is incompatible with this crate's 0.7-era code.
+der = { version = "0.7", features = ["derive"] }
+spki = "0.7"
+const-oid = "0.9"
 x509-cert = { version = "0.3", features = ["builder"] }
 # Cryptographic primitives for signing/verifying timestamps (all dual-licensed).
-sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
+sha2 = { version = "0.10", features = ["oid"] } # MIT/Apache-2.0
 rsa = "0.9"            # MIT/Apache-2.0
-ecdsa = { version = "0.17", features = ["spki"] } # MIT/Apache-2.0
-p256 = "0.14"          # MIT/Apache-2.0
-p384 = "0.14"          # MIT/Apache-2.0
+ecdsa = { version = "0.16", features = ["spki"] } # MIT/Apache-2.0
+p256 = "0.13"          # MIT/Apache-2.0
+p384 = "0.13"          # MIT/Apache-2.0
 ed25519-compact = "2"  # MIT
-
-# `sha2` (0.11, spki 0.8) is used for digest computation throughout. RSA PKCS#1
-# v1.5 signing needs a hash type implementing `spki::AssociatedOid` for the
-# *older* spki 0.7 that `rsa` 0.9 pins, so pull `sha2` 0.10 (with `oid`) under
-# a renamed dependency purely for the `Pkcs1v15Sign::new::<…>()` generic.
-sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] } # MIT/Apache-2.0
 
 [dev-dependencies]
 hex = "0.4"

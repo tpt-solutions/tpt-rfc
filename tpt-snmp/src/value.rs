@@ -88,7 +88,8 @@ impl SnmpValue {
         }
     }
 
-    /// Convenience: build an `OctetString` value.
+    /// Convenience: build an `OctetString` value from a UTF-8 string.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> SnmpValue {
         SnmpValue::OctetString(s.as_bytes().to_vec())
     }

@@ -227,11 +227,11 @@ fn des_feistel(block: &[u8; 8], subkeys: &[u64; 16]) -> [u8; 8] {
         let e48 = er >> 16; // 48-bit value in low 48 bits
         let x = e48 ^ (sk >> 16); // XOR with the 48-bit round subkey
         let mut sbox_out: u32 = 0;
-        for j in 0..8 {
+        for (j, sbox) in DES_S.iter().enumerate() {
             let chunk = (x >> (42 - 6 * j)) & 0x3f;
             let row = ((chunk >> 5) & 1) * 2 + (chunk & 1);
             let col = (chunk >> 1) & 0xf;
-            let s = DES_S[j][(row * 16 + col) as usize] as u32;
+            let s = sbox[(row * 16 + col) as usize] as u32;
             sbox_out |= s << (28 - 4 * j);
         }
         let f = (permute(sbox_out as u64, 32, &DES_P) >> 32) as u32;

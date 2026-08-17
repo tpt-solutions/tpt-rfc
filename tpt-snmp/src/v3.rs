@@ -152,6 +152,11 @@ pub(crate) fn encode_scoped(scoped: &ScopedPdu) -> Vec<u8> {
 
 pub(crate) fn decode_scoped(content: &[u8]) -> Result<ScopedPdu, SnmpError> {
     let mut r = BerReader::new(content);
+    let (tag, inner) = r.read_tlv()?;
+    if tag != crate::ber::TAG_SEQUENCE {
+        return Err(SnmpError::Malformed);
+    }
+    let mut r = BerReader::new(inner);
     let (_, ceid) = r.read_tlv()?;
     let (_, cn) = r.read_tlv()?;
     let (ptag, pcontent) = r.read_tlv()?;
@@ -246,7 +251,12 @@ impl V3Message {
         let usm = decode_usm(sc)?;
         let (dtag, dcontent) = inner.read_tlv()?;
         let data = if dtag == TAG_SEQUENCE {
-            V3Data::Plain(decode_scoped(dcontent)?)
+            // `read_tlv` returned the *content* of the ScopedPdu SEQUENCE;
+            // re-wrap it so `decode_scoped` receives the full ScopedPdu TLV
+            // (the same representation produced by ciphertext decryption).
+            let mut w = BerWriter::new();
+            w.write_tlv(dtag, dcontent);
+            V3Data::Plain(decode_scoped(&w.into_bytes())?)
         } else {
             V3Data::Encrypted(dcontent.to_vec())
         };

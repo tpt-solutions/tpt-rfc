@@ -3,7 +3,9 @@
 //! verification key handling built on dual-licensed RustCrypto primitives.
 
 use const_oid::ObjectIdentifier;
+use der::{Decode, Encode};
 use sha2::{Digest, Sha256, Sha384, Sha512};
+use sha2_010::{Sha256 as Sha256_010, Sha384 as Sha384_010, Sha512 as Sha512_010};
 
 use crate::error::{CmsError, Result};
 use crate::oids;
@@ -279,13 +281,12 @@ pub(crate) fn aes_key_unwrap(kek: &[u8], wrapped: &[u8]) -> Result<Vec<u8>> {
 fn aes_block(kek: &[u8], block: &[u8; 16]) -> Result<[u8; 16]> {
     use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit};
     let mut buf = GenericArray::clone_from_slice(block);
-    let cipher = match kek.len() {
-        16 => aes::Aes128::new(GenericArray::from_slice(kek)),
-        24 => aes::Aes192::new(GenericArray::from_slice(kek)),
-        32 => aes::Aes256::new(GenericArray::from_slice(kek)),
+    match kek.len() {
+        16 => aes::Aes128::new(GenericArray::from_slice(kek)).encrypt_block(&mut buf),
+        24 => aes::Aes192::new(GenericArray::from_slice(kek)).encrypt_block(&mut buf),
+        32 => aes::Aes256::new(GenericArray::from_slice(kek)).encrypt_block(&mut buf),
         _ => return Err(CmsError::Crypto("invalid KEK length".into())),
     };
-    cipher.encrypt_block(&mut buf);
     let mut out = [0u8; 16];
     out.copy_from_slice(&buf);
     Ok(out)
@@ -294,13 +295,12 @@ fn aes_block(kek: &[u8], block: &[u8; 16]) -> Result<[u8; 16]> {
 fn aes_block_decrypt(kek: &[u8], block: &[u8; 16]) -> Result<[u8; 16]> {
     use aes::cipher::{generic_array::GenericArray, BlockDecrypt, KeyInit};
     let mut buf = GenericArray::clone_from_slice(block);
-    let cipher = match kek.len() {
-        16 => aes::Aes128::new(GenericArray::from_slice(kek)),
-        24 => aes::Aes192::new(GenericArray::from_slice(kek)),
-        32 => aes::Aes256::new(GenericArray::from_slice(kek)),
+    match kek.len() {
+        16 => aes::Aes128::new(GenericArray::from_slice(kek)).decrypt_block(&mut buf),
+        24 => aes::Aes192::new(GenericArray::from_slice(kek)).decrypt_block(&mut buf),
+        32 => aes::Aes256::new(GenericArray::from_slice(kek)).decrypt_block(&mut buf),
         _ => return Err(CmsError::Crypto("invalid KEK length".into())),
     };
-    cipher.decrypt_block(&mut buf);
     let mut out = [0u8; 16];
     out.copy_from_slice(&buf);
     Ok(out)
@@ -376,8 +376,11 @@ use p256::ecdsa::{
 use p384::ecdsa::{
     Signature as P384Signature, SigningKey as P384SigningKey, VerifyingKey as P384VerifyingKey,
 };
-use rsa::pkcs1::RsaPublicKey as RsaPub;
+use p256::ecdsa::signature::hazmat::{PrehashSigner, PrehashVerifier};
+use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+use rsa::RsaPublicKey as RsaPub;
 use rsa::pkcs1v15::{Pkcs1v15Encrypt, Pkcs1v15Sign};
+use rsa::pkcs8::DecodePublicKey;
 use rsa::{Oaep, RsaPrivateKey, RsaPublicKey};
 
 /// A private signing key usable for SignedData.
@@ -426,9 +429,9 @@ impl SigningKey {
             }
             SigningKey::Rsa(key) => {
                 let padding = match hash {
-                    HashAlgorithm::Sha256 => Pkcs1v15Sign::new::<Sha256>(),
-                    HashAlgorithm::Sha384 => Pkcs1v15Sign::new::<Sha384>(),
-                    HashAlgorithm::Sha512 => Pkcs1v15Sign::new::<Sha512>(),
+                    HashAlgorithm::Sha256 => Pkcs1v15Sign::new::<Sha256_010>(),
+                    HashAlgorithm::Sha384 => Pkcs1v15Sign::new::<Sha384_010>(),
+                    HashAlgorithm::Sha512 => Pkcs1v15Sign::new::<Sha512_010>(),
                 };
                 let sig = key
                     .sign(padding, digest)
@@ -449,12 +452,12 @@ impl SigningKey {
 
     /// Demo P-256 key from a fixed seed (tests/examples only).
     pub fn demo_p256(seed: [u8; 32]) -> SigningKey {
-        SigningKey::EcdsaP256(P256SigningKey::from_bytes(&seed).unwrap())
+        SigningKey::EcdsaP256(P256SigningKey::from_bytes((&seed).into()).unwrap())
     }
 
     /// Demo P-384 key from a fixed seed (tests/examples only).
     pub fn demo_p384(seed: [u8; 48]) -> SigningKey {
-        SigningKey::EcdsaP384(P384SigningKey::from_bytes(&seed).unwrap())
+        SigningKey::EcdsaP384(P384SigningKey::from_bytes((&seed).into()).unwrap())
     }
 
     /// Demo RSA-2048 key (tests/examples only).
@@ -469,10 +472,15 @@ impl SigningKey {
 }
 
 /// Extract the public key from an `x509_cert` SubjectPublicKeyInfo.
-pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfoRef<'_>) -> Result<PublicKey> {
+pub(crate) fn public_key_from_spki(
+    spki: &spki::SubjectPublicKeyInfo<der::asn1::Any, der::asn1::BitString>,
+) -> Result<PublicKey> {
     let alg = spki.algorithm.oid.to_string();
-    let params_der = spki.algorithm.parameters.as_ref().map(|p| p.value.to_vec());
-    let key_bytes = spki.subject_public_key.as_bytes();
+    let params_der = spki.algorithm.parameters.as_ref().map(|p| p.value().to_vec());
+    let key_bytes = spki
+        .subject_public_key
+        .as_bytes()
+        .ok_or_else(|| CmsError::Crypto("missing subject public key".into()))?;
     match alg.as_str() {
         oids::RSA_ENCRYPTION => {
             let spki_der = spki
@@ -486,7 +494,7 @@ pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfoRef<'_>) -> 
             let curve =
                 params_der.ok_or_else(|| CmsError::Crypto("EC key missing curve OID".into()))?;
             let full = wire::tlv(0x06, &curve);
-            let curve_oid = ObjectIdentifier::from_der(&full)
+            let curve_oid: ObjectIdentifier = ObjectIdentifier::from_der(&full)
                 .map_err(|e| CmsError::Crypto(format!("EC curve OID: {e}")))?;
             match curve_oid.to_string().as_str() {
                 oids::P256 => {
@@ -507,7 +515,7 @@ pub(crate) fn public_key_from_spki(spki: &spki::SubjectPublicKeyInfoRef<'_>) -> 
                 .map_err(|e| CmsError::Crypto(format!("Ed25519 pubkey: {e}")))?;
             Ok(PublicKey::Ed25519(pk))
         }
-        other => Err(CmsError::UnsupportedKey(other)),
+        other => Err(CmsError::UnsupportedKey(other.to_string())),
     }
 }
 
@@ -536,9 +544,9 @@ pub(crate) fn verify_signature(
         oids::SHA256_RSA | oids::SHA384_RSA | oids::SHA512_RSA => {
             let hash = sig_alg_hash(alg_oid)?;
             let padding = match hash {
-                HashAlgorithm::Sha256 => Pkcs1v15Sign::new::<Sha256>(),
-                HashAlgorithm::Sha384 => Pkcs1v15Sign::new::<Sha384>(),
-                HashAlgorithm::Sha512 => Pkcs1v15Sign::new::<Sha512>(),
+                HashAlgorithm::Sha256 => Pkcs1v15Sign::new::<Sha256_010>(),
+                HashAlgorithm::Sha384 => Pkcs1v15Sign::new::<Sha384_010>(),
+                HashAlgorithm::Sha512 => Pkcs1v15Sign::new::<Sha512_010>(),
             };
             if let PublicKey::Rsa(pk) = pubkey {
                 pk.verify(padding, message, signature)
@@ -572,7 +580,9 @@ pub(crate) fn verify_signature(
         }
         oids::ED25519 => {
             if let PublicKey::Ed25519(pk) = pubkey {
-                pk.verify(message, signature)
+                let sig = ed25519_compact::Signature::from_slice(signature)
+                    .map_err(|e| CmsError::Signature(format!("{e}")))?;
+                pk.verify(message, &sig)
                     .map_err(|e| CmsError::Signature(format!("{e}")))?;
                 Ok(())
             } else {

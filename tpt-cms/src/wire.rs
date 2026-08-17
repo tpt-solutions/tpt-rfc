@@ -16,7 +16,7 @@ use spki::AlgorithmIdentifierRef;
 use crate::error::{CmsError, Result};
 
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
-pub(crate) fn octet_value_param(param: Option<&der::asn1::Any>, what: &str) -> Result<Vec<u8>> {
+pub(crate) fn octet_value_param(param: Option<&der::asn1::AnyRef<'_>>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
     Ok(p.value().to_vec())
 }
@@ -145,10 +145,13 @@ pub(crate) fn ctx_tag_prim(n: u8) -> Tag {
 
 /// Construct a `CmsError::Asn1` for an unexpected tag.
 pub(crate) fn unexpected_tag(actual: Tag, expected: Tag) -> CmsError {
-    CmsError::Asn1(der::Error::new(der::ErrorKind::TagUnexpected {
-        expected: Some(expected),
-        actual,
-    }))
+    CmsError::Asn1(der::Error::new(
+        der::ErrorKind::TagUnexpected {
+            expected: Some(expected),
+            actual,
+        },
+        der::Length::ZERO,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -197,12 +200,12 @@ pub(crate) fn ensure_tag(actual: Tag, expected: Tag) -> Result<()> {
 
 /// Decode the OID carried by `any` (whose tag must be OBJECT IDENTIFIER).
 pub(crate) fn oid_of(any: &Any) -> Result<ObjectIdentifier> {
-    ObjectIdentifier::from_der(any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
+    ObjectIdentifier::from_der(&any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
 }
 
 /// Decode the `AlgorithmIdentifier` carried by `any`.
 pub(crate) fn algid_of(any: &Any) -> Result<AlgorithmIdentifierRef<'_>> {
-    AlgorithmIdentifierRef::from_der(any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
+    AlgorithmIdentifierRef::from_der(&any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
 }
 
 /// Return the OCTET STRING value bytes of `any` (which is an OCTET STRING TLV).
@@ -236,7 +239,7 @@ pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<V
     let mut out = Vec::new();
     while !inner.at_end() {
         let a = inner.take()?;
-        out.push(T::from_der(a.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)?);
+        out.push(T::from_der(&a.to_der().map_err(CmsError::Asn1)?)?);
     }
     Ok(out)
 }

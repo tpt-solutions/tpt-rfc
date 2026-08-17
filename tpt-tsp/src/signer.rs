@@ -2,13 +2,11 @@
 //! signature algorithms deployed by real RFC 3161 time-stamp authorities.
 
 use const_oid::ObjectIdentifier;
-use der::Encode;
 use ecdsa::signature::hazmat::PrehashSigner;
 use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey};
 use p384::ecdsa::{Signature as P384Signature, SigningKey as P384SigningKey};
 use rsa::pkcs1v15::Pkcs1v15Sign;
 use rsa::RsaPrivateKey;
-use sha2::{Sha256, Sha384, Sha512};
 use sha2_010::{Sha256 as Sha256010, Sha384 as Sha384010, Sha512 as Sha512010};
 
 use crate::error::{Result, TspError};
@@ -78,7 +76,7 @@ impl SigningKey {
 
     /// Generate a fresh, deterministic P-256 signing key (for tests/examples).
     pub fn demo_p256(seed: [u8; 32]) -> SigningKey {
-        SigningKey::EcdsaP256(P256SigningKey::from_bytes(&seed).unwrap())
+        SigningKey::EcdsaP256(P256SigningKey::from_bytes((&seed).into()).unwrap())
     }
 }
 

@@ -84,7 +84,7 @@ pub fn password_to_auth_key(proto: AuthProtocol, password: &[u8]) -> Vec<u8> {
         AuthProtocol::Md5 => crypto::md5(&expand_password(password)).to_vec(),
         AuthProtocol::Sha1 => {
             let mut h = Sha1::new();
-            h.update(&expand_password(password));
+            h.update(expand_password(password));
             h.finalize().to_vec()
         }
     }

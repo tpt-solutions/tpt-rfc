@@ -121,9 +121,12 @@ pub(crate) fn encode_signed(v: i64) -> Vec<u8> {
     while bytes.len() > 1 {
         let first = bytes[0];
         let second = bytes[1];
-        if !negative && first == 0x00 && (second & 0x80) == 0 {
-            bytes.remove(0);
-        } else if negative && first == 0xff && (second & 0x80) != 0 {
+        let redundant = if !negative {
+            first == 0x00 && (second & 0x80) == 0
+        } else {
+            first == 0xff && (second & 0x80) != 0
+        };
+        if redundant {
             bytes.remove(0);
         } else {
             break;
@@ -266,7 +269,7 @@ mod tests {
     #[test]
     fn length_forms() {
         let mut w = BerWriter::new();
-        w.write_octet_string(&vec![0u8; 200]);
+        w.write_octet_string(&[0u8; 200]);
         let bytes = w.into_bytes();
         // 0x04 0x81 0xC8 (200)
         assert_eq!(bytes[0], 0x04);

@@ -1,0 +1,327 @@
+    Checking tpt-privacy-pass v0.1.0 (C:\Programming\2 WIP\tpt-rfc\tpt-privacy-pass)
+warning: unused import: `OprfError`
+  --> tpt-privacy-pass\src\token.rs:12:20
+   |
+12 | use crate::error::{OprfError, TokenError};
+   |                    ^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: use of deprecated associated function `digest::hybrid_array::Array::<T, U>::clone_from_slice`: use `TryFrom` instead
+  --> tpt-privacy-pass\src\oprf.rs:41:35
+   |
+41 |         let fb = FieldBytes::<C>::clone_from_slice(&buf[..C::NS]);
+   |                                   ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+error[E0282]: type annotations needed
+  --> tpt-privacy-pass\src\oprf.rs:43:28
+   |
+43 |             if !bool::from(sp.is_zero()) {
+   |                            ^^ cannot infer type
+
+error[E0284]: type annotations needed
+  --> tpt-privacy-pass\src\oprf.rs:77:24
+   |
+77 |     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
+   |                        ^ cannot infer type
+   |
+   = note: cannot satisfy `<<... as CurveArithmetic>::ProjectivePoint as Mul<_>>::Output == <... as CurveArithmetic>::ProjectivePoint`
+   = note: the full name for the type has been written to 'C:\Programming\2 WIP\tpt-rfc\target\debug\deps\tpt_privacy_pass-94b21558bbc2bf22.long-type-11812882324389849299.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+error[E0283]: type annotations needed
+  --> tpt-privacy-pass\src\oprf.rs:77:26
+   |
+77 |     let n = *evaluated * Option::from(blind.invert()).expect("blind invertible");
+   |                          ^^^^^^ cannot infer type for enum `Option<_>`
+   |
+   = note: multiple `impl`s satisfying `Option<_>: From<elliptic_curve::subtle::CtOption<<C as CurveArithmetic>::Scalar>>` found in the following crates: `core`, `subtle`:
+           - impl<T> From<T> for Option<T>;
+           - impl<T> From<elliptic_curve::subtle::CtOption<T>> for Option<T>;
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\oprf.rs:106:9
+    |
+104 |     let proof = generate_proof::<C>(
+    |                 ------------------- arguments to this function are incorrect
+105 |         sk,
+106 |         PointE::<C>::generator(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&<C as CurveArithmetic>::ProjectivePoint`, found associated type
+    |
+    = note:    expected reference `&_`
+            found associated type `_`
+note: function defined here
+   --> tpt-privacy-pass\src\oprf.rs:273:8
+    |
+273 | pub fn generate_proof<C: Suite>(
+    |        ^^^^^^^^^^^^^^
+274 |     k: &ScalarE<C>,
+275 |     a: &PointE<C>,
+    |     -------------
+help: consider borrowing here
+    |
+106 |         &PointE::<C>::generator(),
+    |         +
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\oprf.rs:127:9
+    |
+126 |     if !verify_proof::<C>(
+    |         ----------------- arguments to this function are incorrect
+127 |         PointE::<C>::generator(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&<C as CurveArithmetic>::ProjectivePoint`, found associated type
+    |
+    = note:    expected reference `&_`
+            found associated type `_`
+note: function defined here
+   --> tpt-privacy-pass\src\oprf.rs:311:8
+    |
+311 | pub fn verify_proof<C: Suite>(
+    |        ^^^^^^^^^^^^
+312 |     a: &PointE<C>,
+    |     -------------
+help: consider borrowing here
+    |
+127 |         &PointE::<C>::generator(),
+    |         +
+
+error[E0282]: type annotations needed
+   --> tpt-privacy-pass\src\oprf.rs:191:9
+    |
+191 |     let evaluated = *blinded * t_inv;
+    |         ^^^^^^^^^
+...
+197 |         &[*evaluated],
+    |           ---------- type must be known at this point
+    |
+help: consider giving `evaluated` an explicit type
+    |
+191 |     let evaluated: /* Type */ = *blinded * t_inv;
+    |                  ++++++++++++
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\oprf.rs:195:9
+    |
+193 |     let proof = generate_proof::<C>(
+    |                 ------------------- arguments to this function are incorrect
+194 |         &t,
+195 |         PointE::<C>::generator(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&<C as CurveArithmetic>::ProjectivePoint`, found associated type
+    |
+    = note:    expected reference `&_`
+            found associated type `_`
+note: function defined here
+   --> tpt-privacy-pass\src\oprf.rs:273:8
+    |
+273 | pub fn generate_proof<C: Suite>(
+    |        ^^^^^^^^^^^^^^
+274 |     k: &ScalarE<C>,
+275 |     a: &PointE<C>,
+    |     -------------
+help: consider borrowing here
+    |
+195 |         &PointE::<C>::generator(),
+    |         +
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\oprf.rs:216:9
+    |
+215 |     if !verify_proof::<C>(
+    |         ----------------- arguments to this function are incorrect
+216 |         PointE::<C>::generator(),
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^ expected `&<C as CurveArithmetic>::ProjectivePoint`, found associated type
+    |
+    = note:    expected reference `&_`
+            found associated type `_`
+note: function defined here
+   --> tpt-privacy-pass\src\oprf.rs:311:8
+    |
+311 | pub fn verify_proof<C: Suite>(
+    |        ^^^^^^^^^^^^
+312 |     a: &PointE<C>,
+    |     -------------
+help: consider borrowing here
+    |
+216 |         &PointE::<C>::generator(),
+    |         +
+
+error[E0283]: type annotations needed
+   --> tpt-privacy-pass\src\oprf.rs:236:17
+    |
+236 |     let t_inv = Option::from(t.invert()).expect("t invertible");
+    |                 ^^^^^^ cannot infer type for enum `Option<_>`
+    |
+    = note: multiple `impl`s satisfying `Option<_>: From<elliptic_curve::subtle::CtOption<<C as CurveArithmetic>::Scalar>>` found in the following crates: `core`, `subtle`:
+            - impl<T> From<T> for Option<T>;
+            - impl<T> From<elliptic_curve::subtle::CtOption<T>> for Option<T>;
+
+error[E0369]: cannot multiply `&<C as CurveArithmetic>::ProjectivePoint` by `<C as CurveArithmetic>::Scalar`
+   --> tpt-privacy-pass\src\oprf.rs:322:17
+    |
+322 |     let t2 = (a * *s) + (b * *chal);
+    |               - ^ -- <C as CurveArithmetic>::Scalar
+    |               |
+    |               &<C as CurveArithmetic>::ProjectivePoint
+    |
+help: `*` can be used on `<C as CurveArithmetic>::ProjectivePoint` if you dereference the left-hand side
+    |
+322 |     let t2 = (*a * *s) + (b * *chal);
+    |               +
+help: consider introducing a `where` clause, but there might be an alternative better way to express this requirement
+    |
+318 | ) -> bool where &<C as CurveArithmetic>::ProjectivePoint: Mul<<C as CurveArithmetic>::Scalar> {
+    |           +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0369]: cannot multiply `&<C as CurveArithmetic>::ProjectivePoint` by `<C as CurveArithmetic>::Scalar`
+   --> tpt-privacy-pass\src\oprf.rs:322:28
+    |
+322 |     let t2 = (a * *s) + (b * *chal);
+    |                          - ^ ----- <C as CurveArithmetic>::Scalar
+    |                          |
+    |                          &<C as CurveArithmetic>::ProjectivePoint
+    |
+help: `*` can be used on `<C as CurveArithmetic>::ProjectivePoint` if you dereference the left-hand side
+    |
+322 |     let t2 = (a * *s) + (*b * *chal);
+    |                          +
+help: consider introducing a `where` clause, but there might be an alternative better way to express this requirement
+    |
+318 | ) -> bool where &<C as CurveArithmetic>::ProjectivePoint: Mul<<C as CurveArithmetic>::Scalar> {
+    |           +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\oprf.rs:332:17
+    |
+332 |     expected == chal
+    |     --------    ^^^^ expected associated type, found `&<C as CurveArithmetic>::Scalar`
+    |     |
+    |     expected because this is `<C as CurveArithmetic>::Scalar`
+    |
+    = note: expected associated type `_`
+                     found reference `&_`
+help: consider dereferencing the borrow
+    |
+332 |     expected == *chal
+    |                 +
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\suite.rs:101:40
+    |
+101 |         let reduced = wide.rem_vartime(&<NistP256 as Curve>::ORDER);
+    |                            ----------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&NonZero<Uint<_>>`, found `&Odd<Uint<4>>`
+    |                            |
+    |                            arguments to this method are incorrect
+    |
+    = note: expected reference `&elliptic_curve::crypto_bigint::NonZero<Uint<_>>`
+               found reference `&Odd<Uint<4>>`
+note: method defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crypto-bigint-0.7.5\src\uint\div.rs:127:18
+    |
+127 |     pub const fn rem_vartime<const RHS_LIMBS: usize>(
+    |                  ^^^^^^^^^^^
+
+warning: use of deprecated associated function `digest::hybrid_array::Array::<T, U>::clone_from_slice`: use `TryFrom` instead
+   --> tpt-privacy-pass\src\suite.rs:102:38
+    |
+102 |         let fb = FieldBytes::<Self>::clone_from_slice(&reduced.to_be_bytes());
+    |                                      ^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> tpt-privacy-pass\src\suite.rs:131:40
+    |
+131 |         let reduced = wide.rem_vartime(&<NistP384 as Curve>::ORDER);
+    |                            ----------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&NonZero<Uint<_>>`, found `&Odd<Uint<6>>`
+    |                            |
+    |                            arguments to this method are incorrect
+    |
+    = note: expected reference `&elliptic_curve::crypto_bigint::NonZero<Uint<_>>`
+               found reference `&Odd<Uint<6>>`
+note: method defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\crypto-bigint-0.7.5\src\uint\div.rs:127:18
+    |
+127 |     pub const fn rem_vartime<const RHS_LIMBS: usize>(
+    |                  ^^^^^^^^^^^
+
+warning: use of deprecated associated function `digest::hybrid_array::Array::<T, U>::clone_from_slice`: use `TryFrom` instead
+   --> tpt-privacy-pass\src\suite.rs:132:38
+    |
+132 |         let fb = FieldBytes::<Self>::clone_from_slice(&reduced.to_be_bytes());
+    |                                      ^^^^^^^^^^^^^^^^
+
+warning: use of deprecated associated function `digest::hybrid_array::Array::<T, U>::clone_from_slice`: use `TryFrom` instead
+   --> tpt-privacy-pass\src\suite.rs:157:31
+    |
+157 |     let fb = FieldBytes::<C>::clone_from_slice(b);
+    |                               ^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `to_affine` found for reference `&<C as CurveArithmetic>::ProjectivePoint` in the current scope
+   --> tpt-privacy-pass\src\suite.rs:164:7
+    |
+164 |     p.to_affine().to_sec1_point(true).as_bytes().to_vec()
+    |       ^^^^^^^^^ method not found in `&<C as CurveArithmetic>::ProjectivePoint`
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `Curve` which provides `to_affine` is implemented but not in scope; perhaps you want to import it
+    |
+  9 + use elliptic_curve::CurveGroup;
+    |
+
+error[E0599]: no associated function or constant named `from_sec1_bytes` found for associated type `<C as CurveArithmetic>::AffinePoint` in the current scope
+   --> tpt-privacy-pass\src\suite.rs:173:33
+    |
+173 |     let aff = AffinePoint::<C>::from_sec1_bytes(b).map_err(|_| OprfError::InvalidElement)?;
+    |                                 ^^^^^^^^^^^^^^^ associated function or constant not found in `<C as CurveArithmetic>::AffinePoint`
+    |
+help: there is an associated function `from_bytes` with a similar name
+    |
+173 -     let aff = AffinePoint::<C>::from_sec1_bytes(b).map_err(|_| OprfError::InvalidElement)?;
+173 +     let aff = AffinePoint::<C>::from_bytes(b).map_err(|_| OprfError::InvalidElement)?;
+    |
+
+error[E0109]: type arguments are not allowed on local variable
+   --> tpt-privacy-pass\src\token.rs:233:35
+    |
+233 |     let blinded_element = blind::<C>(&ti, blind, 0x01);
+    |                           -----   ^ type argument not allowed
+    |                           |
+    |                           not allowed on local variable
+
+error[E0618]: expected function, found `&<C as CurveArithmetic>::Scalar`
+   --> tpt-privacy-pass\src\token.rs:233:27
+    |
+229 |     blind: &ScalarE<C>,
+    |     ----- `blind` has type `&<C as CurveArithmetic>::Scalar`
+...
+233 |     let blinded_element = blind::<C>(&ti, blind, 0x01);
+    |                           ^^^^^^^^^^------------------
+    |                           |
+    |                           call expression requires function
+    |
+   ::: tpt-privacy-pass\src\oprf.rs:59:1
+    |
+ 59 | pub fn blind<C: Suite>(input: &[u8], blind_scalar: &ScalarE<C>, mode: u8) -> PointE<C> {
+    | -------------------------------------------------------------------------------------- this function of the same name is available here, but it's shadowed by the local binding
+
+warning: unused import: `group::GroupOps`
+  --> tpt-privacy-pass\src\oprf.rs:15:5
+   |
+15 |     group::GroupOps,
+   |     ^^^^^^^^^^^^^^^
+
+warning: value assigned to `sk` is never read
+   --> tpt-privacy-pass\src\oprf.rs:452:18
+    |
+452 |     let mut sk = ScalarE::<C>::ZERO;
+    |                  ^^^^^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+460 |             sk = s;
+    |             ------ `sk` is overwritten here before the previous value is read
+    |
+    = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0109, E0282, E0283, E0284, E0308, E0369, E0599, E0618.
+For more information about an error, try `rustc --explain E0109`.
+warning: `tpt-privacy-pass` (lib) generated 7 warnings
+error: could not compile `tpt-privacy-pass` (lib) due to 18 previous errors; 7 warnings emitted

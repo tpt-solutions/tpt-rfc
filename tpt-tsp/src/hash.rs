@@ -1,6 +1,6 @@
 //! Hash algorithm mapping (RFC 3161 message imprint / CMS digest algorithm).
 
-use const_oid::{ObjectIdentifier, ObjectIdentifierRef};
+use const_oid::ObjectIdentifier;
 use sha2::{Digest, Sha256, Sha384, Sha512};
 use spki::AlgorithmIdentifierRef;
 

@@ -7,11 +7,18 @@
 //! `hash2curve` (RFC 9380 `hash_to_curve`) and `sha2`.
 
 use core::num::NonZeroU16;
-use elliptic_curve::bigint::{U512, U768};
+use elliptic_curve::array::Array;
+use elliptic_curve::consts::{U48, U72};
 use elliptic_curve::ff::PrimeField;
+use elliptic_curve::ops::Reduce;
+use elliptic_curve::array::typenum::Add1;
+use elliptic_curve::sec1::ModulusSize;
+use generic_array::ArrayLength;
+use elliptic_curve::sec1::Sec1Point;
+use typenum::U2;
 use elliptic_curve::{
-    sec1::{FromSec1Point, Sec1Point, ToSec1Point},
-    CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint,
+    sec1::ToSec1Point, AffinePoint, Curve, CurveArithmetic, CurveGroup, FieldBytes, Group, PrimeCurve,
+    ProjectivePoint,
 };
 use hash2curve::{ExpandMsg, ExpandMsgXmd, Expander, GroupDigest};
 pub use p256::NistP256;
@@ -35,7 +42,13 @@ pub type Scalar<C> = elliptic_curve::Scalar<C>;
 /// [`NistP384`] (P-384 / SHA-384, `SUITE_ID = "P384-SHA384"`) implement this
 /// trait directly; `hash2curve` already supplies their `GroupDigest`
 /// (`HashToGroup`) and RustCrypto supplies `CurveArithmetic` / `PrimeCurve`.
-pub trait Suite: GroupDigest + CurveArithmetic + PrimeCurve {
+pub trait Suite: GroupDigest + CurveArithmetic + PrimeCurve
+where
+    Self::FieldBytesSize: ModulusSize,
+    Add1<Self::FieldBytesSize>: ArrayLength<u8>,
+    <Self::FieldBytesSize as typenum::Mul<U2>>::Output: ArrayLength<u8>,
+    Add1<<Self::FieldBytesSize as typenum::Mul<U2>>::Output>: ArrayLength<u8>,
+{
     /// The protocol hash function (`Hash` in RFC 9497): SHA-256 for
     /// P-256 and SHA-384 for P-384. Also used as the expand-message hash.
     type Hash: Digest + Default;
@@ -97,10 +110,8 @@ impl Suite for NistP256 {
                 .expect("expand_message");
         let mut buf = [0u8; 48];
         expander.fill_bytes(&mut buf).expect("expand_message fill");
-        let wide = U512::from_be_slice(&buf);
-        let reduced = wide.rem_vartime(&NistP256::ORDER);
-        let fb = FieldBytes::<Self>::clone_from_slice(&reduced.to_be_bytes());
-        Option::from(Scalar::<Self>::from_repr(fb)).expect("reduced scalar in range")
+        let arr = Array::<u8, U48>::from_slice(&buf);
+        Scalar::<Self>::reduce(arr)
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
@@ -127,10 +138,8 @@ impl Suite for NistP384 {
                 .expect("expand_message");
         let mut buf = [0u8; 72];
         expander.fill_bytes(&mut buf).expect("expand_message fill");
-        let wide = U768::from_be_slice(&buf);
-        let reduced = wide.rem_vartime(&NistP384::ORDER);
-        let fb = FieldBytes::<Self>::clone_from_slice(&reduced.to_be_bytes());
-        Option::from(Scalar::<Self>::from_repr(fb)).expect("reduced scalar in range")
+        let arr = Array::<u8, U72>::from_slice(&buf);
+        Scalar::<Self>::reduce(arr)
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
@@ -160,19 +169,25 @@ pub(crate) fn deserialize_scalar<C: Suite + ?Sized>(b: &[u8]) -> Result<Scalar<C
 
 /// Serialize a group element using the compressed SEC1 encoding
 /// (`SerializeElement` in RFC 9497 §2.1).
-pub(crate) fn serialize_element<C: Suite + ?Sized>(p: &Point<C>) -> Vec<u8> {
-    p.to_sec1_point(true).as_bytes().to_vec()
+pub(crate) fn serialize_element<C: Suite + ?Sized>(p: &Point<C>) -> Vec<u8>
+where
+    C::FieldBytesSize: ModulusSize,
+{
+    p.to_affine().to_sec1_point(true).as_bytes().to_vec()
 }
 
 /// Deserialize a group element, rejecting wrong-length, invalid, or
 /// identity points (`DeserializeElement` in RFC 9497 §2.1).
-pub(crate) fn deserialize_element<C: Suite + ?Sized>(b: &[u8]) -> Result<Point<C>, OprfError> {
+pub(crate) fn deserialize_element<C: Suite + ?Sized>(b: &[u8]) -> Result<Point<C>, OprfError>
+where
+    C::FieldBytesSize: ModulusSize,
+{
     if b.len() != C::NE {
         return Err(OprfError::InvalidElement);
     }
     let ep = Sec1Point::<C>::from_bytes(b).map_err(|_| OprfError::InvalidElement)?;
-    let pt = Point::<C>::from_sec1_point(&ep);
-    let pt = Option::from(pt).ok_or(OprfError::InvalidElement)?;
+    let aff = AffinePoint::<C>::try_from(ep).map_err(|_| OprfError::InvalidElement)?;
+    let pt = Point::<C>::from(aff);
     if bool::from(pt.is_identity()) {
         return Err(OprfError::InvalidElement);
     }

@@ -10,6 +10,7 @@
 use std::collections::HashSet;
 
 use der::asn1::OctetStringRef;
+use der::{Decode, Encode};
 use x509_cert::Certificate;
 
 use crate::crypto::{public_key_from_spki, sig_alg_hash, verify_signature, PublicKey};
@@ -92,11 +93,11 @@ pub(crate) fn verify_cert_signature(cert: &Certificate, issuer_pub: &PublicKey) 
     let alg_oid = cert.signature_algorithm().oid;
     let sig = cert.signature().as_bytes();
     if alg_oid.to_string() == oids::ED25519 {
-        verify_signature(&alg_oid, &tbs_der(cert), sig, issuer_pub)
+        verify_signature(&alg_oid, &tbs_der(cert), sig.expect("ed25519 signature"), issuer_pub)
     } else {
         let hash = sig_alg_hash(&alg_oid)?;
         let digest = hash.digest(&tbs_der(cert));
-        verify_signature(&alg_oid, &digest, sig, issuer_pub)
+        verify_signature(&alg_oid, &digest, sig.expect("signature"), issuer_pub)
     }
 }
 
@@ -135,7 +136,7 @@ pub(crate) fn verify_chain(
                 "certificate chain loop detected".into(),
             ));
         }
-        current = issuer;
+        current = issuer.clone();
     }
     Err(CmsError::CertChain("certificate chain too long".into()))
 }
@@ -166,6 +167,8 @@ fn find_issuer<'a>(
 }
 
 /// The subject's `SubjectPublicKeyInfo` as required by signers.
-pub(crate) fn subject_public_key_info(cert: &Certificate) -> spki::SubjectPublicKeyInfoRef<'_> {
+pub(crate) fn subject_public_key_info(
+    cert: &Certificate,
+) -> spki::SubjectPublicKeyInfo<der::asn1::Any, der::asn1::BitString> {
     cert.tbs_certificate().subject_public_key_info().clone()
 }

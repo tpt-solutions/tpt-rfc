@@ -369,26 +369,32 @@ impl ClientHello {
         sv.put_vec_u16(&DTLS_1_3_VERSION.to_be_bytes());
         exts.push((ext::SUPPORTED_VERSIONS, sv.into_inner()));
 
-        // supported_groups: u16-length list.
+        // supported_groups: opaque<2..2^16-1> list of u16 groups.
         let mut sg = Writer::new();
         for g in &self.groups {
             sg.put_u16(*g);
         }
-        exts.push((ext::SUPPORTED_GROUPS, sg.into_inner()));
+        let mut sg_ext = Writer::new();
+        sg_ext.put_vec_u16(&sg.into_inner());
+        exts.push((ext::SUPPORTED_GROUPS, sg_ext.into_inner()));
 
-        // signature_algorithms: u16-length list.
+        // signature_algorithms: opaque<2..2^16-1> list of u16 schemes.
         let mut sa = Writer::new();
         for s in &self.sig_algs {
             sa.put_u16(*s);
         }
-        exts.push((ext::SIGNATURE_ALGORITHMS, sa.into_inner()));
+        let mut sa_ext = Writer::new();
+        sa_ext.put_vec_u16(&sa.into_inner());
+        exts.push((ext::SIGNATURE_ALGORITHMS, sa_ext.into_inner()));
 
-        // key_share: u16-length list of entries.
+        // key_share: opaque<2..2^16-1> list of KeyShareEntry.
         let mut ks = Writer::new();
         for e in &self.key_share {
             ks.put_u16(e.group).put_vec_u16(&e.key_exchange);
         }
-        exts.push((ext::KEY_SHARE, ks.into_inner()));
+        let mut ks_ext = Writer::new();
+        ks_ext.put_vec_u16(&ks.into_inner());
+        exts.push((ext::KEY_SHARE, ks_ext.into_inner()));
 
         if let Some(cookie) = &self.cookie {
             exts.push((ext::COOKIE, cookie.clone()));
@@ -420,9 +426,9 @@ impl ClientHello {
         let key_share = match find_ext(&exts, ext::KEY_SHARE) {
             Some(ks) => {
                 let mut kr = Reader::new(ks);
-                let mut out = Vec::new();
                 let list = kr.read_vec_u16()?;
                 let mut lr = Reader::new(list);
+                let mut out = Vec::new();
                 while !lr.eof() {
                     let group = lr.read_u16()?;
                     let key_exchange = lr.read_vec_u16()?.to_vec();

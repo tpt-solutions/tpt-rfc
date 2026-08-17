@@ -230,7 +230,7 @@ pub fn create_token_request<C: Suite>(
 ) -> Result<(TokenRequest, VoprfState<C>), TokenError> {
     let cd = challenge_digest(challenge);
     let ti = token_input(token_type, nonce, &cd, token_key_id);
-    let blinded_element = blind::<C>(&ti, blind, 0x01);
+    let blinded_element = crate::oprf::blind::<C>(&ti, blind, 0x01);
     let req = TokenRequest {
         token_type,
         truncated_key_id: token_key_id[31],

@@ -3,13 +3,13 @@
 //! consistency (`message-digest`, `content-type`), `TSTInfo` consistency, and
 //! optional trust-anchor certificate checking.
 
-use const_oid::{ObjectIdentifier, ObjectIdentifierRef};
+use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{AnyRef, OctetStringRef, UintRef},
-    Decode, Encode,
+    asn1::{AnyRef, GeneralizedTime, OctetString, SetOfVec, UintRef},
+    Decode, Encode, Sequence,
 };
-use spki::AlgorithmIdentifierRef;
-use x509_cert::{Certificate, SubjectPublicKeyInfo};
+use x509_cert::spki::SubjectPublicKeyInfo;
+use x509_cert::Certificate;
 
 use crate::error::{Result, TspError};
 use crate::hash::HashAlgorithm;
@@ -29,7 +29,7 @@ pub struct VerifiedToken {
     /// `serialNumber` of the token.
     pub serial_number: Vec<u8>,
     /// Generation time (`genTime`).
-    pub gen_time: der::asn1::GeneralizedTime,
+    pub gen_time: GeneralizedTime,
     /// `nonce` (if present in the request and token).
     pub nonce: Option<u64>,
 }
@@ -73,10 +73,12 @@ pub fn verify_timestamp_response(
         .token
         .ok_or_else(|| TspError::Crypto("granted response without a token".into()))?;
 
-    if token.content_type.to_owned() != oids::oid(oids::ID_SIGNED_DATA) {
+    if token.content_type != oids::oid(oids::ID_SIGNED_DATA) {
         return Err(TspError::ContentTypeMismatch);
     }
-    let signed_data = token.content_as::<SignedData>().map_err(der_err)?;
+    let signed_data = token
+        .content_as::<SignedData>()
+        .map_err(der_err)?;
 
     let signer_info = signed_data
         .signer_infos
@@ -97,8 +99,7 @@ pub fn verify_timestamp_response(
     let to_be_signed = digest_alg.digest(&attrs_set);
 
     // Locate the signer certificate and verify its signature.
-    let cert = find_signer_cert(&signed_data, signer_info)
-        .ok_or(TspError::SignerCertNotFound)?;
+    let cert = find_signer_cert(&signed_data, signer_info).ok_or(TspError::SignerCertNotFound)?;
     let spki = &cert.tbs_certificate().subject_public_key_info();
     verify_signature_raw(
         &to_be_signed,
@@ -112,13 +113,13 @@ pub fn verify_timestamp_response(
     let mut seen_md = false;
     let attrs = decode_set_elements::<Attribute>(&signed_attrs.0).map_err(der_err)?;
     for attr in &attrs {
-        if attr.attr_type.to_owned() == oids::oid(oids::MESSAGE_DIGEST) {
+        if attr.attr_type == oids::oid(oids::MESSAGE_DIGEST) {
             let got = attr_value_octet(&attr.attr_values).map_err(der_err)?;
             if got != content_digest {
                 return Err(TspError::MessageDigestMismatch);
             }
             seen_md = true;
-        } else if attr.attr_type.to_owned() == oids::oid(oids::CONTENT_TYPE) {
+        } else if attr.attr_type == oids::oid(oids::CONTENT_TYPE) {
             let got = attr_value_oid(&attr.attr_values).map_err(der_err)?;
             if got != oids::oid(oids::ID_CT_TST_INFO) {
                 return Err(TspError::ContentTypeMismatch);
@@ -126,7 +127,9 @@ pub fn verify_timestamp_response(
         }
     }
     if !seen_md {
-        return Err(TspError::Crypto("missing message-digest attribute".into()));
+        return Err(TspError::Crypto(
+            "missing message-digest attribute".into(),
+        ));
     }
 
     // --- TSTInfo ---
@@ -138,7 +141,7 @@ pub fn verify_timestamp_response(
         ));
     }
     let tst_hashed = tst.message_imprint.hashed_message.as_bytes().to_vec();
-    let policy = tst.policy.to_owned();
+    let policy = tst.policy;
 
     // Cross-check against the original request, if supplied.
     if let Some(req_der) = request_der {
@@ -160,7 +163,11 @@ pub fn verify_timestamp_response(
         let mut trusted = false;
         for anchor in anchors {
             if name_eq(&cert.tbs_certificate().issuer(), &anchor.tbs_certificate().subject())
-                && verify_cert_signature(cert, &anchor.tbs_certificate().subject_public_key_info()).is_ok()
+                && verify_cert_signature(
+                    &cert,
+                    &anchor.tbs_certificate().subject_public_key_info(),
+                )
+                .is_ok()
             {
                 trusted = true;
                 break;
@@ -169,7 +176,7 @@ pub fn verify_timestamp_response(
         if !trusted {
             return Err(TspError::Untrusted(format!(
                 "serial={}",
-                hex_lower(&cert.tbs_certificate().serial_number().as_bytes())
+                hex_lower(cert.tbs_certificate().serial_number().as_bytes())
             )));
         }
     }
@@ -190,9 +197,13 @@ pub fn verify_timestamp_response(
     })
 }
 
-fn find_signer_cert<'a>(sd: &SignedData<'a>, si: &SignerInfo<'a>) -> Option<Certificate> {
-    let wanted_serial = si.sid.0.serial_number.as_bytes();
-    let wanted_issuer = &si.sid.0.issuer;
+fn find_signer_cert(sd: &SignedData, si: &SignerInfo) -> Option<Certificate> {
+    let wanted_serial...
+}
+
+fn find_signer_cert(sd: &SignedData, si: &SignerInfo) -> Option<Certificate> {
+    let wanted_serial = si.sid.serial_number.as_bytes();
+    let wanted_issuer = &si.sid.issuer;
     let certs = sd.certificates.as_ref()?;
     let certs = decode_set_elements::<Certificate>(&certs.0).ok()?;
     for c in certs {
@@ -205,18 +216,14 @@ fn find_signer_cert<'a>(sd: &SignedData<'a>, si: &SignerInfo<'a>) -> Option<Cert
     None
 }
 
-fn attr_value_octet(any: &AnyRef) -> der::Result<Vec<u8>> {
-    let set = AnyRef::from_der(any.as_bytes())?;
-    let elems = decode_set_elements::<AnyRef>(set.value())?;
-    let first = elems.into_iter().next().ok_or_else(missing_attr)?;
-    Ok(OctetStringRef::from_der(first.as_bytes())?.as_bytes().to_vec())
+fn attr_value_octet(values: &SetOfVec<AnyRef>) -> der::Result<Vec<u8>> {
+    let first = values.iter().next().ok_or_else(missing_attr)?;
+    Ok(OctetString::from_der(first.value())?.as_bytes().to_vec())
 }
 
-fn attr_value_oid(any: &AnyRef) -> der::Result<ObjectIdentifier> {
-    let set = AnyRef::from_der(any.as_bytes())?;
-    let elems = decode_set_elements::<AnyRef>(set.value())?;
-    let first = elems.into_iter().next().ok_or_else(missing_attr)?;
-    Ok(ObjectIdentifierRef::from_der(first.as_bytes())?.to_owned())
+fn attr_value_oid(values: &SetOfVec<AnyRef>) -> der::Result<ObjectIdentifier> {
+    let first = values.iter().next().ok_or_else(missing_attr)?;
+    ObjectIdentifier::from_der(first.value())
 }
 
 fn name_eq(a: &x509_cert::name::Name, b: &x509_cert::name::Name) -> bool {
@@ -233,7 +240,7 @@ fn uint_to_u64(bytes: &[u8]) -> Result<u64> {
 }
 
 fn missing_attr() -> der::Error {
-    der::Error::new(der::ErrorKind::Failed)
+    der::Error::new(der::ErrorKind::Failed, der::Length::ZERO)
 }
 
 fn hex_lower(b: &[u8]) -> String {
@@ -253,30 +260,31 @@ fn verify_cert_signature(cert: &Certificate, issuer_spki: &SubjectPublicKeyInfo)
         .tbs_certificate()
         .to_der()
         .map_err(|e| TspError::Crypto(e.to_string()))?;
-    let sig = cert.signature().raw_bytes();
-    verify_signature_raw(
-        &signed_data,
-        sig,
-        issuer_spki,
-        cert.signature_algorithm().oid,
-    )
-    .map_err(|reason| TspError::Untrusted(reason))
+    let sig = cert
+        .signature()
+        .as_bytes()
+        .ok_or_else(|| TspError::Crypto("bad certificate signature bit string".into()))?;
+    verify_signature_raw(signed_data, sig, issuer_spki, cert.signature_algorithm().oid)
+        .map_err(TspError::Untrusted)
 }
 
 fn verify_signature_raw(
-    signed_data: &[u8],
+    signed_data: Vec<u8>,
     sig: &[u8],
     issuer_spki: &SubjectPublicKeyInfo,
     sig_oid: ObjectIdentifier,
 ) -> std::result::Result<(), String> {
-    use const_oid::ObjectIdentifier as Oid;
     let key_oid = issuer_spki.algorithm.oid;
     match key_oid {
-        k if k == Oid::new_unwrap(oids::RSA_ENCRYPTION) => {
-            verify_rsa(issuer_spki, sig_oid, signed_data, sig)
+        k if k == ObjectIdentifier::new_unwrap(oids::RSA_ENCRYPTION) => {
+            verify_rsa(issuer_spki, sig_oid, &signed_data, sig)
         }
-        k if k == Oid::new_unwrap(oids::EC_PUBLIC_KEY) => verify_ecdsa(issuer_spki, signed_data, sig),
-        k if k == Oid::new_unwrap(oids::ED25519) => verify_ed25519(issuer_spki, signed_data, sig),
+        k if k == ObjectIdentifier::new_unwrap(oids::EC_PUBLIC_KEY) => {
+            verify_ecdsa(issuer_spki, &signed_data, sig)
+        }
+        k if k == ObjectIdentifier::new_unwrap(oids::ED25519) => {
+            verify_ed25519(issuer_spki, &signed_data, sig)
+        }
         other => Err(format!("unsupported public key algorithm {other}")),
     }
 }
@@ -293,14 +301,18 @@ fn verify_rsa(
         modulus: UintRef<'a>,
         public_exponent: UintRef<'a>,
     }
-    let raw = spki.subject_public_key.raw_bytes();
+    let raw = spki
+        .subject_public_key
+        .subject_public_key
+        .as_bytes()
+        .ok_or("missing SPKI key bits")?;
     let pk = RsaPubKeyDer::from_der(raw).map_err(|e| format!("bad RSA public key: {e}"))?;
     let n = rsa::BigUint::from_bytes_be(pk.modulus.as_bytes());
     let e = rsa::BigUint::from_bytes_be(pk.public_exponent.as_bytes());
     let digest = match sig_oid {
-        o if o == Oid::new_unwrap(oids::SHA256_RSA) => Sha256::digest(msg).to_vec(),
-        o if o == Oid::new_unwrap(oids::SHA384_RSA) => Sha384::digest(msg).to_vec(),
-        o if o == Oid::new_unwrap(oids::SHA512_RSA) => Sha512::digest(msg).to_vec(),
+        o if o == ObjectIdentifier::new_unwrap(oids::SHA256_RSA) => Sha256::digest(msg).to_vec(),
+        o if o == ObjectIdentifier::new_unwrap(oids::SHA384_RSA) => Sha384::digest(msg).to_vec(),
+        o if o == ObjectIdentifier::new_unwrap(oids::SHA512_RSA) => Sha512::digest(msg).to_vec(),
         o => return Err(format!("unsupported RSA signature scheme {o}")),
     };
     let t = digest_info(sig_oid, &digest)?;
@@ -314,17 +326,20 @@ fn verify_rsa(
     pkcs1_v15_check(&em, &t)
 }
 
-fn digest_info(sig_oid: ObjectIdentifier, digest: &[u8]) -> std::result::Result<Vec<u8>, String> {
+fn digest_info(
+    sig_oid: ObjectIdentifier,
+    digest: &[u8],
+) -> std::result::Result<Vec<u8>, String> {
     let prefix: &[u8] = match sig_oid {
-        o if o == Oid::new_unwrap(oids::SHA256_RSA) => &[
+        o if o == ObjectIdentifier::new_unwrap(oids::SHA256_RSA) => &[
             0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05,
             0x00, 0x04, 0x20,
         ],
-        o if o == Oid::new_unwrap(oids::SHA384_RSA) => &[
+        o if o == ObjectIdentifier::new_unwrap(oids::SHA384_RSA) => &[
             0x30, 0x41, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05,
             0x00, 0x04, 0x30,
         ],
-        o if o == Oid::new_unwrap(oids::SHA512_RSA) => &[
+        o if o == ObjectIdentifier::new_unwrap(oids::SHA512_RSA) => &[
             0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05,
             0x00, 0x04, 0x40,
         ],
@@ -364,18 +379,24 @@ fn verify_ecdsa(
     use p256::ecdsa::{Signature as P256Sig, VerifyingKey as P256Vk};
     use p384::ecdsa::{Signature as P384Sig, VerifyingKey as P384Vk};
 
-    let raw = spki.subject_public_key.raw_bytes();
+    let raw = spki
+        .subject_public_key
+        .subject_public_key
+        .as_bytes()
+        .ok_or("missing SPKI key bits")?;
     let curve = ec_curve(spki)?;
     match curve {
         Curve::P256 => {
             let vk = P256Vk::from_sec1_bytes(raw).map_err(|e| e.to_string())?;
             let sig = P256Sig::from_slice(sig).map_err(|e| format!("bad ECDSA sig: {e}"))?;
-            vk.verify(msg, &sig).map_err(|e| format!("P-256 verification failed: {e}"))
+            vk.verify(msg, &sig)
+                .map_err(|e| format!("P-256 verification failed: {e}"))
         }
         Curve::P384 => {
             let vk = P384Vk::from_sec1_bytes(raw).map_err(|e| e.to_string())?;
             let sig = P384Sig::from_slice(sig).map_err(|e| format!("bad ECDSA sig: {e}"))?;
-            vk.verify(msg, &sig).map_err(|e| format!("P-384 verification failed: {e}"))
+            vk.verify(msg, &sig)
+                .map_err(|e| format!("P-384 verification failed: {e}"))
         }
     }
 }
@@ -386,7 +407,11 @@ fn verify_ed25519(
     sig: &[u8],
 ) -> std::result::Result<(), String> {
     use ed25519_compact::{PublicKey, Signature};
-    let raw = spki.subject_public_key.raw_bytes();
+    let raw = spki
+        .subject_public_key
+        .subject_public_key
+        .as_bytes()
+        .ok_or("missing SPKI key bits")?;
     if raw.len() != 32 {
         return Err(format!("Ed25519 public key must be 32 bytes, got {}", raw.len()));
     }
@@ -408,10 +433,10 @@ fn ec_curve(spki: &SubjectPublicKeyInfo) -> std::result::Result<Curve, String> {
         .as_ref()
         .ok_or_else(|| "EC public key missing curve parameters".to_string())?;
     let der = params.to_der().map_err(|e| e.to_string())?;
-    let curve_oid = ObjectIdentifierRef::from_der(&der).map_err(|e| e.to_string())?;
+    let curve_oid = ObjectIdentifier::from_der(&der).map_err(|e| e.to_string())?;
     match curve_oid {
-        c if c == Oid::new_unwrap(oids::P256) => Ok(Curve::P256),
-        c if c == Oid::new_unwrap(oids::P384) => Ok(Curve::P384),
+        c if c == ObjectIdentifier::new_unwrap(oids::P256) => Ok(Curve::P256),
+        c if c == ObjectIdentifier::new_unwrap(oids::P384) => Ok(Curve::P384),
         other => Err(format!("unsupported curve {other}")),
     }
 }

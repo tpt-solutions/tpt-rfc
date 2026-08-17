@@ -2,8 +2,8 @@
 //! recipient information, with AES-CBC content encryption and AES key wrap.
 
 use const_oid::ObjectIdentifier;
-use der::asn1::Any;
-use der::{Decode, Tag, Tagged};
+use der::asn1::{Any, OctetStringRef};
+use der::{Decode, Encode, Tag, Tagged};
 use x509_cert::Certificate;
 
 use crate::cert::{cert_issuer_der, cert_serial_bytes};
@@ -478,7 +478,7 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
     let mut oc = wire::Cursor::new(opk.value());
     let alg_any = oc.take()?;
     let algid = wire::algid_of(&alg_any)?;
-    let curve_oid = ObjectIdentifier::from_der(
+    let _curve_oid: ObjectIdentifier = ObjectIdentifier::from_der(
         algid
             .parameters
             .as_ref()
@@ -486,7 +486,6 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
             .value(),
     )
     .map_err(CmsError::Asn1)?;
-    let _ = curve_oid;
     let pubk_any = oc.take()?;
         let originator_pub = pubk_any.value()[1..].to_vec();
 

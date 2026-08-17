@@ -222,5 +222,5 @@ fn pdu_type_tag_mapping() {
     assert_eq!(PduType::GetRequest.tag(), 0xA0);
     assert_eq!(PduType::GetBulkRequest.tag(), 0xA5);
     assert_eq!(PduType::Report.tag(), 0xA8);
-    assert_eq!(PduType::from_tag(0xA4).is_err(), true); // v1 trap is not a standard PDU
+    assert!(PduType::from_tag(0xA4).is_err()); // v1 trap is not a standard PDU
 }

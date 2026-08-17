@@ -10,11 +10,11 @@ use std::time::{Duration, SystemTime};
 
 use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{GeneralizedTime, OctetStringRef, UintRef},
-    Decode, Encode, Sequence,
+    asn1::{GeneralizedTime, OctetString, UintRef},
+    Decode, Encode,
 };
 use spki::AlgorithmIdentifierRef;
-use x509_cert::builder::profile::BuilderProfile;
+use x509_cert::builder::profile::cabf::Root;
 use x509_cert::builder::{Builder, CertificateBuilder};
 use x509_cert::name::Name;
 use x509_cert::serial_number::SerialNumber;
@@ -29,14 +29,13 @@ use crate::signer::{uint_be, SigningKey};
 use crate::wire::*;
 
 /// OIDs that are referenced for the lifetime of the whole program (so their
-/// `ObjectIdentifierRef` can be `'static` and used inside locally-borrowed DER
+/// `ObjectIdentifier` can be `'static` and used inside locally-borrowed DER
 /// structs without lifetime friction).
 const ID_SIGNED_DATA: ObjectIdentifier = ObjectIdentifier::new_unwrap(oids::ID_SIGNED_DATA);
 const ID_CT_TST_INFO: ObjectIdentifier = ObjectIdentifier::new_unwrap(oids::ID_CT_TST_INFO);
 
 /// A minimal time-stamp authority.
 pub struct Tsa {
-    cert: Certificate,
     cert_der: Vec<u8>,
     signer: SigningKey,
     default_policy: ObjectIdentifier,
@@ -46,10 +45,10 @@ impl Tsa {
     /// Build a TSA from a DER-encoded signer certificate, the matching private
     /// key, and a default TSA policy OID (used when the request omits one).
     pub fn new(cert_der: &[u8], signer: SigningKey, default_policy: ObjectIdentifier) -> Result<Self> {
-        let cert = Certificate::from_der(cert_der)
+        // Validate the certificate parses before storing it.
+        Certificate::from_der(cert_der)
             .map_err(|e| TspError::Crypto(format!("invalid signer certificate: {e}")))?;
         Ok(Tsa {
-            cert,
             cert_der: cert_der.to_vec(),
             signer,
             default_policy,
@@ -58,6 +57,9 @@ impl Tsa {
 
     /// Issue a `TimeStampResp` (DER) for a DER-encoded `TimeStampReq`.
     pub fn issue(&self, request_der: &[u8]) -> Result<Vec<u8>> {
+        let cert = Certificate::from_der(&self.cert_der)
+            .map_err(|e| TspError::Crypto(format!("invalid signer certificate: {e}")))?;
+
         let req = TimeStampReq::from_der(request_der)
             .map_err(|e| TspError::Crypto(format!("invalid request: {e}")))?;
 
@@ -75,8 +77,8 @@ impl Tsa {
         );
 
         let policy: ObjectIdentifier = match &req.req_policy {
-            Some(p) => p.to_owned(),
-            None => self.default_policy.clone(),
+            Some(p) => *p,
+            None => self.default_policy,
         };
         let hash_oid = hash.oid();
         let econtent_oid = ID_CT_TST_INFO;
@@ -86,13 +88,13 @@ impl Tsa {
         let serial_bytes = uint_be(serial);
         let tst = TstInfo {
             version: UintRef::new(&version).map_err(der_err)?,
-            policy: (&policy).into(),
+            policy,
             message_imprint: MessageImprint {
                 hash_algorithm: AlgorithmIdentifierRef {
-                    oid: (&hash_oid).into(),
+                    oid: hash_oid,
                     parameters: None,
                 },
-                hashed_message: OctetStringRef::new(&hashed_message).map_err(der_err)?,
+                hashed_message: OctetString::new(&hashed_message).map_err(der_err)?,
             },
             serial_number: UintRef::new(&serial_bytes).map_err(der_err)?,
             gen_time,
@@ -110,9 +112,12 @@ impl Tsa {
 
         // --- Signed attributes ---
         let digest = hash.digest(&e_content);
-        let content_type_attr = cms_attribute(&oids::oid(oids::CONTENT_TYPE), &id_ct_tst_info_der())?;
-        let md_attr = cms_attribute(&oids::oid(oids::MESSAGE_DIGEST), &octet_string_der(&digest))?;
-        let st_attr = cms_attribute(&oids::oid(oids::SIGNING_TIME), &gen_time_der)?;
+        let ct_oid = oids::oid(oids::CONTENT_TYPE);
+        let md_oid = oids::oid(oids::MESSAGE_DIGEST);
+        let st_oid = oids::oid(oids::SIGNING_TIME);
+        let content_type_attr = cms_attribute(&ct_oid, &id_ct_tst_info_der())?;
+        let md_attr = cms_attribute(&md_oid, &octet_string_der(&digest))?;
+        let st_attr = cms_attribute(&st_oid, &gen_time_der)?;
         let mut attrs = vec![content_type_attr, md_attr, st_attr];
         attrs.sort();
         let signed_attrs_content: Vec<u8> = attrs.concat();
@@ -125,17 +130,17 @@ impl Tsa {
         let (sig_oid, signature) = self.signer.sign(hash, &to_be_signed)?;
 
         // --- SignerInfo ---
-        let cert_serial = self.cert.tbs_certificate().serial_number().as_bytes().to_vec();
-        let issuer = self.cert.tbs_certificate().issuer().clone();
+        let cert_serial = cert.tbs_certificate().serial_number().as_bytes().to_vec();
+        let issuer = cert.tbs_certificate().issuer().clone();
         let sid_version = uint_be(3);
         let signer_info = SignerInfo {
             version: UintRef::new(&sid_version).map_err(der_err)?,
-            sid: SignerIdentifier(IssuerAndSerialNumber {
+            sid: IssuerAndSerialNumber {
                 issuer,
                 serial_number: UintRef::new(&cert_serial).map_err(der_err)?,
-            }),
+            },
             digest_algorithm: AlgorithmIdentifierRef {
-                oid: (&hash_oid).into(),
+                oid: hash_oid,
                 parameters: None,
             },
             signed_attrs: Some(RawContent(signed_attrs_content)),
@@ -143,11 +148,11 @@ impl Tsa {
                 oid: sig_oid,
                 parameters: None,
             },
-            signature: OctetStringRef::new(&signature).map_err(der_err)?,
+            signature: OctetString::new(&signature).map_err(der_err)?,
         };
 
         // --- SignedData ---
-        let os_der = OctetStringRef::new(&e_content).map_err(der_err)?.to_der().map_err(der_err)?;
+        let os_der = OctetString::new(&e_content).map_err(der_err)?.to_der().map_err(der_err)?;
         let e_content_any = der::asn1::AnyRef::from_der(&os_der).map_err(der_err)?;
         let cert_set_content = {
             let mut v = vec![self.cert_der.to_vec()];
@@ -158,11 +163,11 @@ impl Tsa {
         let signed_data = SignedData {
             version: UintRef::new(&sd_version).map_err(der_err)?,
             digest_algorithms: DigestAlgorithmIdentifiers(vec![AlgorithmIdentifierRef {
-                oid: (&hash_oid).into(),
+                oid: hash_oid,
                 parameters: None,
             }]),
             encap_content_info: EncapsulatedContentInfo {
-                e_content_type: (&econtent_oid).into(),
+                e_content_type: econtent_oid,
                 e_content: Some(e_content_any),
             },
             certificates: Some(RawContent(cert_set_content)),
@@ -174,12 +179,13 @@ impl Tsa {
 
         // --- ContentInfo + TimeStampResp ---
         let ci = ContentInfo {
-            content_type: (&ID_SIGNED_DATA).into(),
+            content_type: ID_SIGNED_DATA,
             content: signed_data_any,
         };
+        let status_zero = [0u8];
         let resp = TimeStampResp {
             status: PkiStatusInfo {
-                status: UintRef::new(&[0]).map_err(der_err)?,
+                status: UintRef::new(&status_zero).map_err(der_err)?,
                 status_string: None,
                 fail_info: None,
             },
@@ -237,32 +243,17 @@ impl Tsa {
         // Deterministic demo key (not for production use).
         let mut seed = [0x42u8; 32];
         seed[0] = 0x01;
-        let signer = P256SigningKey::from_bytes(&seed).expect("valid P-256 seed");
+        let signer = P256SigningKey::from_bytes((&seed).into()).expect("valid P-256 seed");
         let spki = SubjectPublicKeyInfoOwned::from_key(signer.verifying_key())
             .map_err(|e| TspError::Crypto(e.to_string()))?;
 
-        struct DemoProfile;
-        impl BuilderProfile for DemoProfile {
-            fn get_issuer(&self, _subject: &Name) -> Name {
-                Name::from_str("CN=TPT Demo TSA").unwrap()
-            }
-            fn get_subject(&self) -> Name {
-                Name::from_str("CN=TPT Demo TSA").unwrap()
-            }
-            fn build_extensions(
-                &self,
-                _spk: x509_cert::spki::SubjectPublicKeyInfoRef<'_>,
-                _issuer_spk: x509_cert::spki::SubjectPublicKeyInfoRef<'_>,
-                _tbs: &x509_cert::certificate::TbsCertificate,
-            ) -> x509_cert::builder::Result<Vec<x509_cert::ext::Extension>> {
-                Ok(vec![])
-            }
-        }
-
+        let subject =
+            Name::from_str("CN=TPT Demo TSA").map_err(|e| TspError::Crypto(e.to_string()))?;
         let validity = Validity::from_now(Duration::new(3600 * 24 * 365 * 10, 0))
             .map_err(|e| TspError::Crypto(e.to_string()))?;
         let serial = SerialNumber::from(1u64);
-        let mut builder = CertificateBuilder::new(DemoProfile, serial, validity, spki)
+        let profile = Root::new(false, subject);
+        let mut builder = CertificateBuilder::new(profile, serial, validity, spki)
             .map_err(|e| TspError::Crypto(e.to_string()))?;
         let cert = builder
             .build::<_, P256Signature>(&signer)

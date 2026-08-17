@@ -6,7 +6,9 @@
 
 use crate::error::{Error, Result};
 use crate::types::{DhGroup, EncrId, IntegId, PrfId};
-use aes::cipher::{BlockDecrypt, BlockEncrypt, KeyInit, generic_array::GenericArray};
+use aes::cipher::{
+    BlockDecrypt, BlockEncrypt, KeyInit, generic_array::{GenericArray, typenum::U16},
+};
 use aes_gcm::aead::AeadInPlace;
 use aes_gcm::Nonce;
 use hmac::{Hmac, Mac};
@@ -16,9 +18,9 @@ use sha2::{Sha256, Sha384, Sha512};
 
 macro_rules! hmac_vec {
     ($hash:ty, $key:expr, $data:expr) => {{
-        let mut m = Hmac::<$hash>::new_from_slice($key).expect("HMAC accepts any key length");
+        let mut m = <Hmac<$hash> as Mac>::new_from_slice($key).expect("HMAC accepts any key length");
         m.update($data);
-        m.finalize().into_bytes().to_vec()
+        m.finalize().into_bytes().as_slice().to_vec()
     }};
 }
 
@@ -229,17 +231,19 @@ impl Encr {
     ) -> Result<(Vec<u8>, Vec<u8>)> {
         use aes_gcm::aead::KeyInit;
         match self {
-            Encr::AesGcm { key_len: 16 } => {
-                let c = aes_gcm::Aes128Gcm::new_from_slice(key).map_err(err)?;
-                aead_run(&c, nonce, aad, plaintext)
-            }
-            Encr::AesGcm { key_len: 24 } => {
-                Err(Error::Crypto("AES-GCM-192 is unsupported by the aes-gcm crate".into()))
-            }
-            Encr::AesGcm { key_len: 32 } => {
-                let c = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(err)?;
-                aead_run(&c, nonce, aad, plaintext)
-            }
+            Encr::AesGcm { key_len } => match key_len {
+                16 => {
+                    let c = aes_gcm::Aes128Gcm::new_from_slice(key).map_err(err)?;
+                    aead_run(&c, nonce, aad, plaintext)
+                }
+                32 => {
+                    let c = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(err)?;
+                    aead_run(&c, nonce, aad, plaintext)
+                }
+                _ => Err(Error::Crypto(
+                    "AES-GCM key length unsupported by the aes-gcm crate".into(),
+                )),
+            },
             Encr::AesCbc { .. } => Err(Error::Crypto("algorithm is not AEAD".into())),
         }
     }
@@ -258,19 +262,21 @@ impl Encr {
         let mut buf = ciphertext.to_vec();
         buf.extend_from_slice(tag);
         let res = match self {
-            Encr::AesGcm { key_len: 16 } => {
-                let c = aes_gcm::Aes128Gcm::new_from_slice(key).map_err(err)?;
-                c.decrypt_in_place(Nonce::from_slice(nonce), aad, &mut buf)
-            }
-            Encr::AesGcm { key_len: 24 } => {
-                return Err(Error::Crypto(
-                    "AES-GCM-192 is unsupported by the aes-gcm crate".into(),
-                ));
-            }
-            Encr::AesGcm { key_len: 32 } => {
-                let c = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(err)?;
-                c.decrypt_in_place(Nonce::from_slice(nonce), aad, &mut buf)
-            }
+            Encr::AesGcm { key_len } => match key_len {
+                16 => {
+                    let c = aes_gcm::Aes128Gcm::new_from_slice(key).map_err(err)?;
+                    c.decrypt_in_place(Nonce::from_slice(nonce), aad, &mut buf)
+                }
+                32 => {
+                    let c = aes_gcm::Aes256Gcm::new_from_slice(key).map_err(err)?;
+                    c.decrypt_in_place(Nonce::from_slice(nonce), aad, &mut buf)
+                }
+                _ => {
+                    return Err(Error::Crypto(
+                        "AES-GCM key length unsupported by the aes-gcm crate".into(),
+                    ))
+                }
+            },
             Encr::AesCbc { .. } => return Err(Error::Crypto("algorithm is not AEAD".into())),
         };
         res.map_err(|_| Error::DecryptFailed)?;
@@ -307,14 +313,14 @@ enum AesCipher {
 }
 
 impl AesCipher {
-    fn encrypt_block(&self, b: &mut GenericArray<u8, 16>) {
+    fn encrypt_block(&self, b: &mut GenericArray<u8, U16>) {
         match self {
             AesCipher::A128(c) => c.encrypt_block(b),
             AesCipher::A192(c) => c.encrypt_block(b),
             AesCipher::A256(c) => c.encrypt_block(b),
         }
     }
-    fn decrypt_block(&self, b: &mut GenericArray<u8, 16>) {
+    fn decrypt_block(&self, b: &mut GenericArray<u8, U16>) {
         match self {
             AesCipher::A128(c) => c.decrypt_block(b),
             AesCipher::A192(c) => c.decrypt_block(b),
@@ -401,7 +407,7 @@ fn modp_pub(group: DhGroup, scalar: &[u8]) -> Result<Vec<u8>> {
     let p = BigUint::parse_bytes(hex.as_bytes(), 16).ok_or(Error::Crypto("bad prime".into()))?;
     let g = BigUint::from(2u32);
     let a = BigUint::from_bytes_be(scalar);
-    let pubv = num_integer::Integer::modpow(&g, &a, &p);
+    let pubv = g.modpow(&a, &p);
     Ok(pad_be(&pubv.to_bytes_be(), group.key_len()))
 }
 
@@ -410,7 +416,7 @@ fn modp_shared(group: DhGroup, scalar: &[u8], peer_pub: &[u8]) -> Result<Vec<u8>
     let p = BigUint::parse_bytes(hex.as_bytes(), 16).ok_or(Error::Crypto("bad prime".into()))?;
     let a = BigUint::from_bytes_be(scalar);
     let b = BigUint::from_bytes_be(peer_pub);
-    let s = num_integer::Integer::modpow(&b, &a, &p);
+    let s = b.modpow(&a, &p);
     let bytes = pad_be(&s.to_bytes_be(), group.key_len());
     if bytes.iter().all(|&x| x == 0) {
         return Err(Error::DhFailed);
@@ -434,24 +440,24 @@ fn pad_be(bytes: &[u8], len: usize) -> Vec<u8> {
 
 fn x25519_generate() -> Result<(Vec<u8>, Vec<u8>)> {
     use orion::hazardous::ecc::x25519::{PrivateKey, PublicKey};
-    let sk = PrivateKey::generate().map_err(err)?;
+    let sk = PrivateKey::generate();
     let pk = PublicKey::try_from(&sk).map_err(err)?;
-    Ok((sk.unprotected_as_bytes().to_vec(), pk.as_bytes().to_vec()))
+    Ok((sk.unprotected_as_bytes().to_vec(), pk.to_bytes().to_vec()))
 }
 
 fn x25519_public(private: &[u8]) -> Result<Vec<u8>> {
     use orion::hazardous::ecc::x25519::{PrivateKey, PublicKey};
-    let sk = PrivateKey::from_bytes(private).map_err(err)?;
+    let sk = PrivateKey::from_slice(private).map_err(err)?;
     let pk = PublicKey::try_from(&sk).map_err(err)?;
-    Ok(pk.as_bytes().to_vec())
+    Ok(pk.to_bytes().to_vec())
 }
 
 fn x25519_shared(private: &[u8], peer_public: &[u8]) -> Result<Vec<u8>> {
     use orion::hazardous::ecc::x25519::{key_agreement, PrivateKey, PublicKey};
-    let sk = PrivateKey::from_bytes(private).map_err(err)?;
-    let pk = PublicKey::from_bytes(peer_public).map_err(err)?;
+    let sk = PrivateKey::from_slice(private).map_err(err)?;
+    let pk = PublicKey::from_slice(peer_public).map_err(err)?;
     let sh = key_agreement(&sk, &pk).map_err(err)?;
-    Ok(sh.as_bytes().to_vec())
+    Ok(sh.unprotected_as_bytes().to_vec())
 }
 
 // ---------------------------------------------------------------------------

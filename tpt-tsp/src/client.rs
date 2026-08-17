@@ -1,7 +1,7 @@
 //! Client-side request building for RFC 3161 (and a thin response decoder).
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{OctetStringRef, UintRef};
+use der::asn1::{OctetString, UintRef};
 use spki::AlgorithmIdentifierRef;
 
 use crate::error::{Result, TspError};
@@ -11,13 +11,6 @@ use crate::signer::uint_be;
 use crate::wire::{MessageImprint, TimeStampReq};
 
 /// Builder for a DER-encoded `TimeStampReq`.
-///
-/// ```ignore
-/// let req = TimeStampReqBuilder::new(HashAlgorithm::Sha256, b"data")
-///     .nonce(1234)
-///     .cert_req(true)
-///     .build()?;
-/// ```
 pub struct TimeStampReqBuilder {
     hash: HashAlgorithm,
     data: Vec<u8>,
@@ -61,29 +54,23 @@ impl TimeStampReqBuilder {
         let hashed = self.hash.digest(&self.data);
         let hash_oid = self.hash.oid();
         let version = uint_be(1);
+        let nonce_bytes = self.nonce.map(uint_be);
 
         let req = TimeStampReq {
             version: UintRef::new(&version).map_err(der_err)?,
             message_imprint: MessageImprint {
                 hash_algorithm: AlgorithmIdentifierRef {
-                    oid: (&hash_oid).into(),
+                    oid: hash_oid,
                     parameters: None,
                 },
-                hashed_message: OctetStringRef::new(&hashed).map_err(der_err)?,
+                hashed_message: OctetString::new(&hashed).map_err(der_err)?,
             },
-            req_policy: self.policy.as_ref().map(|p| p.into()),
-            nonce: self
-                .nonce
-                .map(|n| {
-                    let b = uint_be(n);
-                    UintRef::new(&b).map_err(der_err)
-                })
+            req_policy: self.policy,
+            nonce: nonce_bytes
+                .as_ref()
+                .map(|b| UintRef::new(b).map_err(der_err))
                 .transpose()?,
-            cert_req: if self.cert_req {
-                Some(true)
-            } else {
-                None
-            },
+            cert_req: if self.cert_req { Some(true) } else { None },
             extensions: None,
         };
         req.to_der().map_err(der_err)

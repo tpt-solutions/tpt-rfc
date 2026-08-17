@@ -14,9 +14,10 @@ use crate::message::{
 use crate::transforms::SaPayload;
 use crate::types::{
     flags, AuthMethod, CertEncoding, DhGroup, EncrId, ExchangeType, IdType, IntegId, PayloadType,
-    PrfId, ProtocolId,
+    PrfId,
 };
 use ed25519_compact::{KeyPair, PublicKey, Signature};
+use subtle::ConstantTimeEq;
 
 /// Negotiated algorithm identifiers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -372,7 +373,7 @@ impl IkeInitiator {
                 let idd = self.params.prf().prf_plus(sk_p, id_bytes, id_bytes.len());
                 let mut msg = base.to_vec();
                 msg.extend_from_slice(&idd);
-                let kp = KeyPair::from_secret_key_slice(own_secret)
+                let kp = KeyPair::from_slice(own_secret)
                     .map_err(|e| Error::Ed25519(e.to_string()))?;
                 let sig: Signature = kp.sk.sign(&msg, None);
                 Ok(sig.to_vec())
@@ -750,7 +751,7 @@ impl IkeResponder {
                 let idd = self.params.prf().prf_plus(sk_p, id_bytes, id_bytes.len());
                 let mut msg = base.to_vec();
                 msg.extend_from_slice(&idd);
-                let kp = KeyPair::from_secret_key_slice(own_secret)
+                let kp = KeyPair::from_slice(own_secret)
                     .map_err(|e| Error::Ed25519(e.to_string()))?;
                 let sig: Signature = kp.sk.sign(&msg, None);
                 Ok(sig.to_vec())
@@ -861,7 +862,7 @@ impl IkeSa {
             &sk_e,
             &sk_a,
             None,
-            salt.as_deref(),
+            Some(salt.as_slice()),
         )?;
         let msg = Message {
             header,
@@ -922,7 +923,7 @@ impl IkeSa {
             &sk_e2,
             &sk_a2,
             None,
-            salt2.as_deref(),
+            Some(salt2.as_slice()),
         )?;
         self.child_keymat = child_keymat(self.params, &self.keys.sk_d, &ni, &nr, 64);
         let msg = Message {
@@ -934,18 +935,18 @@ impl IkeSa {
     }
 
     /// Keys used to protect a message this SA sends (depends on role).
-    fn dir_keys(&self) -> (Vec<u8>, Vec<u8>, Option<Vec<u8>>) {
+    fn dir_keys(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         let encr = self.params.encr();
         if self.is_initiator {
             if encr.is_aead() {
-                (self.keys.sk_ei[4..].to_vec(), self.keys.sk_ai.clone(), Some(self.keys.sk_ei[..4].to_vec()))
+                (self.keys.sk_ei[4..].to_vec(), self.keys.sk_ai.clone(), self.keys.sk_ei[..4].to_vec())
             } else {
-                (self.keys.sk_ei.clone(), self.keys.sk_ai.clone(), None)
+                (self.keys.sk_ei.clone(), self.keys.sk_ai.clone(), Vec::new())
             }
         } else if encr.is_aead() {
-            (self.keys.sk_er[4..].to_vec(), self.keys.sk_ar.clone(), Some(self.keys.sk_er[..4].to_vec()))
+            (self.keys.sk_er[4..].to_vec(), self.keys.sk_ar.clone(), self.keys.sk_er[..4].to_vec())
         } else {
-            (self.keys.sk_er.clone(), self.keys.sk_ar.clone(), None)
+            (self.keys.sk_er.clone(), self.keys.sk_ar.clone(), Vec::new())
         }
     }
 }
@@ -957,15 +958,8 @@ impl IkeSa {
 fn verify_auth(config: &AuthConfig, expected: &[u8], received: &[u8]) -> Result<()> {
     match config {
         AuthConfig::Psk(_) => {
-            if expected.len() != received.len()
-                || bool::from(expected.as_slice().ct_eq(received))
-            {
-                // ct_eq returns true on equality; invert check
-                if bool::from(expected.as_slice().ct_eq(received)) {
-                    Ok(())
-                } else {
-                    Err(Error::IntegrityCheckFailed)
-                }
+            if expected.len() == received.len() && bool::from(expected.ct_eq(received)) {
+                Ok(())
             } else {
                 Err(Error::IntegrityCheckFailed)
             }
@@ -973,8 +967,9 @@ fn verify_auth(config: &AuthConfig, expected: &[u8], received: &[u8]) -> Result<
         AuthConfig::Ed25519 { peer_public, .. } => {
             let pk = PublicKey::from_slice(peer_public)
                 .map_err(|e| Error::Ed25519(e.to_string()))?;
-            pk.verify(expected, received)
-                .map_err(|_| Error::IntegrityCheckFailed)
+            let sig = Signature::from_slice(received)
+                .map_err(|e| Error::Ed25519(e.to_string()))?;
+            pk.verify(expected, &sig).map_err(|_| Error::IntegrityCheckFailed)
         }
     }
 }
