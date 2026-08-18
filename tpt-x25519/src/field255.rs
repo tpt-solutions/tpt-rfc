@@ -152,19 +152,31 @@ impl FieldElement {
     }
 
     pub(crate) fn sub(&self, other: &FieldElement) -> FieldElement {
-        let (raw, borrow) = sub_raw(&self.0, &other.0);
-        // If self < other (borrow == 1) we add p back; the result is then
-        // self - other + p, still a valid non-negative residue.
-        let mut added = [0u64; LIMBS];
+        // Constant-time subtraction modulo p. Compute (self + p - other),
+        // which is guaranteed to lie in [0, 2p) with no borrow (since
+        // 0 <= self, other < p implies self + p > other). A single
+        // conditional subtraction inside `reduce` then canonicalizes it to
+        // [0, p). Adding p first keeps the working value in the low limb
+        // range so the modular reduction lands correctly.
+        let mut r = [0u64; LIMBS];
         let mut carry = 0u64;
         for i in 0..LIMBS {
-            let s = raw[i] + P_LIMBS[i] + carry;
-            added[i] = s & MASK;
+            let s = self.0[i] + P_LIMBS[i] + carry;
+            r[i] = s & MASK;
             carry = s >> RADIX;
         }
-        // borrow == 1 → keep `added`; borrow == 0 → keep `raw`.
-        let result = ct_select(&added, &raw, borrow);
-        FieldElement::reduce(result)
+        let mut borrow = 0i64;
+        for i in 0..LIMBS {
+            let mut v = r[i] as i64 - other.0[i] as i64 - borrow;
+            if v < 0 {
+                v += 1i64 << RADIX;
+                borrow = 1;
+            } else {
+                borrow = 0;
+            }
+            r[i] = v as u64;
+        }
+        FieldElement::reduce(r)
     }
 
     pub(crate) fn mul(&self, other: &FieldElement) -> FieldElement {
@@ -379,6 +391,55 @@ mod tests {
             let enc = a.to_bytes();
             let b = FieldElement::from_bytes(&enc);
             assert!(a.ct_eq(&b), "from_bytes(to_bytes(f)) != f");
+        }
+    }
+
+    fn rand_fe() -> FieldElement {
+        let mut bytes = [0u8; 32];
+        getrandom::getrandom(&mut bytes).unwrap();
+        FieldElement::from_bytes(&bytes)
+    }
+
+    #[test]
+    fn random_add_sub_identity() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            assert!(x.add(&y).sub(&y).ct_eq(&x), "x+y-y != x");
+            assert!(x.sub(&y).add(&y).ct_eq(&x), "x-y+y != x");
+        }
+    }
+
+    #[test]
+    fn random_mul_associative() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            let z = rand_fe();
+            let lhs = x.mul(&y).mul(&z);
+            let rhs = x.mul(&y.mul(&z));
+            assert!(lhs.ct_eq(&rhs), "x*y*z != x*(y*z)");
+        }
+    }
+
+    #[test]
+    fn random_mul_distributive() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            let z = rand_fe();
+            let lhs = x.mul(&y.add(&z));
+            let rhs = x.mul(&y).add(&x.mul(&z));
+            assert!(lhs.ct_eq(&rhs), "x*(y+z) != x*y+x*z");
+        }
+    }
+
+    #[test]
+    fn random_mul_commutes() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            assert!(x.mul(&y).ct_eq(&y.mul(&x)), "x*y != y*x");
         }
     }
 }

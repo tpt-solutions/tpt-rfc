@@ -111,7 +111,14 @@ fn verify_rsa(
     let e = BigUint::from_bytes_be(exponent);
     let s = BigUint::from_bytes_be(sig);
     let m = s.modpow(&e, &n);
-    let em = m.to_bytes_be();
+    // PKCS#1 v1.5 `em` is exactly k bytes (modulus length), left-padded with
+    // 0x00. `BigUint::to_bytes_be` strips a leading zero, so restore it.
+    let mut em = m.to_bytes_be();
+    if em.len() < modulus.len() {
+        let mut padded = vec![0u8; modulus.len()];
+        padded[modulus.len() - em.len()..].copy_from_slice(&em);
+        em = padded;
+    }
     pkcs1_v15_check(&em, &t)
 }
 
@@ -122,6 +129,7 @@ fn verify_rsa(
 // pin required by the `x509-cert` builder. Only used to verify legacy
 // RSA-with-SHA-1 PKITS certificates.
 
+#[allow(clippy::needless_range_loop)]
 fn sha1_digest(msg: &[u8]) -> [u8; 20] {
     let mut h: [u32; 5] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
     let ml = (msg.len() as u64).wrapping_mul(8);

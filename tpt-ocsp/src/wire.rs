@@ -9,10 +9,9 @@
 //! buffers and calls `to_der()`.
 
 use const_oid::ObjectIdentifier;
+use const_oid::ObjectIdentifierRef;
 use der::{
-    asn1::{
-        AnyRef, BitStringRef, GeneralizedTime, Null, ObjectIdentifierRef, OctetStringRef, UintRef,
-    },
+    asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, OctetStringRef, UintRef},
     Choice, Enumerated, Sequence,
 };
 use spki::AlgorithmIdentifierRef;
@@ -41,7 +40,7 @@ pub(crate) enum OcspResponseStatus {
 #[derive(Clone, Sequence)]
 pub(crate) struct OcspResponse<'a> {
     pub response_status: OcspResponseStatus,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub response_bytes: Option<ResponseBytes<'a>>,
 }
 
@@ -60,19 +59,19 @@ pub(crate) struct BasicOcspResponse<'a> {
     pub tbs_response_data: AnyRef<'a>,
     pub signature_algorithm: AlgorithmIdentifierRef<'a>,
     pub signature: BitStringRef<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub certs: Option<Vec<Certificate<'a>>>,
 }
 
 /// `ResponseData` (RFC 6960 §4.2.1).
 #[derive(Clone, Sequence)]
 pub(crate) struct ResponseData<'a> {
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub version: Option<UintRef<'a>>,
     pub responder_id: ResponderId<'a>,
     pub produced_at: GeneralizedTime,
     pub responses: Vec<SingleResponse<'a>>,
-    #[asn1(context_specific = "1", constructed, optional)]
+    #[asn1(context_specific = "1", constructed = "true", optional = "true")]
     pub response_extensions: Option<Vec<Extension<'a>>>,
 }
 
@@ -91,9 +90,9 @@ pub(crate) struct SingleResponse<'a> {
     pub cert_id: CertIdWire<'a>,
     pub cert_status: CertStatus<'a>,
     pub this_update: GeneralizedTime,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub next_update: Option<GeneralizedTime>,
-    #[asn1(context_specific = "1", constructed, optional)]
+    #[asn1(context_specific = "1", constructed = "true", optional = "true")]
     pub single_extensions: Option<Vec<Extension<'a>>>,
 }
 
@@ -102,7 +101,7 @@ pub(crate) struct SingleResponse<'a> {
 pub(crate) enum CertStatus<'a> {
     #[asn1(context_specific = "0", tag_mode = "IMPLICIT")]
     Good(Null),
-    #[asn1(context_specific = "1", tag_mode = "IMPLICIT", constructed)]
+    #[asn1(context_specific = "1", tag_mode = "IMPLICIT", constructed = "true")]
     Revoked(RevokedInfo<'a>),
     #[asn1(context_specific = "2", tag_mode = "IMPLICIT")]
     Unknown(Null),
@@ -112,7 +111,7 @@ pub(crate) enum CertStatus<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct RevokedInfo<'a> {
     pub revocation_time: GeneralizedTime,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub revocation_reason: Option<CrlReason>,
 }
 
@@ -169,7 +168,7 @@ pub(crate) struct CertIdWire<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct Extension<'a> {
     pub extn_id: ObjectIdentifier,
-    #[asn1(default)]
+    #[asn1(default = "Default::default")]
     pub critical: bool,
     pub extn_value: OctetStringRef<'a>,
 }
@@ -178,19 +177,19 @@ pub(crate) struct Extension<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct OcspRequest<'a> {
     pub tbs_request: TbsRequest<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub optional_signature: Option<Signature<'a>>,
 }
 
 /// `TBSRequest` (RFC 6960 §4.1.1).
 #[derive(Clone, Sequence)]
 pub(crate) struct TbsRequest<'a> {
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub version: Option<UintRef<'a>>,
-    #[asn1(context_specific = "1", constructed, optional)]
+    #[asn1(context_specific = "1", constructed = "true", optional = "true")]
     pub requestor_name: Option<AnyRef<'a>>,
     pub request_list: Vec<Request<'a>>,
-    #[asn1(context_specific = "2", constructed, optional)]
+    #[asn1(context_specific = "2", constructed = "true", optional = "true")]
     pub request_extensions: Option<Vec<Extension<'a>>>,
 }
 
@@ -198,7 +197,7 @@ pub(crate) struct TbsRequest<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct Request<'a> {
     pub req_cert: CertIdWire<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub single_request_extensions: Option<Vec<Extension<'a>>>,
 }
 
@@ -207,6 +206,6 @@ pub(crate) struct Request<'a> {
 pub(crate) struct Signature<'a> {
     pub signature_algorithm: AlgorithmIdentifierRef<'a>,
     pub signature: BitStringRef<'a>,
-    #[asn1(context_specific = "0", constructed, optional)]
+    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub certs: Option<Vec<Certificate<'a>>>,
 }

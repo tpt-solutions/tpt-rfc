@@ -26,6 +26,7 @@ members = [
     "tpt-radius",
     "tpt-ipsec",
     "tpt-jmap",
+    "tpt-tsp",
 ]
 
 # `tpt-x25519` opts out of the parent workspace (it declares its own

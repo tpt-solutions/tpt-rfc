@@ -1,49 +1,44 @@
 [package]
 name = "tpt-tsp"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 rust-version = "1.74"
-license = "MIT OR Apache-2.0"
-authors = ["TPT Solutions <oss@tpt.example>"]
-repository = "https://github.com/tpt-solutions/tpt-rfc"
-homepage = "https://github.com/tpt-solutions/tpt-rfc"
-keywords = ["rfc3161", "timestamp", "tsp", "timestamping", "pkix"]
-categories = ["cryptography"]
-description = "Clean-room, dual-licensed RFC 3161 Time-Stamp Protocol (TSP) — client request/verification and TSA responder"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["tsp", "rfc3161", "timestamp", "pkix", "cms"]
+categories = ["cryptography", "network-programming"]
+description = "Clean-room, dual-licensed RFC 3161 Time-Stamp Protocol (TSP) — TimeStampReq/TimeStampResp client, verification, and a minimal TSA responder"
 readme = "README.md"
 
-# Self-contained workspace so the crate builds and tests independently of the
-# platform root manifest (which is regenerated separately). When folded into the
-# platform workspace, switch these back to `*.workspace = true`.
-[workspace]
-
 [lints]
-rust.unsafe_code = "warn"
-clippy.all = "warn"
+workspace = true
 
 [dependencies]
-thiserror = "1"
-# ASN.1 DER + CMS helpers (RustCrypto, MIT/Apache-2.0). Pinned to the
-# `der`/`spki`/`const-oid` 0.7 line that `x509-cert` 0.3 (builder API) and
-# `rsa` 0.9 / `ecdsa` 0.17 are built against, so the whole crate shares a
-# single, coherent `der`/`spki`/`const-oid` version. The 0.8 line splits
-# `OctetStringRef`/`ObjectIdentifierRef` to zero-lifetime types and removes
-# `AnyRef::as_bytes`, which is incompatible with this crate's 0.7-era code.
-der = { version = "0.7", features = ["derive"] }
-spki = "0.7"
-const-oid = "0.9"
+thiserror = { workspace = true }
+# ASN.1 DER + X.509 primitives (RustCrypto, MIT/Apache-2.0). Pin the SAME
+# `der`/`spki`/`const-oid`/`x509-cert` versions used by `tpt-cms` so the
+# TSTInfo-bearing CMS SignedData and the `x509-cert` types line up.
+der = { version = "0.8", features = ["derive"] }
+spki = "0.8"
+const-oid = "0.10"
 x509-cert = { version = "0.3", features = ["builder"] }
-# Cryptographic primitives for signing/verifying timestamps (all dual-licensed).
-sha2 = { version = "0.10", features = ["oid"] } # MIT/Apache-2.0
-rsa = "0.9"            # MIT/Apache-2.0
-ecdsa = { version = "0.16", features = ["spki"] } # MIT/Apache-2.0
-p256 = "0.13"          # MIT/Apache-2.0
-p384 = "0.13"          # MIT/Apache-2.0
-ed25519-compact = "2"  # MIT
+# Cryptographic primitives for signing/verifying (all dual-licensed).
+sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
+sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] } # for rsa Pkcs1v15Sign generic
+ecdsa = { version = "0.17", features = ["spki", "alloc"] } # MIT/Apache-2.0
+p256 = { version = "0.14", features = ["ecdh"] } # MIT/Apache-2.0
+p384 = { version = "0.14", features = ["ecdh"] } # MIT/Apache-2.0
+rsa = "0.9" # MIT/Apache-2.0
+ed25519-compact = "2" # MIT
+sha1 = "0.10" # MIT/Apache-2.0 (deprecated SHA-1 option, for interop only)
+rand_core = { version = "0.6", features = ["getrandom"] } # MIT/Apache-2.0 (nonce/serial)
 
 [dev-dependencies]
 hex = "0.4"
-rand_core = "0.6" # MIT/Apache-2.0 (test key generation)
+sha2 = { version = "0.11", features = ["oid"] }
+sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] }
 
 [package.metadata.docs.rs]
 all-features = true

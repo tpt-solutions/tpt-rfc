@@ -2,7 +2,7 @@
 //! multiple-signer support.
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{Any, GeneralizedTime, OctetString, OctetStringRef};
+use der::asn1::{Any, GeneralizedTime, OctetString};
 use der::{Decode, Encode, Tag, Tagged};
 use x509_cert::Certificate;
 
@@ -177,7 +177,8 @@ pub fn verify_signed_data(der: &[u8], anchors: &[Certificate]) -> Result<Verifie
             let mut got_md = false;
             for (oid, val) in &attrs {
                 if oid == oids::CONTENT_TYPE {
-                    let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+                    let ct_val: ObjectIdentifier =
+                        ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
                     if ct_val.to_string() != sd.e_content_type.to_string() {
                         return Err(CmsError::ContentTypeMismatch);
                     }
@@ -366,7 +367,7 @@ fn parse_cert_set(raw: &Option<Vec<u8>>) -> Result<Vec<Certificate>> {
     };
     let elems = wire::parse_set_elements_raw(raw)?;
     for e in elems {
-        out.push(parse_cert(e)?);
+        out.push(parse_cert(&e)?);
     }
     Ok(out)
 }
@@ -376,7 +377,7 @@ fn parse_attributes(data: &[u8]) -> Result<Vec<(String, Vec<u8>)>> {
     let elems = wire::parse_set_elements_raw(data)?;
     let mut out = Vec::new();
     for e in elems {
-        let mut c = wire::Cursor::new(e);
+        let mut c = wire::Cursor::new(&e);
         let atype = c.take()?;
         let oid = wire::oid_of(&atype)?.to_string();
         let av = c.take()?;

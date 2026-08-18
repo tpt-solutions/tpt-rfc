@@ -36,6 +36,28 @@ const P_LIMBS: [u64; LIMBS] = [
     (1u64 << 56) - 1,
 ];
 
+/// `p` represented in the full 16-limb working vector, with the `2^448` term
+/// carried in limb 8 (and limbs 9..15 zero). Used by `reduce`'s final
+/// conditional subtraction over the full vector.
+const P_LIMBS_FULL: [u64; MUL_LIMBS] = [
+    (1u64 << 56) - 1,
+    (1u64 << 56) - 1,
+    (1u64 << 56) - 1,
+    (1u64 << 56) - 1,
+    (1u64 << 56) - 2,
+    (1u64 << 56) - 1,
+    (1u64 << 56) - 1,
+    (1u64 << 56) - 1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+];
+
 /// A field element modulo `2^448 - 2^224 - 1`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct FieldElement(pub(crate) [u64; LIMBS]);
@@ -101,8 +123,10 @@ impl FieldElement {
     /// Reduce a raw radix-2^56 vector (value below `2^896`) modulo `p`.
     fn reduce(mut r: [u64; MUL_LIMBS]) -> FieldElement {
         r = normalize16(r);
-        // Five fixed folds bring any value `< 2^896` below `2^448`.
-        for _ in 0..5 {
+        // Repeatedly fold the high 2^448-multiple into the low part using
+        // `2^448 ≡ 2^224 + 1 (mod p)`. After enough folds the value is
+        // strictly below 2^448, so limbs 8..15 are zero.
+        for _ in 0..6 {
             let mut low = [0u128; MUL_LIMBS];
             let mut high = [0u128; MUL_LIMBS];
             for i in 0..LIMBS {
@@ -119,12 +143,15 @@ impl FieldElement {
             }
             r = normalize16_u128(t);
         }
-        // r < 2^448 now. Conditional subtract p.
-        let mut re = [0u64; LIMBS];
-        re.copy_from_slice(&r[0..LIMBS]);
-        let (diff, borrow) = sub_raw(&re, &P_LIMBS);
-        let re = ct_select(&re, &diff, borrow);
-        FieldElement(re)
+        // r < 2^448 now, so limbs 8..15 are zero. Conditional subtract of p
+        // over the full limb vector (mirrors field255). A single subtract is
+        // enough because r < 2^448 < 2p.
+        let (diff, borrow) = sub_raw(&r, &P_LIMBS_FULL);
+        let r = ct_select(&r, &diff, borrow);
+        // The canonical value lives in limbs 0..LIMBS (limbs 8..15 are zero).
+        let mut out = [0u64; LIMBS];
+        out.copy_from_slice(&r[0..LIMBS]);
+        FieldElement(out)
     }
 
     pub(crate) fn add(&self, other: &FieldElement) -> FieldElement {
@@ -139,21 +166,28 @@ impl FieldElement {
     }
 
     pub(crate) fn sub(&self, other: &FieldElement) -> FieldElement {
-        let (raw, borrow) = sub_raw(&self.0, &other.0);
-        let mut added = [0u64; LIMBS];
+        // Constant-time subtraction modulo p. Compute (self + p - other),
+        // which is guaranteed to lie in [0, 2p) with no borrow; a single
+        // conditional subtraction inside `reduce` canonicalizes it to [0, p).
+        let mut r = [0u64; MUL_LIMBS];
         let mut carry = 0u64;
         for i in 0..LIMBS {
-            let s = raw[i] + P_LIMBS[i] + carry;
-            added[i] = s & MASK;
+            let s = self.0[i] + P_LIMBS[i] + carry;
+            r[i] = s & MASK;
             carry = s >> RADIX;
         }
-        // Promote to the 16-limb representation used by `reduce`.
-        let mut raw16 = [0u64; MUL_LIMBS];
-        raw16[..LIMBS].copy_from_slice(&raw);
-        let mut added16 = [0u64; MUL_LIMBS];
-        added16[..LIMBS].copy_from_slice(&added);
-        let result = ct_select(&added16, &raw16, borrow);
-        FieldElement::reduce(result)
+        let mut borrow = 0i64;
+        for i in 0..LIMBS {
+            let mut v = r[i] as i64 - other.0[i] as i64 - borrow;
+            if v < 0 {
+                v += 1i64 << RADIX;
+                borrow = 1;
+            } else {
+                borrow = 0;
+            }
+            r[i] = v as u64;
+        }
+        FieldElement::reduce(r)
     }
 
     pub(crate) fn mul(&self, other: &FieldElement) -> FieldElement {
@@ -318,5 +352,54 @@ mod tests {
         });
         let inv = a.invert();
         assert!(a.mul(&inv).ct_eq(&FieldElement::ONE));
+    }
+
+    fn rand_fe() -> FieldElement {
+        let mut bytes = [0u8; 56];
+        getrandom::getrandom(&mut bytes).unwrap();
+        FieldElement::from_bytes(&bytes)
+    }
+
+    #[test]
+    fn random_add_sub_identity() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            assert!(x.add(&y).sub(&y).ct_eq(&x), "x+y-y != x");
+            assert!(x.sub(&y).add(&y).ct_eq(&x), "x-y+y != x");
+        }
+    }
+
+    #[test]
+    fn random_mul_associative() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            let z = rand_fe();
+            let lhs = x.mul(&y).mul(&z);
+            let rhs = x.mul(&y.mul(&z));
+            assert!(lhs.ct_eq(&rhs), "x*y*z != x*(y*z)");
+        }
+    }
+
+    #[test]
+    fn random_mul_distributive() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            let z = rand_fe();
+            let lhs = x.mul(&y.add(&z));
+            let rhs = x.mul(&y).add(&x.mul(&z));
+            assert!(lhs.ct_eq(&rhs), "x*(y+z) != x*y+x*z");
+        }
+    }
+
+    #[test]
+    fn random_mul_commutes() {
+        for _ in 0..200 {
+            let x = rand_fe();
+            let y = rand_fe();
+            assert!(x.mul(&y).ct_eq(&y.mul(&x)), "x*y != y*x");
+        }
     }
 }

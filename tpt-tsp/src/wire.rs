@@ -1,351 +1,249 @@
-//! ASN.1/DER wire types for RFC 3161 (TSP) and the CMS `SignedData` wrapper
-//! (RFC 5652) used to convey the `timeStampToken`.
+//! Low-level ASN.1/DER helpers and wire types for RFC 3161 TSP.
 //!
-//! All types that borrow from an input buffer use the `der` 0.8 DST `*Ref`
-//! types (`OctetString`, `ObjectIdentifier`, `BitString`, `Ia5String` are the
-//! owned forms used for struct fields; `UintRef`/`AlgorithmIdentifierRef`/
-//! `AnyRef` keep an explicit lifetime). The TSA responder builds these same
-//! types referencing short-lived scratch buffers and calls `to_der()`.
+//! Encoding uses manual TLV helpers (so the crate stays in full control of DER
+//! ordering and the exact `IMPLICIT`/`EXPLICIT` tagging the spec mandates).
+//! Decoding reuses the `der` primitives via a small [`Cursor`] abstraction and
+//! hand-written parsers for the IMPLICIT-tagged fields. The patterns mirror
+//! those used by `tpt-cms` (clean-room, no copied code).
 
 use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{AnyRef, BitString, GeneralizedTime, Ia5String, OctetString, UintRef},
-    Choice, Decode, DecodeValue, Encode, EncodeValue, FixedTag, Sequence, Tagged,
+    asn1::{Any, GeneralizedTime},
+    Decode, Encode, Tag, TagNumber, Tagged,
 };
-use spki::AlgorithmIdentifierRef;
-use x509_cert::name::Name;
 
-/// Raw SET/IMPLICIT content: the inner bytes of an `IMPLICIT [N] constructed`
-/// field (used for `signedAttrs` and `certificates`). The context tag itself is
-/// emitted by the `der` `#[asn1(context_specific = "N", constructed, optional)]`
-/// wrapper; this type only carries the *content* octets (a SET OF TLVs).
-///
-/// We tag it as a `SET` so the surrounding `context_specific` (constructed)
-/// field produces `[N] EXPLICIT SET { content }`, which is exactly what RFC
-/// 5652 requires for `signedAttrs` and the `certificates` set.
-#[derive(Clone)]
-pub(crate) struct RawContent(pub Vec<u8>);
+use crate::error::{TspError, Result};
 
-impl Tagged for RawContent {
-    const TAG: der::Tag = der::Tag::Set;
-}
-
-impl FixedTag for RawContent {
-    const TAG: der::Tag = der::Tag::Set;
-}
-
-impl EncodeValue for RawContent {
-    fn value_len(&self) -> der::Result<der::Length> {
-        der::Length::try_from(self.0.len())
-    }
-    fn encode_value(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        encoder.write(&self.0)
-    }
-}
-
-impl DecodeValue<'_> for RawContent {
-    type Error = der::Error;
-    fn decode_value<R: der::Reader<'_>>(reader: &mut R, header: der::Header) -> der::Result<Self> {
-        let bytes = reader.read_vec(header.length)?;
-        Ok(RawContent(bytes))
-    }
-}
-
-/// SET OF `T` helpers (manual, to guarantee DER sorting of the elements).
-pub(crate) fn set_tlv(items: &[Vec<u8>]) -> der::Result<Vec<u8>> {
-    let mut parts = items.to_vec();
-    parts.sort();
-    let content_len: usize = parts.iter().map(|p| p.len()).sum();
-    let len = der::Length::try_from(content_len)?;
-    let mut out = Vec::with_capacity(1 + len.to_der()?.len() + content_len);
-    out.push(0x31);
-    out.extend_from_slice(&len.to_der()?);
-    for p in &parts {
-        out.extend_from_slice(p);
-    }
-    Ok(out)
-}
-
-pub(crate) fn decode_set_elements<'a, T: der::Decode<'a>>(data: &'a [u8]) -> der::Result<Vec<T>> {
-    let mut out = Vec::new();
-    let mut rest = data;
-    while !rest.is_empty() {
-        let tlv_len = AnyRef::from_der(rest)?.value().len();
-        let elem = T::from_der(&rest[..tlv_len])
-            .map_err(|e| der::Error::new(der::ErrorKind::Failed, der::Length::ZERO))?;
-        out.push(elem);
-        rest = &rest[tlv_len..];
-    }
-    Ok(out)
-}
-
-/// `DigestAlgorithmIdentifiers` — `SET OF AlgorithmIdentifier` (RFC 5652).
-#[derive(Clone)]
-pub(crate) struct DigestAlgorithmIdentifiers<'a>(pub Vec<AlgorithmIdentifierRef<'a>>);
-
-impl<'a> Tagged for DigestAlgorithmIdentifiers<'a> {
-    const TAG: der::Tag = der::Tag::Set;
-}
-
-impl<'a> FixedTag for DigestAlgorithmIdentifiers<'a> {
-    const TAG: der::Tag = der::Tag::Set;
-}
-
-impl<'a> EncodeValue for DigestAlgorithmIdentifiers<'a> {
-    fn value_len(&self) -> der::Result<der::Length> {
-        let mut total = der::Length::ZERO;
-        for a in &self.0 {
-            total = total + a.encoded_len()?;
-        }
-        total
-    }
-    fn encode_value(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        for a in &self.0 {
-            a.encode(encoder)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'a> DecodeValue<'a> for DigestAlgorithmIdentifiers<'a> {
-    type Error = der::Error;
-    fn decode_value<R: der::Reader<'a>>(reader: &mut R, _header: der::Header) -> der::Result<Self> {
-        let mut v = Vec::new();
-        while !reader.is_finished() {
-            v.push(AlgorithmIdentifierRef::decode(reader)?);
-        }
-        Ok(DigestAlgorithmIdentifiers(v))
-    }
-}
-
-/// `SignerInfos` — `SET OF SignerInfo` (RFC 5652).
-#[derive(Clone)]
-pub(crate) struct SignerInfos<'a>(pub Vec<SignerInfo<'a>>);
-
-impl<'a> Tagged for SignerInfos<'a> {
-    const TAG: der::Tag = der::Tag::Set;
-}
-
-impl<'a> FixedTag for SignerInfos<'a> {
-    const TAG: der::Tag = der::Tag::Set;
-}
-
-impl<'a> EncodeValue for SignerInfos<'a> {
-    fn value_len(&self) -> der::Result<der::Length> {
-        let mut total = der::Length::ZERO;
-        for s in &self.0 {
-            total = total + s.encoded_len()?;
-        }
-        total
-    }
-    fn encode_value(&self, encoder: &mut impl der::Writer) -> der::Result<()> {
-        for s in &self.0 {
-            s.encode(encoder)?;
-        }
-        Ok(())
-    }
-}
-
-impl<'a> DecodeValue<'a> for SignerInfos<'a> {
-    type Error = der::Error;
-    fn decode_value<R: der::Reader<'a>>(reader: &mut R, _header: der::Header) -> der::Result<Self> {
-        let mut v = Vec::new();
-        while !reader.is_finished() {
-            v.push(SignerInfo::decode(reader)?);
-        }
-        Ok(SignerInfos(v))
-    }
-}
-
-/// `MessageImprint` (RFC 3161 §2.4.1).
-#[derive(Clone, Sequence)]
-pub(crate) struct MessageImprint<'a> {
-    pub hash_algorithm: AlgorithmIdentifierRef<'a>,
-    pub hashed_message: OctetString,
-}
-
-/// `TimeStampReq` (RFC 3161 §2.4.1).
-#[derive(Clone, Sequence)]
-pub(crate) struct TimeStampReq<'a> {
-    pub version: UintRef<'a>,
-    pub message_imprint: MessageImprint<'a>,
-    #[asn1(optional = "true")]
-    pub req_policy: Option<ObjectIdentifier>,
-    #[asn1(optional = "true")]
-    pub nonce: Option<UintRef<'a>>,
-    #[asn1(optional = "true")]
-    pub cert_req: Option<bool>,
-    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub extensions: Option<AnyRef<'a>>,
-}
-
-impl<'a> TimeStampReq<'a> {
-    pub fn cert_req_bool(&self) -> bool {
-        self.cert_req.unwrap_or(false)
-    }
-}
-
-/// `PKIStatusInfo` (RFC 3161 §2.4.2).
-#[derive(Clone, Sequence)]
-pub(crate) struct PkiStatusInfo<'a> {
-    pub status: UintRef<'a>,
-    #[asn1(optional = "true")]
-    pub status_string: Option<AnyRef<'a>>,
-    #[asn1(optional = "true")]
-    pub fail_info: Option<BitString>,
-}
-
-/// `TimeStampResp` (RFC 3161 §2.4.2).
-#[derive(Clone, Sequence)]
-pub(crate) struct TimeStampResp<'a> {
-    pub status: PkiStatusInfo<'a>,
-    #[asn1(optional = "true")]
-    pub token: Option<ContentInfo<'a>>,
-}
-
-/// `TSTInfo` (RFC 3161 §2.4.3).
-#[derive(Clone, Sequence)]
-pub(crate) struct TstInfo<'a> {
-    pub version: UintRef<'a>,
-    pub policy: ObjectIdentifier,
-    pub message_imprint: MessageImprint<'a>,
-    pub serial_number: UintRef<'a>,
-    pub gen_time: GeneralizedTime,
-    #[asn1(optional = "true")]
-    pub accuracy: Option<Accuracy<'a>>,
-    #[asn1(optional = "true")]
-    pub ordering: Option<bool>,
-    #[asn1(optional = "true")]
-    pub nonce: Option<UintRef<'a>>,
-    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub tsa: Option<GeneralName<'a>>,
-    #[asn1(context_specific = "1", constructed = "true", optional = "true")]
-    pub extensions: Option<AnyRef<'a>>,
-}
-
-/// `Accuracy` (RFC 3161 §2.4.3).
-#[derive(Clone, Sequence)]
-pub(crate) struct Accuracy<'a> {
-    #[asn1(optional = "true")]
-    pub seconds: Option<UintRef<'a>>,
-    #[asn1(context_specific = "0", optional = "true")]
-    pub millis: Option<UintRef<'a>>,
-    #[asn1(context_specific = "1", optional = "true")]
-    pub micros: Option<UintRef<'a>>,
-}
-
-/// `GeneralName` (subset used by `tsa`, RFC 3161 §2.4.3 / RFC 5280).
-#[derive(Clone, Choice)]
-pub(crate) enum GeneralName<'a> {
-    #[asn1(context_specific = "2", tag_mode = "IMPLICIT")]
-    DnsName(Ia5String),
-    #[asn1(context_specific = "4", tag_mode = "EXPLICIT", constructed = "true")]
-    DirectoryName(Name),
+/// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
+pub(crate) fn octet_value_param(param: Option<&der::asn1::AnyRef<'_>>, what: &str) -> Result<Vec<u8>> {
+    let p = param.ok_or_else(|| TspError::Crypto(format!("missing {what}")))?;
+    Ok(p.value().to_vec())
 }
 
 // ---------------------------------------------------------------------------
-// CMS (RFC 5652) structures.
+// Manual TLV builders
 // ---------------------------------------------------------------------------
 
-/// `ContentInfo` — `{ contentType, content [0] EXPLICIT ANY }`.
-#[derive(Clone, Sequence)]
-pub(crate) struct ContentInfo<'a> {
-    pub content_type: ObjectIdentifier,
-    #[asn1(context_specific = "0", constructed = "true")]
-    pub content: AnyRef<'a>,
-}
-
-impl<'a> ContentInfo<'a> {
-    /// Decode the inner `content` as `T` (e.g. `SignedData`).
-    pub fn content_as<T: der::Decode<'a>>(&self) -> der::Result<T> {
-        T::from_der(self.content.value())
-    }
-}
-
-/// `EncapsulatedContentInfo` — `{ eContentType, eContent [0] EXPLICIT OCTET STRING }`.
-#[derive(Clone, Sequence)]
-pub(crate) struct EncapsulatedContentInfo<'a> {
-    pub e_content_type: ObjectIdentifier,
-    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub e_content: Option<AnyRef<'a>>,
-}
-
-impl<'a> EncapsulatedContentInfo<'a> {
-    /// The raw encapsulated content bytes (e.g. the DER-encoded `TSTInfo`).
-    pub fn content_bytes(&self) -> der::Result<Vec<u8>> {
-        match &self.e_content {
-            Some(any) => {
-                let os = OctetString::from_der(any.value())?;
-                Ok(os.as_bytes().to_vec())
-            }
-            None => Ok(Vec::new()),
-        }
-    }
-}
-
-/// `SignedData` (RFC 5652 §5.1).
-#[derive(Clone, Sequence)]
-pub(crate) struct SignedData<'a> {
-    pub version: UintRef<'a>,
-    pub digest_algorithms: DigestAlgorithmIdentifiers<'a>,
-    pub encap_content_info: EncapsulatedContentInfo<'a>,
-    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub certificates: Option<RawContent>,
-    #[asn1(context_specific = "1", constructed = "true", optional = "true")]
-    pub crls: Option<AnyRef<'a>>,
-    pub signer_infos: SignerInfos<'a>,
-}
-
-/// `IssuerAndSerialNumber` (RFC 5652 §10.2.4).
-#[derive(Clone, Sequence)]
-pub(crate) struct IssuerAndSerialNumber<'a> {
-    pub issuer: Name,
-    pub serial_number: UintRef<'a>,
-}
-
-/// `SignerInfo` (RFC 5652 §5.3).
-#[derive(Clone, Sequence)]
-pub(crate) struct SignerInfo<'a> {
-    pub version: UintRef<'a>,
-    pub sid: IssuerAndSerialNumber<'a>,
-    pub digest_algorithm: AlgorithmIdentifierRef<'a>,
-    #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub signed_attrs: Option<RawContent>,
-    pub signature_algorithm: AlgorithmIdentifierRef<'a>,
-    pub signature: OctetString,
-}
-
-/// Reconstruct the DER `SET` TLV from `IMPLICIT [0]` signed-attributes content.
-pub(crate) fn signed_attrs_set_tlv(content: &[u8]) -> Vec<u8> {
-    let mut out = vec![0x31];
-    out.extend_from_slice(
-        &der::Length::try_from(content.len())
-            .unwrap()
-            .to_der()
-            .unwrap(),
-    );
+/// Encode a definite-length TLV with a single-byte tag.
+pub(crate) fn tlv(tag: u8, content: &[u8]) -> Vec<u8> {
+    let mut out = vec![tag];
+    out.extend_from_slice(&enc_len(content.len()));
     out.extend_from_slice(content);
     out
 }
 
-/// A single CMS `Attribute` `{ attrType, attrValues SET OF value }`, decoded
-/// when verifying the signed attributes of a token.
-#[derive(Clone, Sequence)]
-pub(crate) struct Attribute<'a> {
-    pub attr_type: ObjectIdentifier,
-    pub attr_values: der::asn1::SetOfVec<AnyRef<'a>>,
+/// Encode the DER length octets for `n` (definite length, short/long form).
+pub(crate) fn enc_len(n: usize) -> Vec<u8> {
+    if n < 0x80 {
+        vec![n as u8]
+    } else {
+        let mut bytes = (n as u128).to_be_bytes().to_vec();
+        while bytes.len() > 1 && bytes[0] == 0 {
+            bytes.remove(0);
+        }
+        let mut out = vec![0x80 | (bytes.len() as u8)];
+        out.extend_from_slice(&bytes);
+        out
+    }
 }
 
-/// Build a CMS `Attribute` `{ attrType, attrValues SET OF value }` from a single
-/// value TLV.
-pub(crate) fn cms_attribute(attr_type: &ObjectIdentifier, value_tlv: &[u8]) -> der::Result<Vec<u8>> {
-    let set = set_tlv(&[value_tlv.to_vec()])?;
-    let mut attr = Vec::new();
-    attr.extend_from_slice(&attr_type.to_der()?);
-    attr.extend_from_slice(&set);
+/// `[n] EXPLICIT` (or IMPLICIT-constructed) context tag: `0xA0 | n`.
+pub(crate) fn ctx(n: u8, content: &[u8]) -> Vec<u8> {
+    tlv(0xA0 | (n & 0x1F), content)
+}
+
+/// `[n] IMPLICIT OCTET STRING` (primitive context tag): `0x80 | n`.
+pub(crate) fn implicit_octet_string(n: u8, content: &[u8]) -> Vec<u8> {
+    tlv(0x80 | (n & 0x1F), content)
+}
+
+pub(crate) fn integer_be(bytes: &[u8]) -> Vec<u8> {
+    // Minimal big-endian encoding with the DER integer sign rule.
+    let mut v = bytes.to_vec();
+    while v.len() > 1 && v[0] == 0 {
+        v.remove(0);
+    }
+    if let Some(&first) = v.first() {
+        if first & 0x80 != 0 {
+            v.insert(0, 0x00);
+        }
+    }
+    tlv(0x02, &v)
+}
+
+pub(crate) fn integer_u64(v: u64) -> Vec<u8> {
+    integer_be(&v.to_be_bytes())
+}
+
+/// Return the value bytes of an INTEGER `any` (its raw contents).
+pub(crate) fn integer_value(any: &Any) -> Result<Vec<u8>> {
+    Ok(any.value().to_vec())
+}
+
+pub(crate) fn octet_string(data: &[u8]) -> Vec<u8> {
+    tlv(0x04, data)
+}
+
+pub(crate) fn bit_string(data: &[u8]) -> Vec<u8> {
+    let mut content = vec![0x00];
+    content.extend_from_slice(data);
+    tlv(0x03, &content)
+}
+
+pub(crate) fn oid_der(oid: &ObjectIdentifier) -> Vec<u8> {
+    oid.to_der().expect("oid der")
+}
+
+/// Build an `AlgorithmIdentifier` SEQUENCE `{ OID, [params] }`.
+pub(crate) fn algorithm_identifier(oid: &ObjectIdentifier, params: Option<&[u8]>) -> Vec<u8> {
+    let mut parts = vec![oid_der(oid)];
+    if let Some(p) = params {
+        parts.push(p.to_vec());
+    }
+    sequence(&parts)
+}
+
+pub(crate) fn sequence(parts: &[Vec<u8>]) -> Vec<u8> {
+    let content: Vec<u8> = parts.iter().flatten().cloned().collect();
+    tlv(0x30, &content)
+}
+
+/// Build a `SET OF` TLV, with elements DER-sorted (canonical order).
+pub(crate) fn set_of(parts: &[Vec<u8>]) -> Vec<u8> {
+    let mut sorted = parts.to_vec();
+    sorted.sort();
+    let content: Vec<u8> = sorted.iter().flatten().cloned().collect();
+    tlv(0x31, &content)
+}
+
+/// Build a CMS `Attribute` SEQUENCE `{ attrType, attrValues SET OF value }`.
+pub(crate) fn attribute(attr_oid: &ObjectIdentifier, value: &[u8]) -> Vec<u8> {
+    sequence(&[oid_der(attr_oid), tlv(0x31, value)])
+}
+
+/// Re-wrap SET content with an explicit `SET` (0x31) tag + length.
+pub(crate) fn signed_attrs_tlv(content: &[u8]) -> Vec<u8> {
+    tlv(0x31, content)
+}
+
+/// GeneralizedTime DER (used for `genTime` and the optional `signingTime`).
+pub(crate) fn generalized_time(t: der::DateTime) -> Vec<u8> {
+    let gt = GeneralizedTime::from(t).to_der().expect("generalized time der");
+    gt
+}
+
+// ---------------------------------------------------------------------------
+// Tag helpers for manual decoding
+// ---------------------------------------------------------------------------
+
+/// Context-specific, constructed tag `[n]` (EXPLICIT wrapper / IMPLICIT SET).
+pub(crate) fn ctx_tag(n: u8) -> Tag {
+    Tag::ContextSpecific {
+        constructed: true,
+        number: TagNumber(n as u32),
+    }
+}
+
+/// Context-specific, primitive tag `[n]` (IMPLICIT OCTET STRING).
+pub(crate) fn ctx_tag_prim(n: u8) -> Tag {
+    Tag::ContextSpecific {
+        constructed: false,
+        number: TagNumber(n as u32),
+    }
+}
+
+/// Construct a `TspError::Asn1` for an unexpected tag.
+pub(crate) fn unexpected_tag(actual: Tag, expected: Tag) -> TspError {
+    TspError::Asn1(der::Error::new(
+        der::ErrorKind::TagUnexpected {
+            expected: Some(expected),
+            actual,
+        },
+        der::Length::ZERO,
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// DER cursor for manual parsing
+// ---------------------------------------------------------------------------
+
+/// A cursor over a DER byte slice that yields one TLV at a time (as owned `Any`).
+pub(crate) struct Cursor<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Cursor<'a> {
+    pub fn new(data: &'a [u8]) -> Self {
+        Cursor { data }
+    }
+
+    /// Take the next TLV, advancing the cursor past it.
+    pub fn take(&mut self) -> Result<Any> {
+        let a = Any::from_der(self.data).map_err(TspError::Asn1)?;
+        let full = a.to_der().map_err(TspError::Asn1)?;
+        self.data = &self.data[full.len()..];
+        Ok(a)
+    }
+
+    /// Peek at the next tag without consuming it.
+    pub fn peek_tag(&self) -> Option<Tag> {
+        Any::from_der(self.data).ok().map(|a| a.tag())
+    }
+
+    pub fn at_end(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    pub fn remaining(&self) -> &'a [u8] {
+        self.data
+    }
+}
+
+pub(crate) fn ensure_tag(actual: Tag, expected: Tag) -> Result<()> {
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(unexpected_tag(actual, expected))
+    }
+}
+
+/// Decode the OID carried by `any` (whose tag must be OBJECT IDENTIFIER).
+pub(crate) fn oid_of(any: &Any) -> Result<ObjectIdentifier> {
+    ObjectIdentifier::from_der(&any.to_der().map_err(TspError::Asn1)?).map_err(TspError::Asn1)
+}
+
+/// Decode the `AlgorithmIdentifier` carried by `any` (owned form).
+pub(crate) fn algid_of(any: &Any) -> Result<spki::AlgorithmIdentifierOwned> {
+    spki::AlgorithmIdentifierOwned::from_der(any.value()).map_err(TspError::Asn1)
+}
+
+/// Return the OCTET STRING value bytes of `any` (which is an OCTET STRING TLV).
+pub(crate) fn octet_value(any: &Any) -> Result<Vec<u8>> {
+    Ok(any.value().to_vec())
+}
+
+/// Decode a `SET OF` from a cursor, returning each element's full DER.
+pub(crate) fn take_set_of_raw(c: &mut Cursor<'_>) -> Result<Vec<Vec<u8>>> {
+    let set = c.take()?;
+    ensure_tag(set.tag(), Tag::Set)?;
+    let mut inner = Cursor::new(set.value());
     let mut out = Vec::new();
-    out.push(0x30);
-    out.extend_from_slice(&der::Length::try_from(attr.len())?.to_der()?);
-    out.extend_from_slice(&attr);
+    while !inner.at_end() {
+        let a = inner.take()?;
+        out.push(a.to_der().map_err(TspError::Asn1)?);
+    }
+    Ok(out)
+}
+
+/// Parse the elements of a `SET`/`SET OF` whose DER is in `data`.
+pub(crate) fn parse_set_elements_raw(data: &[u8]) -> Result<Vec<Vec<u8>>> {
+    let set = Any::from_der(data).map_err(TspError::Asn1)?;
+    ensure_tag(set.tag(), Tag::Set)?;
+    let mut inner = Cursor::new(set.value());
+    let mut out = Vec::new();
+    while !inner.at_end() {
+        let a = inner.take()?;
+        out.push(a.to_der().map_err(TspError::Asn1)?);
+    }
     Ok(out)
 }

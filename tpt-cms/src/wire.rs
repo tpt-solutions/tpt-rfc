@@ -8,8 +8,8 @@
 
 use const_oid::ObjectIdentifier;
 use der::{
-    asn1::{Any, UintRef},
-    Decode, Encode, Length, SliceReader, Tag, TagNumber, Tagged,
+    asn1::Any,
+    Decode, Encode, Length, Tag, TagNumber, Tagged,
 };
 use spki::AlgorithmIdentifierRef;
 
@@ -204,8 +204,11 @@ pub(crate) fn oid_of(any: &Any) -> Result<ObjectIdentifier> {
 }
 
 /// Decode the `AlgorithmIdentifier` carried by `any`.
+///
+/// Parses directly from `any`'s raw bytes so the returned reference borrows the
+/// caller-provided `any` (rather than a temporary re-encoding of it).
 pub(crate) fn algid_of(any: &Any) -> Result<AlgorithmIdentifierRef<'_>> {
-    AlgorithmIdentifierRef::from_der(&any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
+    AlgorithmIdentifierRef::from_der(any.as_bytes()).map_err(CmsError::Asn1)
 }
 
 /// Return the OCTET STRING value bytes of `any` (which is an OCTET STRING TLV).
@@ -239,7 +242,7 @@ pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<V
     let mut out = Vec::new();
     while !inner.at_end() {
         let a = inner.take()?;
-        out.push(T::from_der(&a.to_der().map_err(CmsError::Asn1)?)?);
+        out.push(T::from_der(&a.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)?);
     }
     Ok(out)
 }

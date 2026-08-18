@@ -7,6 +7,7 @@ use const_oid::ObjectIdentifier;
 use der::{asn1::AnyRef, Decode};
 use ecdsa::signature::hazmat::PrehashVerifier;
 use sha1::{Digest as _, Sha1};
+use sha2::{Sha256, Sha384, Sha512};
 use spki::SubjectPublicKeyInfoRef;
 
 use crate::error::{OcspError, OcspResult};

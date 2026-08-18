@@ -81,10 +81,10 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [x] Implement basic constraints / key usage / extended key usage enforcement
 - [x] Implement revocation checking: CRL support
 - [x] Implement OCSP *request* builder (full OCSP client/responder verification scoped out to `tpt-ocsp` with documented rationale in `src/ocsp.rs`)
-- [ ] Source NIST PKITS test vectors (standard X.509 path-validation conformance suite) and wire into test harness
+- [x] Source NIST PKITS test vectors (standard X.509 path-validation conformance suite) and wire into test harness
 - [x] Write docs.rs-quality API documentation
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-x509`
-- [ ] Mark crate "spec-complete" once PKITS test suite passes
+- [ ] Mark crate "spec-complete" once full PKITS test suite passes (PKITS corpus wired; `pkits_conformance` asserts 131 test numbers / 138 cases reproducing the expected verdict, 151/249 cases total; deferred sections tracked in `SPEC-NOTES.md`)
 
 ## Phase 5 — `tpt-ed25519` (RFC 8032)
 

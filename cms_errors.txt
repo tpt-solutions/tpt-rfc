@@ -1,0 +1,17 @@
+
+error[E0277]: the trait bound `Sha256: sha2::Digest` is not satisfied
+error[E0277]: the trait bound `Sha256: sha2::digest::DynDigest` is not satisfied
+error[E0277]: the trait bound `OsRng: p256::elliptic_curve::rand_core::CryptoRng` is not satisfied
+error[E0277]: the trait bound `&p256::elliptic_curve::SecretKey<NistP256>: Borrow<NonZeroScalar<_>>` is not satisfied
+error[E0277]: the trait bound `&p256::elliptic_curve::SecretKey<NistP384>: Borrow<NonZeroScalar<_>>` is not satisfied
+error[E0308]: mismatched types
+error[E0277]: the trait bound `der::asn1::OctetStringRef: From<_>` is not satisfied
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::DecodeValue<'_>` is not satisfied
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::Decode<'_>` is not satisfied
+error[E0599]: the method `ok` exists for enum `std::result::Result<der::asn1::OctetStringRef, _>`, but its trait bounds were not satisfied
+error[E0277]: `?` couldn't convert the error to `CmsError`
+error[E0515]: cannot return value referencing temporary value
+error: could not compile `tpt-cms` (lib) due to 27 previous errors; 12 warnings emitted
+

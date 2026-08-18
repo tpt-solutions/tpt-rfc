@@ -36,6 +36,9 @@ pub enum OcspError {
     #[error("the response nonce did not match the request nonce")]
     NonceMismatch,
 
+    #[error("unsupported signature algorithm OID: {0}")]
+    UnsupportedSignature(String),
+
     #[error("no responder certificate matched the trusted anchors")]
     ResponderUntrusted,
 

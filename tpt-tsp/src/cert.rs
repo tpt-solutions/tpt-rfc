@@ -1,41 +1,34 @@
-//! Certificate handling for CMS: locating signer certificates, verifying
-//! certificate signatures, and building a certification chain to a trust anchor.
+//! Certificate handling for TSP: locating the TSA signer certificate, verifying
+//! its signature, and (optionally) building a chain to a supplied trust anchor.
 //!
 //! This is intentionally small — full RFC 5280 path validation (policies, name
-//! constraints, revocation, etc.) is the job of `tpt-x509`. Here we only need
-//! enough to (a) bind a `SignerInfo` to a certificate in the `certificates`
-//! set and (b) optionally prove that certificate chains to a provided trust
-//! anchor.
+//! constraints, revocation, …) is the job of `tpt-x509`. Here we only need
+//! enough to bind a `SignerInfo` to a certificate and optionally prove it
+//! chains to a trust anchor. Patterns mirror `tpt-cms`'s `cert.rs`.
 
 use std::collections::HashSet;
 
-use der::asn1::OctetStringRef;
 use der::{Decode, Encode};
 use x509_cert::Certificate;
 
 use crate::crypto::{public_key_from_spki, sig_alg_hash, verify_signature, PublicKey};
-use crate::error::{CmsError, Result};
+use crate::error::{TspError, Result};
 use crate::oids;
+use crate::wire;
 
 /// Parse a DER-encoded X.509 certificate.
 pub(crate) fn parse_cert(der: &[u8]) -> Result<Certificate> {
-    Certificate::from_der(der).map_err(CmsError::Asn1)
+    Certificate::from_der(der).map_err(TspError::Asn1)
 }
 
 /// DER encoding of a certificate's `issuer` `Name`.
 pub(crate) fn cert_issuer_der(cert: &Certificate) -> Vec<u8> {
-    cert.tbs_certificate()
-        .issuer()
-        .to_der()
-        .expect("issuer der")
+    cert.tbs_certificate().issuer().to_der().expect("issuer der")
 }
 
 /// DER encoding of a certificate's `subject` `Name`.
 pub(crate) fn subject_der(cert: &Certificate) -> Vec<u8> {
-    cert.tbs_certificate()
-        .subject()
-        .to_der()
-        .expect("subject der")
+    cert.tbs_certificate().subject().to_der().expect("subject der")
 }
 
 /// Raw value bytes of a certificate's `serialNumber`.
@@ -48,7 +41,7 @@ pub(crate) fn tbs_der(cert: &Certificate) -> Vec<u8> {
     cert.tbs_certificate().to_der().expect("tbs der")
 }
 
-/// True when `issuer` == `subject` (self-issued / self-signed by DN).
+/// True when `issuer` == `subject` (self-issued).
 pub(crate) fn is_self_signed(cert: &Certificate) -> bool {
     cert_issuer_der(cert) == subject_der(cert)
 }
@@ -81,12 +74,25 @@ fn ski_extension(cert: &Certificate) -> Option<Vec<u8>> {
         if ext.extn_id.to_string() == oids::SUBJECT_KEY_IDENTIFIER {
             // extn_value is an OCTET STRING whose content is the DER of the
             // SubjectKeyIdentifier (itself an OCTET STRING).
-            let inner = OctetStringRef::from_der(ext.extn_value.as_bytes())
-                .map_err(CmsError::Asn1)?;
+            let outer = der::asn1::OctetString::from_der(ext.extn_value.as_bytes()).ok()?;
+            let inner = der::asn1::OctetString::from_der(outer.as_bytes()).ok()?;
             return Some(inner.as_bytes().to_vec());
         }
     }
     None
+}
+
+/// Parse the `certificates` `IMPLICIT [0]` set into individual certificates.
+pub(crate) fn parse_cert_set(raw: &Option<Vec<u8>>) -> Result<Vec<Certificate>> {
+    let mut out = Vec::new();
+    let Some(raw) = raw else {
+        return Ok(out);
+    };
+    let elems = wire::parse_set_elements_raw(raw)?;
+    for e in elems {
+        out.push(parse_cert(&e)?);
+    }
+    Ok(out)
 }
 
 /// Verify `cert`'s signature using the public key of its issuer `issuer_pub`.
@@ -102,16 +108,14 @@ pub(crate) fn verify_cert_signature(cert: &Certificate, issuer_pub: &PublicKey) 
     }
 }
 
-/// Build/validate `ee`'s chain to one of `anchors`, optionally using
-/// `intermediates`. Returns `Ok(())` when a trusted, signature-valid chain is
-/// found.
+/// Build/validate `ee`'s chain to one of `anchors`, using `intermediates`.
 pub(crate) fn verify_chain(
     ee: &Certificate,
     intermediates: &[Certificate],
     anchors: &[Certificate],
 ) -> Result<()> {
     if anchors.is_empty() {
-        return Err(CmsError::CertChain("no trust anchors supplied".into()));
+        return Err(TspError::CertChain("no trust anchors supplied".into()));
     }
 
     let mut current = ee.clone();
@@ -133,13 +137,11 @@ pub(crate) fn verify_chain(
 
         let key = (cert_issuer_der(&current), cert_serial_bytes(&current));
         if !visited.insert(key) {
-            return Err(CmsError::CertChain(
-                "certificate chain loop detected".into(),
-            ));
+            return Err(TspError::CertChain("certificate chain loop detected".into()));
         }
         current = issuer.clone();
     }
-    Err(CmsError::CertChain("certificate chain too long".into()))
+    Err(TspError::CertChain("certificate chain too long".into()))
 }
 
 fn find_issuer<'a>(
@@ -158,18 +160,11 @@ fn find_issuer<'a>(
             return Ok(i);
         }
     }
-    Err(CmsError::CertChain(format!(
+    Err(TspError::CertChain(format!(
         "no issuer certificate found for {}",
         cert_issuer_der(cert)
             .iter()
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     )))
-}
-
-/// The subject's `SubjectPublicKeyInfo` as required by signers.
-pub(crate) fn subject_public_key_info(
-    cert: &Certificate,
-) -> spki::SubjectPublicKeyInfo<der::asn1::Any, der::asn1::BitString> {
-    cert.tbs_certificate().subject_public_key_info().clone()
 }

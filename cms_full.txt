@@ -1,0 +1,604 @@
+   Compiling tpt-cms v0.1.0 (C:\Programming\2 WIP\tpt-rfc\tpt-cms)
+warning: unused import: `OctetStringRef`
+ --> tpt-cms\src\signed_data.rs:5:52
+  |
+5 | use der::asn1::{Any, GeneralizedTime, OctetString, OctetStringRef};
+  |                                                    ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `BlockDecryptMut`
+   --> tpt-cms\src\crypto.rs:104:27
+    |
+104 |         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+    |                           ^^^^^^^^^^^^^^^
+
+warning: unused import: `Decryptor`
+   --> tpt-cms\src\crypto.rs:106:19
+    |
+106 |         use cbc::{Decryptor, Encryptor};
+    |                   ^^^^^^^^^
+
+warning: unused import: `BlockEncryptMut`
+   --> tpt-cms\src\crypto.rs:124:44
+    |
+124 |         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+    |                                            ^^^^^^^^^^^^^^^
+
+warning: unused import: `Encryptor`
+   --> tpt-cms\src\crypto.rs:126:30
+    |
+126 |         use cbc::{Decryptor, Encryptor};
+    |                              ^^^^^^^^^
+
+warning: unused import: `Pkcs1v15Encrypt`
+   --> tpt-cms\src\crypto.rs:382:21
+    |
+382 | use rsa::pkcs1v15::{Pkcs1v15Encrypt, Pkcs1v15Sign};
+    |                     ^^^^^^^^^^^^^^^
+
+warning: unused import: `Oaep`
+   --> tpt-cms\src\crypto.rs:384:11
+    |
+384 | use rsa::{Oaep, RsaPrivateKey, RsaPublicKey};
+    |           ^^^^
+
+warning: unused imports: `Length`, `SliceReader`, and `UintRef`
+  --> tpt-cms\src\wire.rs:11:17
+   |
+11 |     asn1::{Any, UintRef},
+   |                 ^^^^^^^
+12 |     Decode, Encode, Length, SliceReader, Tag, TagNumber, Tagged,
+   |                     ^^^^^^  ^^^^^^^^^^^
+
+error[E0277]: the trait bound `Sha256: sha2::Digest` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:173:39
+    |
+173 |             .encrypt(rng, Oaep::new::<sha2::Sha256>(), cek)
+    |                                       ^^^^^^^^^^^^ the trait `sha2::digest::HashMarker` is not implemented for `Sha256`
+    |
+note: there are multiple different versions of crate `digest` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\digest.rs:8:1
+    |
+  8 | pub trait HashMarker {}
+    | ^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.11.3\src\digest.rs:10:1
+    |
+ 10 | pub trait HashMarker {}
+    | -------------------- this is the found trait
+    = help: you can use `cargo tree` to explore your dependency tree
+    = help: the following other types implement trait `sha2::digest::HashMarker`:
+              CoreWrapper<T>
+              CtVariableCoreWrapper<T, OutSize, O>
+              RtVariableCoreWrapper<T>
+              sha2::Sha256VarCore
+              sha2::Sha512VarCore
+    = note: there are multiple different versions of crate `sha2` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `Sha256` to implement `sha2::Digest`
+note: required by a bound in `Oaep::new`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rsa-0.9.10\src\oaep.rs:69:29
+    |
+ 69 |     pub fn new<T: 'static + Digest + DynDigest + Send + Sync>() -> Self {
+    |                             ^^^^^^ required by this bound in `Oaep::new`
+
+error[E0277]: the trait bound `Sha256: sha2::digest::DynDigest` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:173:39
+    |
+173 |             .encrypt(rng, Oaep::new::<sha2::Sha256>(), cek)
+    |                                       ^^^^^^^^^^^^ the trait `sha2::digest::FixedOutputReset` is not implemented for `Sha256`
+    |
+note: there are multiple different versions of crate `digest` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\lib.rs:107:1
+    |
+107 | pub trait FixedOutputReset: FixedOutput + Reset {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.11.3\src\lib.rs:110:1
+    |
+110 | pub trait FixedOutputReset: FixedOutput + Reset {
+    | ----------------------------------------------- this is the found trait
+    = help: you can use `cargo tree` to explore your dependency tree
+help: the trait `sha2::digest::FixedOutputReset` is implemented for `CoreWrapper<T>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\wrapper.rs:176:1
+    |
+176 | / impl<T> FixedOutputReset for CoreWrapper<T>
+177 | | where
+178 | |     T: FixedOutputCore + Reset,
+179 | |     T::BlockSize: IsLess<U256>,
+180 | |     Le<T::BlockSize, U256>: NonZero,
+    | |____________________________________^
+    = note: required for `Sha256` to implement `sha2::digest::DynDigest`
+note: required by a bound in `Oaep::new`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rsa-0.9.10\src\oaep.rs:69:38
+    |
+ 69 |     pub fn new<T: 'static + Digest + DynDigest + Send + Sync>() -> Self {
+    |                                      ^^^^^^^^^ required by this bound in `Oaep::new`
+
+error[E0277]: the trait bound `Sha256: sha2::Digest` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:196:33
+    |
+196 |         key.decrypt(Oaep::new::<sha2::Sha256>(), &kt.encrypted_key)
+    |                                 ^^^^^^^^^^^^ the trait `sha2::digest::HashMarker` is not implemented for `Sha256`
+    |
+note: there are multiple different versions of crate `digest` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\digest.rs:8:1
+    |
+  8 | pub trait HashMarker {}
+    | ^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.11.3\src\digest.rs:10:1
+    |
+ 10 | pub trait HashMarker {}
+    | -------------------- this is the found trait
+    = help: you can use `cargo tree` to explore your dependency tree
+    = help: the following other types implement trait `sha2::digest::HashMarker`:
+              CoreWrapper<T>
+              CtVariableCoreWrapper<T, OutSize, O>
+              RtVariableCoreWrapper<T>
+              sha2::Sha256VarCore
+              sha2::Sha512VarCore
+    = note: there are multiple different versions of crate `sha2` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `Sha256` to implement `sha2::Digest`
+note: required by a bound in `Oaep::new`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rsa-0.9.10\src\oaep.rs:69:29
+    |
+ 69 |     pub fn new<T: 'static + Digest + DynDigest + Send + Sync>() -> Self {
+    |                             ^^^^^^ required by this bound in `Oaep::new`
+
+error[E0277]: the trait bound `Sha256: sha2::digest::DynDigest` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:196:33
+    |
+196 |         key.decrypt(Oaep::new::<sha2::Sha256>(), &kt.encrypted_key)
+    |                                 ^^^^^^^^^^^^ the trait `sha2::digest::FixedOutputReset` is not implemented for `Sha256`
+    |
+note: there are multiple different versions of crate `digest` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\lib.rs:107:1
+    |
+107 | pub trait FixedOutputReset: FixedOutput + Reset {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.11.3\src\lib.rs:110:1
+    |
+110 | pub trait FixedOutputReset: FixedOutput + Reset {
+    | ----------------------------------------------- this is the found trait
+    = help: you can use `cargo tree` to explore your dependency tree
+help: the trait `sha2::digest::FixedOutputReset` is implemented for `CoreWrapper<T>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\digest-0.10.7\src\core_api\wrapper.rs:176:1
+    |
+176 | / impl<T> FixedOutputReset for CoreWrapper<T>
+177 | | where
+178 | |     T: FixedOutputCore + Reset,
+179 | |     T::BlockSize: IsLess<U256>,
+180 | |     Le<T::BlockSize, U256>: NonZero,
+    | |____________________________________^
+    = note: required for `Sha256` to implement `sha2::digest::DynDigest`
+note: required by a bound in `Oaep::new`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\rsa-0.9.10\src\oaep.rs:69:38
+    |
+ 69 |     pub fn new<T: 'static + Digest + DynDigest + Send + Sync>() -> Self {
+    |                                      ^^^^^^^^^ required by this bound in `Oaep::new`
+
+warning: use of deprecated associated function `p256::elliptic_curve::ecdh::EphemeralSecret::<C>::random`: use the `Generate` trait instead
+   --> tpt-cms\src\enveloped_data.rs:234:48
+    |
+234 |         let eph = p256::ecdh::EphemeralSecret::random(rng);
+    |                                                ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+error[E0277]: the trait bound `OsRng: p256::elliptic_curve::rand_core::CryptoRng` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:234:55
+    |
+234 |         let eph = p256::ecdh::EphemeralSecret::random(rng);
+    |                   ----------------------------------- ^^^ the trait `DerefMut` is not implemented for `OsRng`
+    |                   |
+    |                   required by a bound introduced by this call
+    |
+    = note: required for `OsRng` to implement `TryRng`
+    = note: required for `OsRng` to implement `p256::elliptic_curve::rand_core::CryptoRng`
+note: required by a bound in `EphemeralSecret::<C>::random`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\elliptic-curve-0.14.1\src\ecdh.rs:138:22
+    |
+138 |     pub fn random<R: CryptoRng + ?Sized>(rng: &mut R) -> Self {
+    |                      ^^^^^^^^^ required by this bound in `EphemeralSecret::<C>::random`
+
+warning: use of deprecated associated function `p256::elliptic_curve::ecdh::EphemeralSecret::<C>::random`: use the `Generate` trait instead
+   --> tpt-cms\src\enveloped_data.rs:241:48
+    |
+241 |         let eph = p384::ecdh::EphemeralSecret::random(rng);
+    |                                                ^^^^^^
+
+error[E0277]: the trait bound `&p256::elliptic_curve::SecretKey<NistP256>: Borrow<NonZeroScalar<_>>` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:286:41
+    |
+286 |     let zz = p256::ecdh::diffie_hellman(secret, &pubk)
+    |              -------------------------- ^^^^^^ the trait `Borrow<NonZeroScalar<_>>` is not implemented for `&p256::elliptic_curve::SecretKey<NistP256>`
+    |              |
+    |              required by a bound introduced by this call
+    |
+note: required by a bound in `diffie_hellman`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\elliptic-curve-0.14.1\src\ecdh.rs:62:22
+    |
+ 61 | pub fn diffie_hellman<C>(
+    |        -------------- required by a bound in this function
+ 62 |     secret_key: impl Borrow<NonZeroScalar<C>>,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `diffie_hellman`
+
+error[E0277]: the trait bound `&p256::elliptic_curve::SecretKey<NistP384>: Borrow<NonZeroScalar<_>>` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:295:41
+    |
+295 |     let zz = p384::ecdh::diffie_hellman(secret, &pubk)
+    |              -------------------------- ^^^^^^ the trait `Borrow<NonZeroScalar<_>>` is not implemented for `&p256::elliptic_curve::SecretKey<NistP384>`
+    |              |
+    |              required by a bound introduced by this call
+    |
+note: required by a bound in `diffie_hellman`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\elliptic-curve-0.14.1\src\ecdh.rs:62:22
+    |
+ 61 | pub fn diffie_hellman<C>(
+    |        -------------- required by a bound in this function
+ 62 |     secret_key: impl Borrow<NonZeroScalar<C>>,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `diffie_hellman`
+
+error[E0308]: mismatched types
+   --> tpt-cms\src\enveloped_data.rs:397:34
+    |
+397 |     let iv = extract_octet_param(algid.parameters.as_ref(), "content-encryption IV")?;
+    |              ------------------- ^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Option<&Any>`, found `Option<&AnyRef<'_>>`
+    |              |
+    |              arguments to this function are incorrect
+    |
+    = note: expected enum `Option<&der::Any>`
+               found enum `Option<&der::AnyRef<'_>>`
+note: function defined here
+   --> tpt-cms\src\enveloped_data.rs:536:4
+    |
+536 | fn extract_octet_param(param: Option<&der::asn1::Any>, what: &str) -> Result<Vec<u8>> {
+    |    ^^^^^^^^^^^^^^^^^^^ ------------------------------
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: From<_>` is not satisfied
+   --> tpt-cms\src\enveloped_data.rs:538:14
+    |
+538 |     let os = OctetStringRef::from(p.value());
+    |              ^^^^^^^^^^^^^^ the trait `From<_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+help: consider mutably borrowing here
+    |
+538 |     let os = <&mut OctetStringRef>::from(p.value());
+    |              +++++               +
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> tpt-cms\src\enveloped_data.rs:538:14
+    |
+538 |     let os = OctetStringRef::from(p.value());
+    |              ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+note: required by a bound in `from`
+   --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library\core\src\convert\mod.rs:593:4
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> tpt-cms\src\enveloped_data.rs:538:9
+    |
+538 |     let os = OctetStringRef::from(p.value());
+    |         ^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: all local variables must have a statically known size
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+   --> tpt-cms\src\enveloped_data.rs:538:14
+    |
+538 |     let os = OctetStringRef::from(p.value());
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+    |
+    = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+    |
+ 15 | pub struct OctetStringRef {
+    |            ^^^^^^^^^^^^^^
+    = note: the return type of a function must have a statically known size
+
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+   --> tpt-cms\src\signed_data.rs:180:25
+    |
+180 |                     let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                         ^^^^^^   ---------------- type must be known at this point
+    |
+note: required by a const generic parameter in `const_oid::ObjectIdentifier`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\const-oid-0.10.2\src\lib.rs:66:29
+    |
+ 66 | pub struct ObjectIdentifier<const MAX_SIZE: usize = DEFAULT_MAX_SIZE> {
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this const generic parameter in `ObjectIdentifier`
+help: consider giving `ct_val` an explicit type, where the value of const parameter `MAX_SIZE` is specified
+    |
+180 |                     let ct_val: const_oid::ObjectIdentifier<MAX_SIZE> = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                               +++++++++++++++++++++++++++++++++++++++
+
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+   --> tpt-cms\src\signed_data.rs:180:25
+    |
+180 |                     let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                         ^^^^^^   ---------------- type must be known at this point
+    |
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::DecodeValue<'_>`
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::Decode<'_>`
+help: consider giving `ct_val` an explicit type, where the value of const parameter `MAX_SIZE` is specified
+    |
+180 |                     let ct_val: const_oid::ObjectIdentifier<MAX_SIZE> = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                               +++++++++++++++++++++++++++++++++++++++
+
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+   --> tpt-cms\src\signed_data.rs:180:25
+    |
+180 |                     let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                         ^^^^^^   ---------------- type must be known at this point
+    |
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::FixedTag`
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::Decode<'_>`
+help: consider giving `ct_val` an explicit type, where the value of const parameter `MAX_SIZE` is specified
+    |
+180 |                     let ct_val: const_oid::ObjectIdentifier<MAX_SIZE> = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                               +++++++++++++++++++++++++++++++++++++++
+
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+   --> tpt-cms\src\signed_data.rs:180:25
+    |
+180 |                     let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                         ^^^^^^   ------------------------------------------ type must be known at this point
+    |
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::DecodeValue<'_>`
+help: consider giving `ct_val` an explicit type, where the value of const parameter `MAX_SIZE` is specified
+    |
+180 |                     let ct_val: const_oid::ObjectIdentifier<MAX_SIZE> = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                               +++++++++++++++++++++++++++++++++++++++
+
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+   --> tpt-cms\src\signed_data.rs:180:25
+    |
+180 |                     let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                         ^^^^^^   ------------------------------------------ type must be known at this point
+    |
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::DecodeValue<'_>`
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `der::Decode<'_>`
+help: consider giving `ct_val` an explicit type, where the value of const parameter `MAX_SIZE` is specified
+    |
+180 |                     let ct_val: const_oid::ObjectIdentifier<MAX_SIZE> = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                               +++++++++++++++++++++++++++++++++++++++
+
+error[E0284]: type annotations needed for `const_oid::ObjectIdentifier<_>`
+   --> tpt-cms\src\signed_data.rs:180:25
+    |
+180 |                     let ct_val = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                         ^^^^^^
+181 |                     if ct_val.to_string() != sd.e_content_type.to_string() {
+    |                               --------- type must be known at this point
+    |
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `std::fmt::Display`
+    = note: required for `const_oid::ObjectIdentifier<_>` to implement `ToString`
+help: consider giving `ct_val` an explicit type, where the value of const parameter `MAX_SIZE` is specified
+    |
+180 |                     let ct_val: const_oid::ObjectIdentifier<MAX_SIZE> = ObjectIdentifier::from_der(val.as_slice()).map_err(CmsError::Asn1)?;
+    |                               +++++++++++++++++++++++++++++++++++++++
+
+error[E0308]: mismatched types
+   --> tpt-cms\src\signed_data.rs:369:29
+    |
+369 |         out.push(parse_cert(e)?);
+    |                  ---------- ^ expected `&[u8]`, found `Vec<u8>`
+    |                  |
+    |                  arguments to this function are incorrect
+    |
+    = note: expected reference `&[u8]`
+                  found struct `Vec<u8>`
+note: function defined here
+   --> tpt-cms\src\cert.rs:21:15
+    |
+ 21 | pub(crate) fn parse_cert(der: &[u8]) -> Result<Certificate> {
+    |               ^^^^^^^^^^ ----------
+help: consider borrowing here
+    |
+369 |         out.push(parse_cert(&e)?);
+    |                             +
+
+error[E0308]: mismatched types
+   --> tpt-cms\src\signed_data.rs:379:39
+    |
+379 |         let mut c = wire::Cursor::new(e);
+    |                     ----------------- ^ expected `&[u8]`, found `Vec<u8>`
+    |                     |
+    |                     arguments to this function are incorrect
+    |
+    = note: expected reference `&[u8]`
+                  found struct `Vec<u8>`
+note: associated function defined here
+   --> tpt-cms\src\wire.rs:167:12
+    |
+167 |     pub fn new(data: &'a [u8]) -> Self {
+    |            ^^^ --------------
+help: consider borrowing here
+    |
+379 |         let mut c = wire::Cursor::new(&e);
+    |                                       +
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::DecodeValue<'_>` is not satisfied
+   --> tpt-cms\src\cert.rs:84:25
+    |
+ 84 |             let inner = OctetStringRef::from_der(ext.extn_value.as_bytes()).ok()?;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\octet_string.rs:14:1
+    |
+ 14 | pub struct OctetStringRef<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+help: the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+      but it is implemented for `&der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:77:1
+    |
+ 77 | impl<'a> DecodeValue<'a> for &'a OctetStringRef {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `&der::asn1::OctetStringRef`, found `der::asn1::OctetStringRef`
+    = note: there are multiple different versions of crate `der` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `der::asn1::OctetStringRef` to implement `der::Decode<'_>`
+
+error[E0277]: the trait bound `der::asn1::OctetStringRef: der::Decode<'_>` is not satisfied
+   --> tpt-cms\src\cert.rs:84:25
+    |
+ 84 |             let inner = OctetStringRef::from_der(ext.extn_value.as_bytes()).ok()?;
+    |                         ^^^^^^^^^^^^^^ the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+    |
+    = note: Consider adding impls of `DecodeValue` and `FixedTag` to `der::asn1::OctetStringRef`
+note: there are multiple different versions of crate `der` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:207:1
+    |
+207 | pub trait DecodeValue<'a>: Sized {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\decode.rs:86:1
+    |
+ 86 | pub trait DecodeValue<'a>: Sized {
+    | -------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: item with same name found
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.7.10\src\asn1\octet_string.rs:14:1
+    |
+ 14 | pub struct OctetStringRef<'a> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: there are multiple different versions of crate `der` in the dependency graph
+help: the trait `der::DecodeValue<'_>` is not implemented for `der::asn1::OctetStringRef`
+      but it is implemented for `&der::asn1::OctetStringRef`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:77:1
+    |
+ 77 | impl<'a> DecodeValue<'a> for &'a OctetStringRef {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `&der::asn1::OctetStringRef`, found `der::asn1::OctetStringRef`
+    = note: there are multiple different versions of crate `der` in the dependency graph
+    = help: you can use `cargo tree` to explore your dependency tree
+    = note: required for `der::asn1::OctetStringRef` to implement `der::Decode<'_>`
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> tpt-cms\src\cert.rs:84:25
+   |
+84 |             let inner = OctetStringRef::from_der(ext.extn_value.as_bytes()).ok()?;
+   |                         ^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+   |
+   = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+   |
+15 | pub struct OctetStringRef {
+   |            ^^^^^^^^^^^^^^
+note: required by a bound in `der::Decode::from_der`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\decode.rs:55:23
+   |
+55 | pub trait Decode<'a>: Sized + 'a {
+   |                       ^^^^^ required by this bound in `Decode::from_der`
+...
+84 |     fn from_der(bytes: &'a [u8]) -> Result<Self, Self::Error> {
+   |        -------- required by a bound in this associated function
+
+error[E0277]: the size for values of type `[u8]` cannot be known at compilation time
+  --> tpt-cms\src\cert.rs:84:25
+   |
+84 |             let inner = OctetStringRef::from_der(ext.extn_value.as_bytes()).ok()?;
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ doesn't have a size known at compile-time
+   |
+   = help: within `der::asn1::OctetStringRef`, the trait `Sized` is not implemented for `[u8]`
+note: required because it appears within the type `der::asn1::OctetStringRef`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:12
+   |
+15 | pub struct OctetStringRef {
+   |            ^^^^^^^^^^^^^^
+note: required by an implicit `Sized` bound in `std::result::Result`
+  --> /rustc/8bab26f4f68e0e26f0bb7960be334d5b520ea452/library\core\src\result.rs:557:0
+
+error[E0599]: the method `ok` exists for enum `std::result::Result<der::asn1::OctetStringRef, _>`, but its trait bounds were not satisfied
+  --> tpt-cms\src\cert.rs:84:77
+   |
+84 |             let inner = OctetStringRef::from_der(ext.extn_value.as_bytes()).ok()?;
+   |                                                                             ^^ method cannot be called on `std::result::Result<der::asn1::OctetStringRef, _>` due to unsatisfied trait bounds
+   |
+  ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\der-0.8.1\src\asn1\octet_string.rs:15:1
+   |
+15 | pub struct OctetStringRef {
+   | ------------------------- doesn't satisfy `der::asn1::OctetStringRef: Sized`
+   |
+   = note: the following trait bounds were not satisfied:
+           `[u8]: Sized`
+           which is required by `der::asn1::OctetStringRef: Sized`
+
+error[E0277]: `?` couldn't convert the error to `CmsError`
+   --> tpt-cms\src\wire.rs:242:67
+    |
+235 | pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<Vec<T>> {
+    |                                                                         -------------- expected `CmsError` because of this
+...
+242 |         out.push(T::from_der(&a.to_der().map_err(CmsError::Asn1)?)?);
+    |                  -------------------------------------------------^ the trait `From<<T as der::Decode<'_>>::Error>` is not implemented for `CmsError`
+    |                  |
+    |                  this can't be annotated with `?` because it has type `Result<_, <T as der::Decode<'_>>::Error>`
+    |
+note: `CmsError` needs to implement `From<<T as der::Decode<'_>>::Error>`
+   --> tpt-cms\src\error.rs:7:1
+    |
+  7 | pub enum CmsError {
+    | ^^^^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: consider introducing a `where` clause, but there might be an alternative better way to express this requirement
+    |
+235 | pub(crate) fn decode_set_elements<'a, T: Decode<'a>>(data: &'a [u8]) -> Result<Vec<T>> where CmsError: From<<T as der::Decode<'_>>::Error> {
+    |                                                                                        +++++++++++++++++++++++++++++++++++++++++++++++++++
+
+warning: unused import: `PrehashSigner`
+   --> tpt-cms\src\crypto.rs:380:38
+    |
+380 | use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+    |                                      ^^^^^^^^^^^^^
+
+warning: unused import: `PrehashVerifier`
+   --> tpt-cms\src\crypto.rs:380:58
+    |
+380 | use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+    |                                                          ^^^^^^^^^^^^^^^
+
+error[E0515]: cannot return value referencing temporary value
+   --> tpt-cms\src\wire.rs:208:5
+    |
+208 |     AlgorithmIdentifierRef::from_der(&any.to_der().map_err(CmsError::Asn1)?).map_err(CmsError::Asn1)
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-------------------------------------^^^^^^^^^^^^^^^^^^^^^^^^^
+    |     |                                 |
+    |     |                                 temporary value created here
+    |     returns a value referencing data owned by the current function
+
+Some errors have detailed explanations: E0277, E0284, E0308, E0515, E0599.
+For more information about an error, try `rustc --explain E0277`.
+warning: `tpt-cms` (lib) generated 12 warnings
+error: could not compile `tpt-cms` (lib) due to 27 previous errors; 12 warnings emitted

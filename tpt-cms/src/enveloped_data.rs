@@ -2,7 +2,7 @@
 //! recipient information, with AES-CBC content encryption and AES key wrap.
 
 use const_oid::ObjectIdentifier;
-use der::asn1::{Any, OctetStringRef};
+use der::asn1::Any;
 use der::{Decode, Encode, Tag, Tagged};
 use x509_cert::Certificate;
 
@@ -17,10 +17,12 @@ use crate::wire;
 
 use p256::SecretKey as P256Secret;
 use p384::SecretKey as P384Secret;
+use rand09::rngs::OsRng as EcOsRng;
 use rand_core::OsRng;
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use rsa::Oaep;
 use rsa::RsaPrivateKey;
+use sha2_010::Sha256 as Sha256010;
 
 // ---------------------------------------------------------------------------
 // Public build/decrypt API
@@ -55,10 +57,13 @@ pub fn build_enveloped_data(
             "at least one recipient is required".into(),
         ));
     }
-    let mut rng = OsRng;
+    // RSA key transport uses the rand_core 0.6 `OsRng` (matching `rsa` 0.9);
+    // ECDH key agreement uses the rand_core 0.10 `OsRng` (matching p256/p384).
+    let mut rng_rsa = OsRng;
+    let mut rng_ec = EcOsRng;
 
-    let cek = random_bytes(&mut rng, content_enc.key_size());
-    let iv = random_bytes(&mut rng, content_enc.iv_size());
+    let cek = random_bytes(&mut rng_rsa, content_enc.key_size());
+    let iv = random_bytes(&mut rng_rsa, content_enc.iv_size());
     let encrypted = content_enc.encrypt(&cek, &iv, content)?;
 
     let iv_param = wire::octet_string(&iv);
@@ -73,12 +78,12 @@ pub fn build_enveloped_data(
     for r in recipients {
         match r {
             RecipientSpec::KeyTransRsa { cert, oaep } => {
-                let der = build_key_trans(&mut rng, cert, &cek, *oaep)?;
+                let der = build_key_trans(&mut rng_rsa, cert, &cek, *oaep)?;
                 recipient_infos.push(wire::ctx(0, &der));
             }
             RecipientSpec::KeyAgreeEcdh { cert, wrap } => {
                 uses_keyagree = true;
-                let der = build_key_agree(&mut rng, cert, &cek, *wrap)?;
+                let der = build_key_agree(&mut rng_ec, cert, &cek, *wrap)?;
                 recipient_infos.push(wire::ctx(1, &der));
             }
         }
@@ -170,7 +175,7 @@ fn build_key_trans(rng: &mut OsRng, cert: &Certificate, cek: &[u8], oaep: bool) 
     };
     let encrypted_key = if oaep {
         rsa_pub
-            .encrypt(rng, Oaep::new::<sha2::Sha256>(), cek)
+            .encrypt(rng, Oaep::new::<Sha256010>(), cek)
             .map_err(|e| CmsError::Crypto(e.to_string()))?
     } else {
         rsa_pub
@@ -193,7 +198,7 @@ fn build_key_trans(rng: &mut OsRng, cert: &Certificate, cek: &[u8], oaep: bool) 
 fn open_key_trans(key: &RsaPrivateKey, kt: &ParsedKeyTrans) -> Result<Vec<u8>> {
     let oid = kt.key_enc_oid.to_string();
     let decrypted = if oid == oids::RSAES_OAEP {
-        key.decrypt(Oaep::new::<sha2::Sha256>(), &kt.encrypted_key)
+        key.decrypt(Oaep::new::<Sha256010>(), &kt.encrypted_key)
             .map_err(|e| CmsError::Crypto(e.to_string()))?
     } else if oid == oids::RSA_ENCRYPTION {
         key.decrypt(Pkcs1v15Encrypt, &kt.encrypted_key)
@@ -209,7 +214,7 @@ fn open_key_trans(key: &RsaPrivateKey, kt: &ParsedKeyTrans) -> Result<Vec<u8>> {
 // ---------------------------------------------------------------------------
 
 fn build_key_agree(
-    rng: &mut OsRng,
+    rng: &mut EcOsRng,
     cert: &Certificate,
     cek: &[u8],
     wrap: KeyWrap,
@@ -231,17 +236,21 @@ fn build_key_agree(
     // Use a SINGLE ephemeral key for both the shared secret and the published
     // originator public key (so the recipient derives the same `zz`).
     let (zz, eph_sec1) = if is_p256 {
-        let eph = p256::ecdh::EphemeralSecret::random(rng);
+        let eph = P256Secret::random(rng);
         let recip = p256::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        let zz = eph.diffie_hellman(&recip).raw_secret_bytes().to_vec();
+        let zz = p256::ecdh::diffie_hellman(eph.to_nonzero_scalar(), &recip)
+            .raw_secret_bytes()
+            .to_vec();
         let pubk = eph.public_key().to_sec1_bytes().to_vec();
         (zz, pubk)
     } else {
-        let eph = p384::ecdh::EphemeralSecret::random(rng);
+        let eph = P384Secret::random(rng);
         let recip = p384::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        let zz = eph.diffie_hellman(&recip).raw_secret_bytes().to_vec();
+        let zz = p384::ecdh::diffie_hellman(eph.to_nonzero_scalar(), &recip)
+            .raw_secret_bytes()
+            .to_vec();
         let pubk = eph.public_key().to_sec1_bytes().to_vec();
         (zz, pubk)
     };
@@ -283,7 +292,7 @@ fn build_key_agree(
 fn open_key_agree_p256(secret: &P256Secret, ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
     let pubk = p256::PublicKey::from_sec1_bytes(&ka.originator_pub)
         .map_err(|e| CmsError::Crypto(e.to_string()))?;
-    let zz = p256::ecdh::diffie_hellman(secret, &pubk)
+    let zz = p256::ecdh::diffie_hellman(secret.to_nonzero_scalar(), &pubk)
         .raw_secret_bytes()
         .to_vec();
     unwrap_cek(&zz, ka)
@@ -292,7 +301,7 @@ fn open_key_agree_p256(secret: &P256Secret, ka: &ParsedKeyAgree) -> Result<Vec<u
 fn open_key_agree_p384(secret: &P384Secret, ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
     let pubk = p384::PublicKey::from_sec1_bytes(&ka.originator_pub)
         .map_err(|e| CmsError::Crypto(e.to_string()))?;
-    let zz = p384::ecdh::diffie_hellman(secret, &pubk)
+    let zz = p384::ecdh::diffie_hellman(secret.to_nonzero_scalar(), &pubk)
         .raw_secret_bytes()
         .to_vec();
     unwrap_cek(&zz, ka)
@@ -533,18 +542,16 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
 }
 
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
-fn extract_octet_param(param: Option<&der::asn1::Any>, what: &str) -> Result<Vec<u8>> {
+fn extract_octet_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
-    let os = OctetStringRef::from(p.value());
-    Ok(os.as_bytes().to_vec())
+    Ok(p.value().to_vec())
 }
 
 // ---------------------------------------------------------------------------
 // Small utilities
 // ---------------------------------------------------------------------------
 
-fn random_bytes(rng: &mut OsRng, n: usize) -> Vec<u8> {
-    use rand_core::RngCore;
+fn random_bytes<R: rand_core::RngCore>(rng: &mut R, n: usize) -> Vec<u8> {
     let mut b = vec![0u8; n];
     rng.fill_bytes(&mut b);
     b

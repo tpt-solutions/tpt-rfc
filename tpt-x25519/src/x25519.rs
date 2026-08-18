@@ -91,7 +91,12 @@ pub fn x25519(scalar: &[u8; 32], point: &[u8; 32]) -> [u8; 32] {
     // Return x2 / z2 = x2 · z2^(p-2).
     let inv = z2.invert();
     let result = x2.mul(&inv);
-    result.to_bytes()
+    let bytes = result.to_bytes();
+    debug_assert!(
+        result.mul(&z2).ct_eq(&x2),
+        "ladder internal inconsistency: result*z2 != x2"
+    );
+    bytes
 }
 
 /// A X25519 static secret scalar.

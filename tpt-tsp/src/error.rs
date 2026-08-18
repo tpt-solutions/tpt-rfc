@@ -3,59 +3,85 @@
 use thiserror::Error;
 
 /// Errors that can occur while building, parsing, or verifying RFC 3161
-/// time-stamp messages.
+/// Time-Stamp Protocol messages.
 #[derive(Debug, Error)]
 pub enum TspError {
-    #[error("ASN.1/DER encoding/decoding error: {0}")]
-    Der(#[from] der::Error),
+    /// A wrapped ASN.1/DER decoding error.
+    #[error("ASN.1/DER error: {0}")]
+    Asn1(#[from] der::Error),
 
+    /// The top-level `ContentInfo` `contentType` was not the expected one.
+    #[error("the top-level ContentInfo contentType is not {expected} (got {got})")]
+    UnexpectedContentType { expected: String, got: String },
+
+    /// The `TimeStampToken` was not a CMS `SignedData`.
+    #[error("the TimeStampToken is not a CMS SignedData (expected {expected}, got {got})")]
+    NotSignedData { expected: String, got: String },
+
+    /// An unsupported or unknown hash-algorithm OID was encountered.
     #[error("unsupported or unknown hash algorithm OID: {0}")]
     UnsupportedHash(String),
 
+    /// An unsupported or unknown signature-algorithm OID was encountered.
     #[error("unsupported or unknown signature algorithm OID: {0}")]
     UnsupportedSignature(String),
 
+    /// An unsupported public-key algorithm OID was encountered.
     #[error("unsupported public key algorithm OID: {0}")]
     UnsupportedKey(String),
 
-    #[error("the request is missing a message imprint")]
-    MissingMessageImprint,
+    /// An unsupported elliptic-curve OID was encountered.
+    #[error("unsupported elliptic curve OID: {0}")]
+    UnsupportedCurve(String),
 
-    #[error("the request asked for a certificate but the TSA did not return one")]
-    CertRequestedButMissing,
-
-    #[error("TSA rejected the request: status {status} ({reason})")]
-    RequestRejected { status: u8, reason: String },
-
-    #[error("TSTInfo message imprint does not match the requested data")]
-    MessageImprintMismatch,
-
-    #[error("TSTInfo policy {got} does not match the requested policy {want}")]
-    PolicyMismatch { got: String, want: String },
-
-    #[error("TSTInfo nonce does not match the requested nonce")]
-    NonceMismatch,
-
-    #[error("the CMS message-digest attribute does not match the token content")]
-    MessageDigestMismatch,
-
-    #[error("the CMS content-type attribute is not id-ct-TSTInfo")]
-    ContentTypeMismatch,
-
+    /// No signer certificate in the token matched the signer identifier.
     #[error("no signer certificate was found matching the signer identifier")]
     SignerCertNotFound,
 
+    /// The CMS `content-type` signed attribute did not match the encapsulated type.
+    #[error("the CMS content-type signed attribute does not match the TSTInfo content type")]
+    ContentTypeMismatch,
+
+    /// The CMS `message-digest` signed attribute did not match the content digest.
+    #[error("the CMS message-digest signed attribute does not match the content digest")]
+    MessageDigestMismatch,
+
+    /// Signature verification failed.
     #[error("signature verification failed: {0}")]
     Signature(String),
 
-    #[error("the TSA certificate is not trusted by any supplied trust anchor: {0}")]
-    Untrusted(String),
+    /// A `TSTInfo` field did not match what was expected.
+    #[error("TSTInfo field mismatch: {0}")]
+    TstInfoMismatch(String),
 
+    /// The nonce in the response did not match the request nonce.
+    #[error("the nonce in the response does not match the request nonce")]
+    NonceMismatch,
+
+    /// The response had a non-zero `PKIStatus` (rejection/waiting/failure).
+    #[error("the response has a non-zero PKIStatus (grantedWithMods/rejection/waiting/failure): {0}")]
+    PkiStatus(u8),
+
+    /// The request did not include a nonce but verification required one.
+    #[error("the request did not include a nonce but the signer requires nonce checking")]
+    MissingNonce,
+
+    /// The request's `messageImprint` hash algorithm is unsupported.
+    #[error("the TimeStampReq messageImprint hash algorithm is unsupported")]
+    UnsupportedMessageImprint,
+
+    /// The certificate chain could not be built or validated.
+    #[error("certificate chain failed to build/validate: {0}")]
+    CertChain(String),
+
+    /// AES key unwrap failed (integrity check failed).
+    #[error("AES key unwrap failed (integrity check failed)")]
+    KeyUnwrap,
+
+    /// A generic key/crypto primitive error.
     #[error("key/crypto primitive error: {0}")]
     Crypto(String),
-
-    #[error("I/O error: {0}")]
-    Io(String),
 }
 
+/// Crate-wide `Result` alias.
 pub type Result<T> = std::result::Result<T, TspError>;
