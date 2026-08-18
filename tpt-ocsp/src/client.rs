@@ -129,17 +129,14 @@ impl OcspClient {
             return Err(OcspError::ResponseStatus(status));
         }
         let rb = resp.response_bytes.ok_or(OcspError::MissingResponseBytes)?;
-        let resp_type = ObjectIdentifier::from_der(rb.response_type.as_bytes())
-            .map_err(OcspError::from)?;
-        if resp_type != oids::oid(oids::OCSP_BASIC) {
+        if rb.response_type != oids::oid(oids::OCSP_BASIC) {
             return Err(OcspError::WrongResponseType);
         }
 
         let basic_der = rb.response.as_bytes();
         let basic = BasicOcspResponse::from_der(basic_der)?;
         let tbs = basic.tbs_response_data.as_bytes();
-        let sig_oid = ObjectIdentifier::from_der(basic.signature_algorithm.oid.as_bytes())
-            .map_err(OcspError::from)?;
+        let sig_oid = basic.signature_algorithm.oid.clone();
         let sig_bytes = basic
             .signature
             .as_bytes()

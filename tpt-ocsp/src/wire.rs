@@ -3,15 +3,15 @@
 
 //! ASN.1/DER wire types for RFC 6960 (OCSP).
 //!
-//! All types borrow from the input buffer (`'a`) so they can be decoded cheaply
-//! and then copied out into owned public values by the client/responder paths.
-//! The responder builds these same types referencing short-lived scratch
-//! buffers and calls `to_der()`.
+//! All types borrow from the input buffer (`'a`) where the underlying primitive
+//! carries a lifetime (`AnyRef`, `BitStringRef`, `AlgorithmIdentifierRef`); the
+//! value types that became owned in `der` 0.8 (`OctetString`, `ObjectIdentifier`,
+//! `Uint`, `Certificate`) are stored by value. The responder builds these same
+//! types referencing short-lived scratch buffers and calls `to_der()`.
 
 use const_oid::ObjectIdentifier;
-use const_oid::ObjectIdentifierRef;
 use der::{
-    asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, OctetStringRef, UintRef},
+    asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, OctetString, Uint},
     Choice, Enumerated, Sequence,
 };
 use spki::AlgorithmIdentifierRef;
@@ -38,17 +38,17 @@ pub(crate) enum OcspResponseStatus {
 
 /// `OCSPResponse` (RFC 6960 §4.2.1).
 #[derive(Clone, Sequence)]
-pub(crate) struct OcspResponse<'a> {
+pub(crate) struct OcspResponse {
     pub response_status: OcspResponseStatus,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub response_bytes: Option<ResponseBytes<'a>>,
+    pub response_bytes: Option<ResponseBytes>,
 }
 
 /// `ResponseBytes` (RFC 6960 §4.2.1).
 #[derive(Clone, Sequence)]
-pub(crate) struct ResponseBytes<'a> {
-    pub response_type: ObjectIdentifierRef<'a>,
-    pub response: OctetStringRef<'a>,
+pub(crate) struct ResponseBytes {
+    pub response_type: ObjectIdentifier,
+    pub response: OctetString,
 }
 
 /// `BasicOCSPResponse` (RFC 6960 §4.2.1).
@@ -60,56 +60,56 @@ pub(crate) struct BasicOcspResponse<'a> {
     pub signature_algorithm: AlgorithmIdentifierRef<'a>,
     pub signature: BitStringRef<'a>,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub certs: Option<Vec<Certificate<'a>>>,
+    pub certs: Option<Vec<Certificate>>,
 }
 
 /// `ResponseData` (RFC 6960 §4.2.1).
 #[derive(Clone, Sequence)]
 pub(crate) struct ResponseData<'a> {
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub version: Option<UintRef<'a>>,
-    pub responder_id: ResponderId<'a>,
+    pub version: Option<Uint>,
+    pub responder_id: ResponderId,
     pub produced_at: GeneralizedTime,
     pub responses: Vec<SingleResponse<'a>>,
     #[asn1(context_specific = "1", constructed = "true", optional = "true")]
-    pub response_extensions: Option<Vec<Extension<'a>>>,
+    pub response_extensions: Option<Vec<Extension>>,
 }
 
 /// `ResponderID` (RFC 6960 §4.2.1).
 #[derive(Clone, Choice)]
-pub(crate) enum ResponderId<'a> {
+pub(crate) enum ResponderId {
     #[asn1(context_specific = "1", tag_mode = "IMPLICIT")]
     ByName(Name),
     #[asn1(context_specific = "2", tag_mode = "IMPLICIT")]
-    ByKey(OctetStringRef<'a>),
+    ByKey(OctetString),
 }
 
 /// `SingleResponse` (RFC 6960 §4.2.1).
 #[derive(Clone, Sequence)]
 pub(crate) struct SingleResponse<'a> {
     pub cert_id: CertIdWire<'a>,
-    pub cert_status: CertStatus<'a>,
+    pub cert_status: CertStatus,
     pub this_update: GeneralizedTime,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub next_update: Option<GeneralizedTime>,
     #[asn1(context_specific = "1", constructed = "true", optional = "true")]
-    pub single_extensions: Option<Vec<Extension<'a>>>,
+    pub single_extensions: Option<Vec<Extension>>,
 }
 
 /// `CertStatus` (RFC 6960 §4.2.1).
 #[derive(Clone, Choice)]
-pub(crate) enum CertStatus<'a> {
+pub(crate) enum CertStatus {
     #[asn1(context_specific = "0", tag_mode = "IMPLICIT")]
     Good(Null),
     #[asn1(context_specific = "1", tag_mode = "IMPLICIT", constructed = "true")]
-    Revoked(RevokedInfo<'a>),
+    Revoked(RevokedInfo),
     #[asn1(context_specific = "2", tag_mode = "IMPLICIT")]
     Unknown(Null),
 }
 
 /// `RevokedInfo` (RFC 6960 §4.2.1).
 #[derive(Clone, Sequence)]
-pub(crate) struct RevokedInfo<'a> {
+pub(crate) struct RevokedInfo {
     pub revocation_time: GeneralizedTime,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub revocation_reason: Option<CrlReason>,
@@ -159,18 +159,18 @@ impl CrlReason {
 #[derive(Clone, Sequence)]
 pub(crate) struct CertIdWire<'a> {
     pub hash_algorithm: AlgorithmIdentifierRef<'a>,
-    pub issuer_name_hash: OctetStringRef<'a>,
-    pub issuer_key_hash: OctetStringRef<'a>,
-    pub serial_number: UintRef<'a>,
+    pub issuer_name_hash: OctetString,
+    pub issuer_key_hash: OctetString,
+    pub serial_number: Uint,
 }
 
 /// `Extension` — a single `Extensions` member (RFC 5280 §4.1 / RFC 6960).
 #[derive(Clone, Sequence)]
-pub(crate) struct Extension<'a> {
+pub(crate) struct Extension {
     pub extn_id: ObjectIdentifier,
     #[asn1(default = "Default::default")]
     pub critical: bool,
-    pub extn_value: OctetStringRef<'a>,
+    pub extn_value: OctetString,
 }
 
 /// `OCSPRequest` (RFC 6960 §4.1.1).
@@ -185,12 +185,12 @@ pub(crate) struct OcspRequest<'a> {
 #[derive(Clone, Sequence)]
 pub(crate) struct TbsRequest<'a> {
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub version: Option<UintRef<'a>>,
+    pub version: Option<Uint>,
     #[asn1(context_specific = "1", constructed = "true", optional = "true")]
     pub requestor_name: Option<AnyRef<'a>>,
     pub request_list: Vec<Request<'a>>,
     #[asn1(context_specific = "2", constructed = "true", optional = "true")]
-    pub request_extensions: Option<Vec<Extension<'a>>>,
+    pub request_extensions: Option<Vec<Extension>>,
 }
 
 /// `Request` (RFC 6960 §4.1.1).
@@ -198,7 +198,7 @@ pub(crate) struct TbsRequest<'a> {
 pub(crate) struct Request<'a> {
     pub req_cert: CertIdWire<'a>,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub single_request_extensions: Option<Vec<Extension<'a>>>,
+    pub single_request_extensions: Option<Vec<Extension>>,
 }
 
 /// `Signature` (RFC 6960 §4.1.1) — the optional `optionalSignature` field.
@@ -207,5 +207,5 @@ pub(crate) struct Signature<'a> {
     pub signature_algorithm: AlgorithmIdentifierRef<'a>,
     pub signature: BitStringRef<'a>,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
-    pub certs: Option<Vec<Certificate<'a>>>,
+    pub certs: Option<Vec<Certificate>>,
 }

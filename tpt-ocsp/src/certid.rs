@@ -3,7 +3,7 @@
 use std::time::SystemTime;
 
 use der::{
-    asn1::{OctetStringRef, UintRef},
+    asn1::{OctetString, Uint},
     Decode,
 };
 
@@ -97,11 +97,11 @@ impl CertId {
     pub(crate) fn to_wire(&self) -> OcspResult<CertIdWire<'static>> {
         Ok(CertIdWire {
             hash_algorithm: self.hash_algorithm.algorithm_id(),
-            issuer_name_hash: OctetStringRef::new(&self.issuer_name_hash)
+            issuer_name_hash: OctetString::new(self.issuer_name_hash.clone())
                 .map_err(OcspError::from)?,
-            issuer_key_hash: OctetStringRef::new(&self.issuer_key_hash)
+            issuer_key_hash: OctetString::new(self.issuer_key_hash.clone())
                 .map_err(OcspError::from)?,
-            serial_number: UintRef::new(&self.serial_number).map_err(OcspError::from)?,
+            serial_number: Uint::new(&self.serial_number).map_err(OcspError::from)?,
         })
     }
 

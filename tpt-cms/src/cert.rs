@@ -81,8 +81,8 @@ fn ski_extension(cert: &Certificate) -> Option<Vec<u8>> {
         if ext.extn_id.to_string() == oids::SUBJECT_KEY_IDENTIFIER {
             // extn_value is an OCTET STRING whose content is the DER of the
             // SubjectKeyIdentifier (itself an OCTET STRING).
-            let inner = OctetStringRef::from_der(ext.extn_value.as_bytes())
-                .map_err(CmsError::Asn1)?;
+            let inner: &OctetStringRef =
+                <&OctetStringRef>::from_der(ext.extn_value.as_bytes()).ok()?;
             return Some(inner.as_bytes().to_vec());
         }
     }

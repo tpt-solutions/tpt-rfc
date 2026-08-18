@@ -30,7 +30,7 @@ pub mod token;
 
 pub use crypto::{HashAlgorithm, SigningKey};
 pub use error::{TspError, Result};
-pub use request::{MessageImprint, TimestampRequest};
+pub use request::{parse_timestamp_req, MessageImprint, TimestampRequest};
 pub use response::{TimestampAuthority, TimestampResponse};
 pub use token::{TstInfo, TsaPolicyId};
 pub use x509_cert::Certificate;

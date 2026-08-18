@@ -17,8 +17,8 @@ use crate::wire;
 
 use p256::SecretKey as P256Secret;
 use p384::SecretKey as P384Secret;
-use rand09::rngs::OsRng as EcOsRng;
 use rand_core::OsRng;
+use rand_core::RngCore;
 use rsa::pkcs1v15::Pkcs1v15Encrypt;
 use rsa::Oaep;
 use rsa::RsaPrivateKey;
@@ -57,13 +57,13 @@ pub fn build_enveloped_data(
             "at least one recipient is required".into(),
         ));
     }
-    // RSA key transport uses the rand_core 0.6 `OsRng` (matching `rsa` 0.9);
-    // ECDH key agreement uses the rand_core 0.10 `OsRng` (matching p256/p384).
-    let mut rng_rsa = OsRng;
-    let mut rng_ec = EcOsRng;
+    // RSA key transport and ECDH key agreement both use the rand_core 0.6
+    // `OsRng`: ECDH ephemeral keys are derived by feeding random bytes from it
+    // into `SecretKey::from_slice` (avoiding a second rand_core version pull-in).
+    let mut rng = OsRng;
 
-    let cek = random_bytes(&mut rng_rsa, content_enc.key_size());
-    let iv = random_bytes(&mut rng_rsa, content_enc.iv_size());
+    let cek = random_bytes(&mut rng, content_enc.key_size());
+    let iv = random_bytes(&mut rng, content_enc.iv_size());
     let encrypted = content_enc.encrypt(&cek, &iv, content)?;
 
     let iv_param = wire::octet_string(&iv);
@@ -78,12 +78,12 @@ pub fn build_enveloped_data(
     for r in recipients {
         match r {
             RecipientSpec::KeyTransRsa { cert, oaep } => {
-                let der = build_key_trans(&mut rng_rsa, cert, &cek, *oaep)?;
+                let der = build_key_trans(&mut rng, cert, &cek, *oaep)?;
                 recipient_infos.push(wire::ctx(0, &der));
             }
             RecipientSpec::KeyAgreeEcdh { cert, wrap } => {
                 uses_keyagree = true;
-                let der = build_key_agree(&mut rng_ec, cert, &cek, *wrap)?;
+                let der = build_key_agree(&mut rng, cert, &cek, *wrap)?;
                 recipient_infos.push(wire::ctx(1, &der));
             }
         }
@@ -214,7 +214,7 @@ fn open_key_trans(key: &RsaPrivateKey, kt: &ParsedKeyTrans) -> Result<Vec<u8>> {
 // ---------------------------------------------------------------------------
 
 fn build_key_agree(
-    rng: &mut EcOsRng,
+    rng: &mut OsRng,
     cert: &Certificate,
     cek: &[u8],
     wrap: KeyWrap,
@@ -234,21 +234,28 @@ fn build_key_agree(
     let key_wrap_alg_der = wrap.algorithm_id();
 
     // Use a SINGLE ephemeral key for both the shared secret and the published
-    // originator public key (so the recipient derives the same `zz`).
+    // originator public key (so the recipient derives the same `zz`). Random
+    // bytes come from the shared `OsRng`; `from_slice` validates the scalar.
     let (zz, eph_sec1) = if is_p256 {
-        let eph = P256Secret::random(rng);
+        let mut eph_bytes = [0u8; 32];
+        rng.fill_bytes(&mut eph_bytes);
+        let eph = P256Secret::from_slice(&eph_bytes)
+            .map_err(|e| CmsError::Crypto(e.to_string()))?;
         let recip = p256::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        let zz = p256::ecdh::diffie_hellman(eph.to_nonzero_scalar(), &recip)
+        let zz = p256::ecdh::diffie_hellman(eph.to_nonzero_scalar(), recip.as_affine())
             .raw_secret_bytes()
             .to_vec();
         let pubk = eph.public_key().to_sec1_bytes().to_vec();
         (zz, pubk)
     } else {
-        let eph = P384Secret::random(rng);
+        let mut eph_bytes = [0u8; 48];
+        rng.fill_bytes(&mut eph_bytes);
+        let eph = P384Secret::from_slice(&eph_bytes)
+            .map_err(|e| CmsError::Crypto(e.to_string()))?;
         let recip = p384::PublicKey::from_sec1_bytes(&recipient_sec1)
             .map_err(|e| CmsError::Crypto(e.to_string()))?;
-        let zz = p384::ecdh::diffie_hellman(eph.to_nonzero_scalar(), &recip)
+        let zz = p384::ecdh::diffie_hellman(eph.to_nonzero_scalar(), recip.as_affine())
             .raw_secret_bytes()
             .to_vec();
         let pubk = eph.public_key().to_sec1_bytes().to_vec();
@@ -292,7 +299,7 @@ fn build_key_agree(
 fn open_key_agree_p256(secret: &P256Secret, ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
     let pubk = p256::PublicKey::from_sec1_bytes(&ka.originator_pub)
         .map_err(|e| CmsError::Crypto(e.to_string()))?;
-    let zz = p256::ecdh::diffie_hellman(secret.to_nonzero_scalar(), &pubk)
+    let zz = p256::ecdh::diffie_hellman(secret.to_nonzero_scalar(), pubk.as_affine())
         .raw_secret_bytes()
         .to_vec();
     unwrap_cek(&zz, ka)
@@ -301,7 +308,7 @@ fn open_key_agree_p256(secret: &P256Secret, ka: &ParsedKeyAgree) -> Result<Vec<u
 fn open_key_agree_p384(secret: &P384Secret, ka: &ParsedKeyAgree) -> Result<Vec<u8>> {
     let pubk = p384::PublicKey::from_sec1_bytes(&ka.originator_pub)
         .map_err(|e| CmsError::Crypto(e.to_string()))?;
-    let zz = p384::ecdh::diffie_hellman(secret.to_nonzero_scalar(), &pubk)
+    let zz = p384::ecdh::diffie_hellman(secret.to_nonzero_scalar(), pubk.as_affine())
         .raw_secret_bytes()
         .to_vec();
     unwrap_cek(&zz, ka)
@@ -542,7 +549,7 @@ fn parse_key_agree(body: &[u8]) -> Result<ParsedKeyAgree> {
 }
 
 /// Extract the OCTET STRING content of an `AlgorithmIdentifier` parameter.
-fn extract_octet_param(param: Option<&der::asn1::AnyRef>, what: &str) -> Result<Vec<u8>> {
+fn extract_octet_param(param: Option<&der::asn1::Any>, what: &str) -> Result<Vec<u8>> {
     let p = param.ok_or_else(|| CmsError::Crypto(format!("missing {what}")))?;
     Ok(p.value().to_vec())
 }

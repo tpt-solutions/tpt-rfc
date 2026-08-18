@@ -22,6 +22,7 @@ use rsa::pkcs8::EncodePublicKey;
 
 use tpt_tsp::crypto::{HashAlgorithm, SigningKey};
 use tpt_tsp::oids;
+use tpt_tsp::parse_timestamp_req;
 use tpt_tsp::response::{TimestampAuthority, TimestampResponse};
 use tpt_tsp::token::{TstInfo, TsaPolicyId};
 use tpt_tsp::{TimestampRequest, DEFAULT_POLICY};
@@ -43,15 +44,24 @@ fn spki_rsa(pk: &rsa::RsaPublicKey) -> spki::SubjectPublicKeyInfo<der::asn1::Any
     spki::SubjectPublicKeyInfo::from_der(doc.as_bytes()).unwrap()
 }
 
-fn spki_ec(
-    pk: &impl p256::elliptic_curve::sec1::ToEncodedPoint,
-    curve_oid: &str,
-) -> spki::SubjectPublicKeyInfo<der::asn1::Any, der::asn1::BitString> {
+fn spki_p256(pk: &p256::ecdsa::VerifyingKey) -> spki::SubjectPublicKeyInfo<der::asn1::Any, der::asn1::BitString> {
     use p256::elliptic_curve::sec1::ToEncodedPoint;
     let ec = ObjectIdentifier::new_unwrap(oids::EC_PUBLIC_KEY);
-    let curve = ObjectIdentifier::new_unwrap(curve_oid);
+    let curve = ObjectIdentifier::new_unwrap(oids::P256);
     let params = der::Any::from_der(&curve.to_der().unwrap()).unwrap();
-    let point = pk.to_encoded_point(false);
+    let point = pk.to_affine().to_encoded_point(false);
+    spki::SubjectPublicKeyInfo {
+        algorithm: spki::AlgorithmIdentifier { oid: ec, parameters: Some(params) },
+        subject_public_key: BitString::from_bytes(point.as_bytes()).unwrap(),
+    }
+}
+
+fn spki_p384(pk: &p384::ecdsa::VerifyingKey) -> spki::SubjectPublicKeyInfo<der::asn1::Any, der::asn1::BitString> {
+    use p384::elliptic_curve::sec1::ToEncodedPoint;
+    let ec = ObjectIdentifier::new_unwrap(oids::EC_PUBLIC_KEY);
+    let curve = ObjectIdentifier::new_unwrap(oids::P384);
+    let params = der::Any::from_der(&curve.to_der().unwrap()).unwrap();
+    let point = pk.to_affine().to_encoded_point(false);
     spki::SubjectPublicKeyInfo {
         algorithm: spki::AlgorithmIdentifier { oid: ec, parameters: Some(params) },
         subject_public_key: BitString::from_bytes(point.as_bytes()).unwrap(),
@@ -62,8 +72,8 @@ fn build_cert(key: &SigningKey) -> Certificate {
     let spki = match key {
         SigningKey::Ed25519(sk) => spki_ed25519(&sk.public_key()),
         SigningKey::Rsa(rk) => spki_rsa(&rk.to_public_key()),
-        SigningKey::EcdsaP256(sk) => spki_ec(&sk.verifying_key(), oids::P256),
-        SigningKey::EcdsaP384(sk) => spki_ec(&sk.verifying_key(), oids::P384),
+        SigningKey::EcdsaP256(sk) => spki_p256(&sk.verifying_key()),
+        SigningKey::EcdsaP384(sk) => spki_p384(&sk.verifying_key()),
     };
     let sig_oid = match key {
         SigningKey::Ed25519(_) => ObjectIdentifier::new_unwrap(oids::ED25519),
@@ -134,7 +144,7 @@ fn round_trip(key: SigningKey) {
     // Client parses and verifies the response, chaining to the self-signed anchor.
     let parsed = TimestampResponse::from_der(&resp_der).unwrap();
     let anchors = vec![cert.clone()];
-    let tst = parsed.verify(&TimestampRequest::parse_timestamp_req(&req_der).unwrap(), &anchors).unwrap();
+    let tst = parsed.verify(&parse_timestamp_req(&req_der).unwrap(), &anchors).unwrap();
 
     // TSTInfo consistency.
     assert_eq!(tst.policy, policy);
@@ -213,7 +223,7 @@ fn request_round_trips_through_der() {
         .with_nonce(42)
         .with_policy(policy)
         .with_cert_req(true);
-    let parsed = TimestampRequest::parse_timestamp_req(&req.to_der()).unwrap();
+    let parsed = parse_timestamp_req(&req.to_der()).unwrap();
     assert_eq!(parsed.hash_algorithm(), HashAlgorithm::Sha512);
     assert_eq!(parsed.nonce(), Some(42));
     assert_eq!(parsed.policy(), Some(&policy));

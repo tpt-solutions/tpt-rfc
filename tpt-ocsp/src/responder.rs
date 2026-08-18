@@ -156,7 +156,7 @@ impl OcspResponder {
                     .as_bytes()
                     .ok_or_else(|| OcspError::Crypto("responder has no public key".into()))?;
                 let h = Sha1::digest(val).to_vec();
-                ResponderId::ByKey(OctetStringRef::new(&h).map_err(OcspError::from)?)
+                ResponderId::ByKey(OctetString::new(h).map_err(OcspError::from)?)
             }
         };
 
