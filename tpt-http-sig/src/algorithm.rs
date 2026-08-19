@@ -5,7 +5,9 @@
 //! primitives defined by RFC 9421 §3.3.
 
 use crate::error::{HttpSigError, Result};
-use sha2::{Digest, Sha256, Sha512};
+use p256::pkcs8::DecodePrivateKey;
+use sha2::{Sha256, Sha512};
+use spki::der::Decode;
 
 /// The signature algorithms registered in the "HTTP Signature Algorithms"
 /// registry (RFC 9421 §6.2).
@@ -156,7 +158,7 @@ impl SigningKey {
                 "HMAC keys are raw shared secrets, not PEM-encoded".into(),
             )),
             Algorithm::Ed25519 => {
-                let sk = ed25519_compact::SecretKey::from_pkcs8(&der)
+                let sk = ed25519_compact::SecretKey::from_der(&der)
                     .map_err(|e| HttpSigError::Key(format!("ed25519: {e}")))?;
                 Ok(SigningKey::Ed25519(sk))
             }
@@ -187,18 +189,18 @@ impl SigningKey {
     pub fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
         match self {
             SigningKey::Hmac(secret) => match self.algorithm() {
-                Algorithm::HmacSha256 => hmac_sign::<Sha256>(secret, msg),
-                Algorithm::HmacSha512 => hmac_sign::<Sha512>(secret, msg),
+                Algorithm::HmacSha256 => hmac_sha256_sign(secret, msg),
+                Algorithm::HmacSha512 => hmac_sha512_sign(secret, msg),
                 _ => unreachable!(),
             },
             SigningKey::RsaPss(key) => match self.algorithm() {
-                Algorithm::RsaPssSha256 => rsa_pss_sign::<Sha256>(key, msg, 32),
-                Algorithm::RsaPssSha512 => rsa_pss_sign::<Sha512>(key, msg, 64),
+                Algorithm::RsaPssSha256 => rsa_pss_sign_sha256(key, msg),
+                Algorithm::RsaPssSha512 => rsa_pss_sign_sha512(key, msg),
                 _ => unreachable!(),
             },
             SigningKey::RsaPkcs1(key) => match self.algorithm() {
-                Algorithm::RsaPkcs1Sha256 => rsa_pkcs1_sign::<Sha256>(key, msg),
-                Algorithm::RsaPkcs1Sha512 => rsa_pkcs1_sign::<Sha512>(key, msg),
+                Algorithm::RsaPkcs1Sha256 => rsa_pkcs1_sign_sha256(key, msg),
+                Algorithm::RsaPkcs1Sha512 => rsa_pkcs1_sign_sha512(key, msg),
                 _ => unreachable!(),
             },
             SigningKey::EcP256(key) => ecdsa_sign(key, msg),
@@ -231,7 +233,7 @@ impl VerifyingKey {
     /// Parse a verifying key from PEM, choosing the concrete key type from
     /// the supplied [`Algorithm`].
     pub fn from_pem(alg: Algorithm, pem: &str) -> Result<Self> {
-        let (tag, der) = decode_pem(pem)?;
+        let (_tag, der) = decode_pem(pem)?;
         match alg {
             Algorithm::HmacSha256 | Algorithm::HmacSha512 => Err(HttpSigError::Key(
                 "HMAC keys are raw shared secrets, not PEM-encoded".into(),
@@ -254,11 +256,13 @@ impl VerifyingKey {
                 Ok(VerifyingKey::EcP521(pk.into()))
             }
             Algorithm::RsaPssSha256 | Algorithm::RsaPssSha512 => {
+                use rsa::pkcs8::spki::DecodePublicKey;
                 let pk = rsa::RsaPublicKey::from_public_key_der(&der)
                     .map_err(|e| HttpSigError::Key(format!("rsa: {e}")))?;
                 Ok(VerifyingKey::RsaPss(pk))
             }
             Algorithm::RsaPkcs1Sha256 | Algorithm::RsaPkcs1Sha512 => {
+                use rsa::pkcs8::spki::DecodePublicKey;
                 let pk = rsa::RsaPublicKey::from_public_key_der(&der)
                     .map_err(|e| HttpSigError::Key(format!("rsa: {e}")))?;
                 Ok(VerifyingKey::RsaPkcs1(pk))
@@ -270,18 +274,18 @@ impl VerifyingKey {
     pub fn verify(&self, msg: &[u8], sig: &[u8]) -> Result<()> {
         match self {
             VerifyingKey::Hmac(secret) => match self.algorithm() {
-                Algorithm::HmacSha256 => hmac_verify::<Sha256>(secret, msg, sig),
-                Algorithm::HmacSha512 => hmac_verify::<Sha512>(secret, msg, sig),
+                Algorithm::HmacSha256 => hmac_sha256_verify(secret, msg, sig),
+                Algorithm::HmacSha512 => hmac_sha512_verify(secret, msg, sig),
                 _ => unreachable!(),
             },
             VerifyingKey::RsaPss(key) => match self.algorithm() {
-                Algorithm::RsaPssSha256 => rsa_pss_verify::<Sha256>(key, msg, sig, 32),
-                Algorithm::RsaPssSha512 => rsa_pss_verify::<Sha512>(key, msg, sig, 64),
+                Algorithm::RsaPssSha256 => rsa_pss_verify_sha256(key, msg, sig),
+                Algorithm::RsaPssSha512 => rsa_pss_verify_sha512(key, msg, sig),
                 _ => unreachable!(),
             },
             VerifyingKey::RsaPkcs1(key) => match self.algorithm() {
-                Algorithm::RsaPkcs1Sha256 => rsa_pkcs1_verify::<Sha256>(key, msg, sig),
-                Algorithm::RsaPkcs1Sha512 => rsa_pkcs1_verify::<Sha512>(key, msg, sig),
+                Algorithm::RsaPkcs1Sha256 => rsa_pkcs1_verify_sha256(key, msg, sig),
+                Algorithm::RsaPkcs1Sha512 => rsa_pkcs1_verify_sha512(key, msg, sig),
                 _ => unreachable!(),
             },
             VerifyingKey::EcP256(key) => ecdsa_verify(key, msg, sig),
@@ -306,19 +310,34 @@ fn decode_pem(pem_str: &str) -> Result<(String, Vec<u8>)> {
 
 // --- HMAC -------------------------------------------------------------------
 
-fn hmac_sign<D: Digest>(key: &[u8], msg: &[u8]) -> Result<Vec<u8>> {
+fn hmac_sha256_sign(key: &[u8], msg: &[u8]) -> Result<Vec<u8>> {
     use hmac::Mac;
-    type HmacD<D2> = hmac::Hmac<D2>;
-    let mut mac = HmacD::<D>::new_from_slice(key)
+    let mut mac = hmac::Hmac::<Sha256>::new_from_slice(key)
         .map_err(|e| HttpSigError::Key(format!("hmac key: {e}")))?;
     mac.update(msg);
     Ok(mac.finalize().into_bytes().to_vec())
 }
 
-fn hmac_verify<D: Digest>(key: &[u8], msg: &[u8], sig: &[u8]) -> Result<()> {
+fn hmac_sha256_verify(key: &[u8], msg: &[u8], sig: &[u8]) -> Result<()> {
     use hmac::Mac;
-    type HmacD<D2> = hmac::Hmac<D2>;
-    let mut mac = HmacD::<D>::new_from_slice(key)
+    let mut mac = hmac::Hmac::<Sha256>::new_from_slice(key)
+        .map_err(|e| HttpSigError::Key(format!("hmac key: {e}")))?;
+    mac.update(msg);
+    mac.verify_slice(sig)
+        .map_err(|_| HttpSigError::Verify("HMAC signature mismatch".into()))
+}
+
+fn hmac_sha512_sign(key: &[u8], msg: &[u8]) -> Result<Vec<u8>> {
+    use hmac::Mac;
+    let mut mac = hmac::Hmac::<Sha512>::new_from_slice(key)
+        .map_err(|e| HttpSigError::Key(format!("hmac key: {e}")))?;
+    mac.update(msg);
+    Ok(mac.finalize().into_bytes().to_vec())
+}
+
+fn hmac_sha512_verify(key: &[u8], msg: &[u8], sig: &[u8]) -> Result<()> {
+    use hmac::Mac;
+    let mut mac = hmac::Hmac::<Sha512>::new_from_slice(key)
         .map_err(|e| HttpSigError::Key(format!("hmac key: {e}")))?;
     mac.update(msg);
     mac.verify_slice(sig)
@@ -329,37 +348,81 @@ fn hmac_verify<D: Digest>(key: &[u8], msg: &[u8], sig: &[u8]) -> Result<()> {
 
 fn parse_rsa_private(tag: &str, der: &[u8]) -> Result<rsa::RsaPrivateKey> {
     if tag == "RSA PRIVATE KEY" {
-        rsa::RsaPrivateKey::from_pkcs1(der).map_err(|e| HttpSigError::Key(format!("rsa: {e}")))
+        parse_rsa_pkcs1_private(der)
     } else {
-        rsa::RsaPrivateKey::from_pkcs8(der).map_err(|e| HttpSigError::Key(format!("rsa: {e}")))
+        use rsa::pkcs8::DecodePrivateKey;
+        rsa::RsaPrivateKey::from_pkcs8_der(der)
+            .map_err(|e| HttpSigError::Key(format!("rsa pkcs8: {e}")))
     }
 }
 
-fn rsa_pss_sign<D: Digest>(key: &rsa::RsaPrivateKey, msg: &[u8], salt: usize) -> Result<Vec<u8>> {
-    let scheme = rsa::Pss::new::<D>().with_salt_len(salt);
+/// Parse a PKCS#1 `RSAPrivateKey` DER structure (the legacy
+/// `-----BEGIN RSA PRIVATE KEY-----` form) into an [`rsa::RsaPrivateKey`].
+/// Only the modulus, public exponent, and private exponent are needed; the
+/// primes are recovered by `rsa`.
+fn parse_rsa_pkcs1_private(der: &[u8]) -> Result<rsa::RsaPrivateKey> {
+    let (tag, seq) = read_tlv(der, &mut 0)?;
+    if tag != 0x30 {
+        return Err(HttpSigError::Key(
+            "expected SEQUENCE for RSAPrivateKey".into(),
+        ));
+    }
+    let mut i = 0;
+    let (_t0, _version) = read_tlv(seq, &mut i)?;
+    let (_t1, n) = read_tlv(seq, &mut i)?;
+    let (_t2, e) = read_tlv(seq, &mut i)?;
+    let (_t3, d) = read_tlv(seq, &mut i)?;
+    let n = rsa::BigUint::from_bytes_be(n);
+    let e = rsa::BigUint::from_bytes_be(e);
+    let d = rsa::BigUint::from_bytes_be(d);
+    rsa::RsaPrivateKey::from_components(n, e, d, Vec::new())
+        .map_err(|e| HttpSigError::Key(format!("rsa pkcs1: {e}")))
+}
+
+fn rsa_pss_sign_sha256(key: &rsa::RsaPrivateKey, msg: &[u8]) -> Result<Vec<u8>> {
+    let scheme = rsa::Pss::new_with_salt::<rsa::sha2::Sha256>(32);
     key.sign(scheme, msg)
         .map_err(|e| HttpSigError::Sign(format!("rsa-pss: {e}")))
 }
 
-fn rsa_pss_verify<D: Digest>(
-    key: &rsa::RsaPublicKey,
-    msg: &[u8],
-    sig: &[u8],
-    salt: usize,
-) -> Result<()> {
-    let scheme = rsa::Pss::new::<D>().with_salt_len(salt);
+fn rsa_pss_sign_sha512(key: &rsa::RsaPrivateKey, msg: &[u8]) -> Result<Vec<u8>> {
+    let scheme = rsa::Pss::new_with_salt::<rsa::sha2::Sha512>(64);
+    key.sign(scheme, msg)
+        .map_err(|e| HttpSigError::Sign(format!("rsa-pss: {e}")))
+}
+
+fn rsa_pss_verify_sha256(key: &rsa::RsaPublicKey, msg: &[u8], sig: &[u8]) -> Result<()> {
+    let scheme = rsa::Pss::new_with_salt::<rsa::sha2::Sha256>(32);
     key.verify(scheme, msg, sig)
         .map_err(|_| HttpSigError::Verify("rsa-pss signature invalid".into()))
 }
 
-fn rsa_pkcs1_sign<D: Digest>(key: &rsa::RsaPrivateKey, msg: &[u8]) -> Result<Vec<u8>> {
-    let scheme = rsa::Pkcs1v15Sign::new::<D>();
+fn rsa_pss_verify_sha512(key: &rsa::RsaPublicKey, msg: &[u8], sig: &[u8]) -> Result<()> {
+    let scheme = rsa::Pss::new_with_salt::<rsa::sha2::Sha512>(64);
+    key.verify(scheme, msg, sig)
+        .map_err(|_| HttpSigError::Verify("rsa-pss signature invalid".into()))
+}
+
+fn rsa_pkcs1_sign_sha256(key: &rsa::RsaPrivateKey, msg: &[u8]) -> Result<Vec<u8>> {
+    let scheme = rsa::Pkcs1v15Sign::new::<rsa::sha2::Sha256>();
     key.sign(scheme, msg)
         .map_err(|e| HttpSigError::Sign(format!("rsa-pkcs1: {e}")))
 }
 
-fn rsa_pkcs1_verify<D: Digest>(key: &rsa::RsaPublicKey, msg: &[u8], sig: &[u8]) -> Result<()> {
-    let scheme = rsa::Pkcs1v15Sign::new::<D>();
+fn rsa_pkcs1_sign_sha512(key: &rsa::RsaPrivateKey, msg: &[u8]) -> Result<Vec<u8>> {
+    let scheme = rsa::Pkcs1v15Sign::new::<rsa::sha2::Sha512>();
+    key.sign(scheme, msg)
+        .map_err(|e| HttpSigError::Sign(format!("rsa-pkcs1: {e}")))
+}
+
+fn rsa_pkcs1_verify_sha256(key: &rsa::RsaPublicKey, msg: &[u8], sig: &[u8]) -> Result<()> {
+    let scheme = rsa::Pkcs1v15Sign::new::<rsa::sha2::Sha256>();
+    key.verify(scheme, msg, sig)
+        .map_err(|_| HttpSigError::Verify("rsa-pkcs1 signature invalid".into()))
+}
+
+fn rsa_pkcs1_verify_sha512(key: &rsa::RsaPublicKey, msg: &[u8], sig: &[u8]) -> Result<()> {
+    let scheme = rsa::Pkcs1v15Sign::new::<rsa::sha2::Sha512>();
     key.verify(scheme, msg, sig)
         .map_err(|_| HttpSigError::Verify("rsa-pkcs1 signature invalid".into()))
 }
@@ -368,7 +431,7 @@ fn rsa_pkcs1_verify<D: Digest>(key: &rsa::RsaPublicKey, msg: &[u8], sig: &[u8]) 
 
 fn ecdsa_sign<C>(key: &ecdsa::SigningKey<C>, msg: &[u8]) -> Result<Vec<u8>>
 where
-    C: elliptic_curve::Curve + ecdsa::hazmat::DigestPrimitive,
+    C: ecdsa::EcdsaCurve + ecdsa::elliptic_curve::CurveArithmetic + ecdsa::DigestAlgorithm,
 {
     use ecdsa::signature::Signer;
     let sig: ecdsa::Signature<C> = key.sign(msg);
@@ -377,10 +440,10 @@ where
 
 fn ecdsa_verify<C>(key: &ecdsa::VerifyingKey<C>, msg: &[u8], sig: &[u8]) -> Result<()>
 where
-    C: elliptic_curve::Curve + ecdsa::hazmat::DigestPrimitive,
+    C: ecdsa::EcdsaCurve + ecdsa::elliptic_curve::CurveArithmetic + ecdsa::DigestAlgorithm,
 {
-    use ecdsa::signature::{SignatureEncoding, Verifier};
-    let sig = ecdsa::Signature::<C>::from_bytes(sig)
+    use ecdsa::signature::Verifier;
+    let sig = ecdsa::Signature::<C>::from_slice(sig)
         .map_err(|_| HttpSigError::Verify("malformed ECDSA signature".into()))?;
     key.verify(msg, &sig)
         .map_err(|_| HttpSigError::Verify("ECDSA signature invalid".into()))
@@ -467,21 +530,21 @@ fn parse_p521_private(tag: &str, der: &[u8]) -> Result<p521::SecretKey> {
 }
 
 fn parse_p256_public(der: &[u8]) -> Result<p256::PublicKey> {
-    let spki = spki::SubjectPublicKeyInfo::from_der(der)
+    let spki = spki::SubjectPublicKeyInfo::<spki::der::Any, spki::der::asn1::BitString>::from_der(der)
         .map_err(|e| HttpSigError::Key(format!("spki: {e}")))?;
     let raw = spki.subject_public_key.raw_bytes();
     p256::PublicKey::from_sec1_bytes(raw).map_err(|e| HttpSigError::Key(format!("p256 pub: {e}")))
 }
 
 fn parse_p384_public(der: &[u8]) -> Result<p384::PublicKey> {
-    let spki = spki::SubjectPublicKeyInfo::from_der(der)
+    let spki = spki::SubjectPublicKeyInfo::<spki::der::Any, spki::der::asn1::BitString>::from_der(der)
         .map_err(|e| HttpSigError::Key(format!("spki: {e}")))?;
     let raw = spki.subject_public_key.raw_bytes();
     p384::PublicKey::from_sec1_bytes(raw).map_err(|e| HttpSigError::Key(format!("p384 pub: {e}")))
 }
 
 fn parse_p521_public(der: &[u8]) -> Result<p521::PublicKey> {
-    let spki = spki::SubjectPublicKeyInfo::from_der(der)
+    let spki = spki::SubjectPublicKeyInfo::<spki::der::Any, spki::der::asn1::BitString>::from_der(der)
         .map_err(|e| HttpSigError::Key(format!("spki: {e}")))?;
     let raw = spki.subject_public_key.raw_bytes();
     p521::PublicKey::from_sec1_bytes(raw).map_err(|e| HttpSigError::Key(format!("p521 pub: {e}")))

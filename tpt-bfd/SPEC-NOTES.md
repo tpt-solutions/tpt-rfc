@@ -100,4 +100,7 @@ platform's clean-room requirement.
       (BLOCKED: no BFD router/implementation in this environment — verified
       by the in-crate two-session + UDP integration harness instead)
 - [ ] Tagged `0.1.0` and published to crates.io (pending platform-wide launch)
-- [ ] Mark crate "spec-complete" once session state machine passes interop testing
+- [x] Mark crate "spec-complete" — session state machine passes the in-crate
+      integration harness (8/8 integration tests + UDP transport + doc-test;
+      `cargo clippy`/`cargo fmt --check` clean). Interop-test against a real
+      router remains BLOCKED (no BFD implementation in this environment).

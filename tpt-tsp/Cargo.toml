@@ -28,10 +28,10 @@ x509-cert = { version = "0.3", features = ["builder"] }
 sha2 = { version = "0.11", features = ["oid"] } # MIT/Apache-2.0
 sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] } # for rsa Pkcs1v15Sign generic
 ecdsa = { version = "0.17", features = ["spki", "alloc"] } # MIT/Apache-2.0
-p256 = { version = "0.14", features = ["ecdh", "arithmetic"] } # MIT/Apache-2.0
-p384 = { version = "0.14", features = ["ecdh", "arithmetic"] } # MIT/Apache-2.0
+p256 = { version = "0.14", features = ["ecdh"] } # MIT/Apache-2.0
+p384 = { version = "0.14", features = ["ecdh"] } # MIT/Apache-2.0
 rsa = "0.9" # MIT/Apache-2.0
-ed25519-compact = "2" # MIT
+ed25519-compact = { version = "2", features = ["random"] } # MIT
 sha1 = "0.10" # MIT/Apache-2.0 (deprecated SHA-1 option, for interop only)
 rand_core = { version = "0.6", features = ["getrandom"] } # MIT/Apache-2.0 (nonce/serial)
 

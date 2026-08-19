@@ -5,7 +5,6 @@ use std::time::SystemTime;
 use const_oid::ObjectIdentifier;
 use der::{Decode, Encode};
 use sha1::{Digest as _, Sha1};
-use spki::SubjectPublicKeyInfoRef;
 use x509_cert::Certificate;
 
 use crate::certid::{CertId, CertStatusValue};
@@ -13,8 +12,8 @@ use crate::error::{OcspError, OcspResult};
 use crate::oids;
 use crate::verify::{build_nonce_ext, extract_nonce, verify_signature};
 use crate::wire::{
-    BasicOcspResponse, CertStatus, CrlReason, OcspRequest, OcspResponse, Request, ResponderId,
-    ResponseData, SingleResponse, TbsRequest,
+    BasicOcspResponse, CertStatus, OcspRequest, OcspResponse, Request, ResponderId, ResponseData,
+    TbsRequest,
 };
 
 /// Options controlling how an OCSP request is built.
@@ -135,12 +134,12 @@ impl OcspClient {
 
         let basic_der = rb.response.as_bytes();
         let basic = BasicOcspResponse::from_der(basic_der)?;
-        let tbs = basic.tbs_response_data.as_bytes();
+        let tbs = basic.tbs_response_data.value();
         let sig_oid = basic.signature_algorithm.oid.clone();
         let sig_bytes = basic
             .signature
             .as_bytes()
-            .map_err(|e| OcspError::Crypto(e.to_string()))?;
+            .ok_or_else(|| OcspError::Crypto("invalid OCSP signature BIT STRING".into()))?;
 
         let rd = ResponseData::from_der(tbs)?;
 
@@ -241,9 +240,7 @@ fn verify_responder(
         }
         any_match = true;
         let spki = cert.tbs_certificate().subject_public_key_info();
-        let spki_ref = SubjectPublicKeyInfoRef::try_from(spki)
-            .map_err(|e| OcspError::Crypto(e.to_string()))?;
-        match verify_signature(spki_ref, sig_oid, tbs, sig) {
+        match verify_signature(spki, sig_oid, tbs, sig) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
         }

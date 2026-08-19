@@ -9,7 +9,7 @@
 use std::time::{Duration, SystemTime};
 
 use der::{
-    asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, OctetStringRef},
+    asn1::{AnyRef, BitStringRef, GeneralizedTime, Null, OctetString},
     Decode, Encode,
 };
 use sha1::{Digest as _, Sha1};
@@ -196,8 +196,8 @@ impl OcspResponder {
         let basic_der = basic.to_der().map_err(OcspError::from)?;
 
         let resp_bytes = ResponseBytes {
-            response_type: (&oids::oid(oids::OCSP_BASIC)).into(),
-            response: OctetStringRef::new(&basic_der).map_err(OcspError::from)?,
+            response_type: oids::oid(oids::OCSP_BASIC),
+            response: OctetString::new(basic_der).map_err(OcspError::from)?,
         };
         let ocsp_resp = OcspResponse {
             response_status: OcspResponseStatus::Success,

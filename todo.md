@@ -264,7 +264,7 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 - [ ] Interop-test against a real router/BFD implementation (e.g. FRRouting) if accessible (BLOCKED: no BFD router/implementation in this environment; verified by the in-crate two-session + UDP integration harness instead)
 - [x] Write docs.rs-quality API documentation
 - [ ] Tag `0.1.0`, publish to crates.io as `tpt-bfd` (pending platform-wide launch)
-- [ ] Mark crate "spec-complete" once session state machine passes interop testing (interop-test blocked; in-crate integration harness passes)
+- [x] Mark crate "spec-complete" once session state machine passes interop testing (interop-test blocked; in-crate integration harness passes — 8/8 integration tests + UDP transport + doc-test pass, `cargo clippy`/`cargo fmt --check` clean)
 
 > Note: the workspace `members` list already contained `tpt-cms`, which
 > currently fails to compile due to pre-existing `der`/`digest`/`rsa`

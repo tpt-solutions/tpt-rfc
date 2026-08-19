@@ -1,39 +1,41 @@
 [package]
 name = "tpt-kerberos"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.74"
-license = "MIT OR Apache-2.0"
-authors = ["TPT Solutions <oss@tpt.example>"]
-repository = "https://github.com/tpt-solutions/tpt-rfc"
-homepage = "https://github.com/tpt-solutions/tpt-rfc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
 keywords = ["kerberos", "rfc4120", "spnego", "rfc4178", "gssapi", "krb5"]
 categories = ["authentication", "cryptography", "network-programming"]
 description = "Clean-room, dual-licensed (MIT OR Apache-2.0) RFC 4120 Kerberos v5 + RFC 4178 SPNEGO — client AS/TGS exchanges, AP-REQ/AP-REP, GSSAPI negotiation"
 readme = "README.md"
 
-# Self-contained workspace so the crate builds and tests independently of the
-# platform root manifest (which is regenerated separately). When folded into the
-# platform workspace, switch these back to `*.workspace = true`.
-[workspace]
+# This crate previously declared its own `[workspace]` so it could be built in
+# isolation. It is now a member of the platform workspace; package metadata and
+# lints are inherited from the root manifest.
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true
 
 [dependencies]
-thiserror = "1"
+thiserror = { workspace = true }
 # All cryptographic primitives are dual-licensed (MIT/Apache-2.0) and reused
 # rather than reimplemented:
 aes = "0.8"          # MIT/Apache-2.0 — AES block cipher (used for CBC-CTS)
- hmac = "0.12"        # MIT/Apache-2.0 — HMAC for checksums / PBKDF2 PRF
+cbc = "0.1"          # MIT/Apache-2.0 — CBC mode for AES (CTS is hand-rolled)
+hmac = "0.12"        # MIT/Apache-2.0 — HMAC for checksums / PBKDF2 PRF
 sha1 = "0.10"        # MIT/Apache-2.0 — SHA-1 (RFC 3962 HMAC + PBKDF2 PRF)
 sha2 = "0.10"        # MIT/Apache-2.0 — SHA-256/384 (RFC 8009 enctypes)
-getrandom = "0.2"     # MIT/Apache-2.0 — confounder
+digest = "0.10"      # MIT/Apache-2.0 — `Hash` trait bound for PBKDF2
+getrandom = "0.2"     # MIT/Apache-2.0 — confounder / nonce
 subtle = "2"         # MIT/Apache-2.0 — constant-time comparison for MAC/auth checks
-der = "0.8"          # MIT/Apache-2.0 — DER codec for ASN.1 wire structures
-spki = "0.8"         # MIT/Apache-2.0 — SubjectPublicKeyInfo (PKINIT hook)
+der = { version = "0.8", features = ["derive", "alloc", "oid"] } # MIT/Apache-2.0 — DER codec for ASN.1 wire structures
 const-oid = "0.10"   # MIT/Apache-2.0 — OID handling for mech/algorithm ids
 
 [dev-dependencies]
 hex = "0.4"          # MIT/Apache-2.0
 hex-literal = "0.4"  # MIT/Apache-2.0 — test-vector literals
-
-[package.metadata.docs.rs]
-all-features = true

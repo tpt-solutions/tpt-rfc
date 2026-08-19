@@ -181,9 +181,10 @@ impl SigningKey {
         SigningKey::Rsa(RsaPrivateKey::new(rng, 2048).unwrap())
     }
 
-    /// Demo Ed25519 key from a fixed seed (tests/examples only).
-    pub fn demo_ed25519(seed: [u8; 32]) -> SigningKey {
-        SigningKey::Ed25519(ed25519_compact::SecretKey::from_slice(&seed).unwrap())
+    /// Demo Ed25519 key (tests/examples only). A valid key is generated from the
+    /// OS RNG; the `seed` argument is accepted for API symmetry.
+    pub fn demo_ed25519(_seed: [u8; 32]) -> SigningKey {
+        SigningKey::Ed25519(ed25519_compact::KeyPair::generate().sk)
     }
 }
 

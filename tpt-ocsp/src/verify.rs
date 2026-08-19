@@ -4,11 +4,12 @@
 //! Signature verification and OCSP extension helpers.
 
 use const_oid::ObjectIdentifier;
-use der::{asn1::AnyRef, Decode};
+use der::{asn1::{AnyRef, OctetString}, Decode, Encode};
 use ecdsa::signature::hazmat::PrehashVerifier;
-use sha1::{Digest as _, Sha1};
+use rsa::pkcs8::DecodePublicKey;
+use rsa::Pkcs1v15Sign;
 use sha2::{Sha256, Sha384, Sha512};
-use spki::SubjectPublicKeyInfoRef;
+use spki::SubjectPublicKeyInfoOwned;
 
 use crate::error::{OcspError, OcspResult};
 use crate::hash::HashAlgorithm;
@@ -24,11 +25,11 @@ pub(crate) fn null_params() -> Option<AnyRef<'static>> {
 
 /// Build the standard OCSP nonce `Extension` (`id-pkix-ocsp-nonce`), borrowing
 /// `nonce` for the lifetime of the returned extension.
-pub(crate) fn build_nonce_ext<'a>(nonce: &'a [u8]) -> Extension<'a> {
+pub(crate) fn build_nonce_ext(nonce: &[u8]) -> Extension {
     Extension {
         extn_id: oids::oid(oids::OCSP_NONCE),
         critical: false,
-        extn_value: der::asn1::OctetStringRef::new(nonce).expect("nonce fits in an OCTET STRING"),
+        extn_value: OctetString::new(nonce.to_vec()).expect("nonce fits in an OCTET STRING"),
     }
 }
 
@@ -46,7 +47,7 @@ pub(crate) fn extract_nonce(exts: &Option<Vec<Extension>>) -> Option<Vec<u8>> {
 /// Verify a signature over `tbs` against the public key described by `spki`,
 /// using the signature scheme identified by `sig_alg_oid`.
 pub(crate) fn verify_signature(
-    spki: SubjectPublicKeyInfoRef<'_>,
+    spki: &SubjectPublicKeyInfoOwned,
     sig_alg_oid: &ObjectIdentifier,
     tbs: &[u8],
     signature: &[u8],
@@ -66,43 +67,41 @@ pub(crate) fn verify_signature(
     let key_oid = spki.algorithm.oid;
 
     if *key_oid == oids::oid(oids::RSA_ENCRYPTION) {
-        let pubkey = rsa::RsaPublicKey::try_from(spki)
+        // `rsa` 0.9 is built against `spki` 0.7 while the rest of the stack uses
+        // `spki` 0.8, so we parse the SPKI from its DER bytes rather than going
+        // through `spki`'s public-key types.
+        let spki_der = spki
+            .to_der()
             .map_err(|e| OcspError::Crypto(e.to_string()))?;
-        let sig = rsa::pkcs1v15::Signature::try_from(signature)
-            .map_err(|e| OcspError::Signature(e.to_string()))?;
+        let pubkey = rsa::RsaPublicKey::from_public_key_der(&spki_der)
+            .map_err(|e| OcspError::Crypto(e.to_string()))?;
         match hash {
-            HashAlgorithm::Sha256 => {
-                rsa::pkcs1v15::VerifyingKey::<Sha256>::new(pubkey)
-                    .verify_prehash(&digest, &sig)
-                    .map_err(|e| OcspError::Signature(e.to_string()))
-            }
-            HashAlgorithm::Sha384 => {
-                rsa::pkcs1v15::VerifyingKey::<Sha384>::new(pubkey)
-                    .verify_prehash(&digest, &sig)
-                    .map_err(|e| OcspError::Signature(e.to_string()))
-            }
-            HashAlgorithm::Sha512 => {
-                rsa::pkcs1v15::VerifyingKey::<Sha512>::new(pubkey)
-                    .verify_prehash(&digest, &sig)
-                    .map_err(|e| OcspError::Signature(e.to_string()))
-            }
+            HashAlgorithm::Sha256 => pubkey
+                .verify(Pkcs1v15Sign::new::<Sha256>(), &digest, signature)
+                .map_err(|e| OcspError::Signature(e.to_string())),
+            HashAlgorithm::Sha384 => pubkey
+                .verify(Pkcs1v15Sign::new::<Sha384>(), &digest, signature)
+                .map_err(|e| OcspError::Signature(e.to_string())),
+            HashAlgorithm::Sha512 => pubkey
+                .verify(Pkcs1v15Sign::new::<Sha512>(), &digest, signature)
+                .map_err(|e| OcspError::Signature(e.to_string())),
             HashAlgorithm::Sha1 => Err(OcspError::UnsupportedHash("SHA-1".into())),
         }
     } else if *key_oid == oids::oid(oids::EC_PUBLIC_KEY) {
-        let point = spki
-            .subject_public_key
-            .as_bytes()
-            .ok_or_else(|| OcspError::Crypto("missing EC point".into()))?;
+        let point = spki.subject_public_key.raw_bytes();
         let curve = spki
             .algorithm
             .parameters
             .as_ref()
-            .map(|p| ObjectIdentifier::from_der(p.as_bytes()))
-            .transpose()
+            .ok_or_else(|| OcspError::Crypto("EC public key missing curve parameters".into()))?;
+        let der = curve
+            .to_der()
             .map_err(|e| OcspError::Crypto(e.to_string()))?;
-        let curve_str = curve.as_ref().map(|c| c.to_string());
-        match curve_str.as_deref() {
-            Some(oids::P256) => {
+        let curve_oid: ObjectIdentifier = ObjectIdentifier::from_der(&der)
+            .map_err(|e| OcspError::Crypto(e.to_string()))?;
+        let curve_str = curve_oid.to_string();
+        match curve_str.as_str() {
+            oids::P256 => {
                 let vk = p256::ecdsa::VerifyingKey::from_sec1_bytes(point)
                     .map_err(|e| OcspError::Crypto(e.to_string()))?;
                 let sig = p256::ecdsa::Signature::from_der(signature)
@@ -110,7 +109,7 @@ pub(crate) fn verify_signature(
                 vk.verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
             }
-            Some(oids::P384) => {
+            oids::P384 => {
                 let vk = p384::ecdsa::VerifyingKey::from_sec1_bytes(point)
                     .map_err(|e| OcspError::Crypto(e.to_string()))?;
                 let sig = p384::ecdsa::Signature::from_der(signature)
@@ -118,14 +117,10 @@ pub(crate) fn verify_signature(
                 vk.verify_prehash(&digest, &sig)
                     .map_err(|e| OcspError::Signature(e.to_string()))
             }
-            Some(other) => Err(OcspError::UnsupportedKey(other.to_string())),
-            None => Err(OcspError::UnsupportedKey("EC without curve".into())),
+            other => Err(OcspError::UnsupportedKey(other.to_string())),
         }
     } else if *key_oid == oids::oid(oids::ED25519) {
-        let key_bytes = spki
-            .subject_public_key
-            .as_bytes()
-            .ok_or_else(|| OcspError::Crypto("missing Ed25519 key".into()))?;
+        let key_bytes = spki.subject_public_key.raw_bytes();
         let pubkey = ed25519_compact::PublicKey::from_slice(key_bytes)
             .map_err(|e| OcspError::Crypto(e.to_string()))?;
         let sig = ed25519_compact::Signature::from_slice(signature)

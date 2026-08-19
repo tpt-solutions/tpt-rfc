@@ -21,12 +21,11 @@ thiserror = { workspace = true }
 # rather than reimplemented:
 sha2 = "0.10"                                  # MIT/Apache-2.0 — hash digests
 hmac = "0.12"                                 # MIT/Apache-2.0 — HMAC
-rsa = "0.9" # MIT/Apache-2.0
+rsa = { version = "0.9", features = ["sha2"] } # MIT/Apache-2.0
 p256 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "alloc"] } # MIT/Apache-2.0
 p384 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "alloc"] } # MIT/Apache-2.0
 p521 = { version = "0.14", default-features = false, features = ["ecdsa", "pkcs8", "alloc"] } # MIT/Apache-2.0
 spki = "0.8" # MIT/Apache-2.0 — SPKI SubjectPublicKeyInfo decode for public keys
-der = "0.8"  # MIT/Apache-2.0 — DER decoding for SPKI public keys
 ecdsa = "0.17" # MIT/Apache-2.0 — ECDSA sign/verify primitives (re-exported by p256/p384/p521)
 ed25519-compact = { version = "2", features = ["pem"] } # MIT
 base64 = "0.22"                               # MIT/Apache-2.0 — Signature byte-sequence codec

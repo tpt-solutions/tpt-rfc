@@ -1,0 +1,822 @@
+warning: unused import: `BlockDecryptMut`
+   --> tpt-cms\src\crypto.rs:104:27
+    |
+104 |         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+    |                           ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Decryptor`
+   --> tpt-cms\src\crypto.rs:106:19
+    |
+106 |         use cbc::{Decryptor, Encryptor};
+    |                   ^^^^^^^^^
+
+warning: unused import: `BlockEncryptMut`
+   --> tpt-cms\src\crypto.rs:124:44
+    |
+124 |         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+    |                                            ^^^^^^^^^^^^^^^
+
+warning: unused import: `Encryptor`
+   --> tpt-cms\src\crypto.rs:126:30
+    |
+126 |         use cbc::{Decryptor, Encryptor};
+    |                              ^^^^^^^^^
+
+warning: unused import: `Pkcs1v15Encrypt`
+   --> tpt-cms\src\crypto.rs:382:21
+    |
+382 | use rsa::pkcs1v15::{Pkcs1v15Encrypt, Pkcs1v15Sign};
+    |                     ^^^^^^^^^^^^^^^
+
+warning: unused import: `Oaep`
+   --> tpt-cms\src\crypto.rs:384:11
+    |
+384 | use rsa::{Oaep, RsaPrivateKey, RsaPublicKey};
+    |           ^^^^
+
+warning: unused import: `Length`
+  --> tpt-cms\src\wire.rs:12:21
+   |
+12 |     Decode, Encode, Length, Tag, TagNumber, Tagged,
+   |                     ^^^^^^
+
+warning: unused import: `spki::AlgorithmIdentifierRef`
+  --> tpt-cms\src\wire.rs:14:5
+   |
+14 | use spki::AlgorithmIdentifierRef;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `PrehashSigner`
+   --> tpt-cms\src\crypto.rs:380:38
+    |
+380 | use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+    |                                      ^^^^^^^^^^^^^
+
+warning: unused import: `PrehashVerifier`
+   --> tpt-cms\src\crypto.rs:380:58
+    |
+380 | use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+    |                                                          ^^^^^^^^^^^^^^^
+
+warning: unused variable: `enc_alg_oid`
+   --> tpt-cms\src\enveloped_data.rs:412:9
+    |
+412 |     let enc_alg_oid = algid.oid.to_owned();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_enc_alg_oid`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `rid_ski` is never read
+   --> tpt-cms\src\enveloped_data.rs:373:5
+    |
+370 | struct ParsedKeyTrans {
+    |        -------------- field in this struct
+...
+373 |     rid_ski: Option<Vec<u8>>,
+    |     ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `rid_ski` is never read
+   --> tpt-cms\src\enveloped_data.rs:385:5
+    |
+378 | struct ParsedKeyAgree {
+    |        -------------- field in this struct
+...
+385 |     rid_ski: Option<Vec<u8>>,
+    |     ^^^^^^^
+
+warning: function `subject_public_key_info` is never used
+   --> tpt-cms\src\cert.rs:171:15
+    |
+171 | pub(crate) fn subject_public_key_info(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `remaining` is never used
+   --> tpt-cms\src\wire.rs:188:12
+    |
+166 | impl<'a> Cursor<'a> {
+    | ------------------- method in this implementation
+...
+188 |     pub fn remaining(&self) -> &'a [u8] {
+    |            ^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:34:19
+   |
+34 |     KeyTransRsa { cert: Certificate, oaep: bool },
+   |                   ^^^^^^^^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> tpt-cms\src\lib.rs:18:9
+   |
+18 | #![warn(missing_docs)]
+   |         ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:34:38
+   |
+34 |     KeyTransRsa { cert: Certificate, oaep: bool },
+   |                                      ^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:38:20
+   |
+38 |     KeyAgreeEcdh { cert: Certificate, wrap: KeyWrap },
+   |                    ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:38:39
+   |
+38 |     KeyAgreeEcdh { cert: Certificate, wrap: KeyWrap },
+   |                                       ^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\enveloped_data.rs:44:5
+   |
+44 |     Rsa(RsaPrivateKey, Certificate),
+   |     ^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\enveloped_data.rs:45:5
+   |
+45 |     EcdhP256(P256Secret, Certificate),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\enveloped_data.rs:46:5
+   |
+46 |     EcdhP384(P384Secret, Certificate),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+ --> tpt-cms\src\error.rs:9:5
+  |
+9 |     Asn1(#[from] der::Error),
+  |     ^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:12:5
+   |
+12 |     UnexpectedContentType { expected: String, got: String },
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\error.rs:12:29
+   |
+12 |     UnexpectedContentType { expected: String, got: String },
+   |                             ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\error.rs:12:47
+   |
+12 |     UnexpectedContentType { expected: String, got: String },
+   |                                               ^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:15:5
+   |
+15 |     UnsupportedHash(String),
+   |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:18:5
+   |
+18 |     UnsupportedContentEncryption(String),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:21:5
+   |
+21 |     UnsupportedKeyWrap(String),
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:24:5
+   |
+24 |     UnsupportedKeyTransport(String),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:27:5
+   |
+27 |     UnsupportedKeyAgreement(String),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:30:5
+   |
+30 |     UnsupportedSignature(String),
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:33:5
+   |
+33 |     UnsupportedKey(String),
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:36:5
+   |
+36 |     UnsupportedCurve(String),
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:39:5
+   |
+39 |     SignerCertNotFound,
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:42:5
+   |
+42 |     NoMatchingRecipient,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:45:5
+   |
+45 |     ContentTypeMismatch,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:48:5
+   |
+48 |     MessageDigestMismatch,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:51:5
+   |
+51 |     Signature(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:54:5
+   |
+54 |     Untrusted(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:57:5
+   |
+57 |     CertChain(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:60:5
+   |
+60 |     MissingContent,
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:63:5
+   |
+63 |     KeyUnwrap,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:66:5
+   |
+66 |     Crypto(String),
+   |     ^^^^^^
+
+warning: missing documentation for a type alias
+  --> tpt-cms\src\error.rs:69:1
+   |
+69 | pub type Result<T> = std::result::Result<T, CmsError>;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\signed_data.rs:17:5
+   |
+17 |     pub key: SigningKey,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\signed_data.rs:18:5
+   |
+18 |     pub cert: Certificate,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> tpt-cms\src\signed_data.rs:22:5
+   |
+22 |     pub fn new(key: SigningKey, cert: Certificate) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> tpt-cms\src\signed_data.rs:140:5
+    |
+140 |     pub content_type: ObjectIdentifier,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> tpt-cms\src\signed_data.rs:141:5
+    |
+141 |     pub content: Vec<u8>,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+  --> tpt-cms\src\crypto.rs:19:1
+   |
+19 | pub enum HashAlgorithm {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:20:5
+   |
+20 |     Sha256,
+   |     ^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:21:5
+   |
+21 |     Sha384,
+   |     ^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:22:5
+   |
+22 |     Sha512,
+   |     ^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:26:5
+   |
+26 |     pub fn oid(&self) -> ObjectIdentifier {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> tpt-cms\src\crypto.rs:34:5
+   |
+34 |     pub fn from_oid(oid: &ObjectIdentifier) -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:44:5
+   |
+44 |     pub fn digest(&self, data: &[u8]) -> Vec<u8> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:52:5
+   |
+52 |     pub fn output_size(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+  --> tpt-cms\src\crypto.rs:66:1
+   |
+66 | pub enum ContentEncryption {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:67:5
+   |
+67 |     Aes128Cbc,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:68:5
+   |
+68 |     Aes192Cbc,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:69:5
+   |
+69 |     Aes256Cbc,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:73:5
+   |
+73 |     pub fn oid(&self) -> ObjectIdentifier {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> tpt-cms\src\crypto.rs:81:5
+   |
+81 |     pub fn from_oid(oid: &ObjectIdentifier) -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:91:5
+   |
+91 |     pub fn key_size(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:99:5
+   |
+99 |     pub fn iv_size(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:103:5
+    |
+103 |     pub fn encrypt(&self, key: &[u8], iv: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:123:5
+    |
+123 |     pub fn decrypt(&self, key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+   --> tpt-cms\src\crypto.rs:150:1
+    |
+150 | pub enum KeyWrap {
+    | ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:151:5
+    |
+151 |     Aes128Wrap,
+    |     ^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:152:5
+    |
+152 |     Aes192Wrap,
+    |     ^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:153:5
+    |
+153 |     Aes256Wrap,
+    |     ^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:157:5
+    |
+157 |     pub fn oid(&self) -> ObjectIdentifier {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> tpt-cms\src\crypto.rs:165:5
+    |
+165 |     pub fn from_oid(oid: &ObjectIdentifier) -> Result<Self> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:175:5
+    |
+175 |     pub fn key_size(&self) -> usize {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:389:5
+    |
+389 |     EcdsaP256(P256SigningKey),
+    |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:390:5
+    |
+390 |     EcdsaP384(P384SigningKey),
+    |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:391:5
+    |
+391 |     Rsa(RsaPrivateKey),
+    |     ^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:392:5
+    |
+392 |     Ed25519(ed25519_compact::SecretKey),
+    |     ^^^^^^^
+
+warning: `tpt-cms` (lib) generated 79 warnings (run `cargo fix --lib -p tpt-cms` to apply 9 suggestions)
+warning: `tpt-cms` (lib test) generated 79 warnings (79 duplicates)
+   Compiling tpt-cms v0.1.0 (C:\Programming\2 WIP\tpt-rfc\tpt-cms)
+error[E0407]: method `from_bytes` is not a member of trait `SignatureEncoding`
+  --> tpt-cms\tests\cms_test.rs:48:5
+   |
+48 |       fn from_bytes(bytes: &Vec<u8>) -> std::result::Result<Self, signature::Error> {
+   |       ^  ---------- help: there is an associated function with a similar name: `to_bytes`
+   |  _____|
+   | |
+49 | |         Ok(RsaSig(bytes.clone()))
+50 | |     }
+   | |_____^ not a member of trait `SignatureEncoding`
+
+error[E0277]: the trait bound `RsaSig: Clone` is not satisfied
+  --> tpt-cms\tests\cms_test.rs:43:28
+   |
+43 | impl SignatureEncoding for RsaSig {
+   |                            ^^^^^^ the trait `Clone` is not implemented for `RsaSig`
+   |
+note: required by a bound in `signature::SignatureEncoding`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-2.2.0\src\encoding.rs:8:5
+   |
+ 7 | pub trait SignatureEncoding:
+   |           ----------------- required by a bound in this trait
+ 8 |     Clone + Sized + for<'a> TryFrom<&'a [u8]> + TryInto<Self::Repr>
+   |     ^^^^^ required by this bound in `SignatureEncoding`
+help: consider annotating `RsaSig` with `#[derive(Clone)]`
+   |
+42 + #[derive(Clone)]
+43 | struct RsaSig(Vec<u8>);
+   |
+
+error[E0277]: the trait bound `for<'a> RsaSig: TryFrom<&'a [u8]>` is not satisfied
+  --> tpt-cms\tests\cms_test.rs:43:28
+   |
+43 | impl SignatureEncoding for RsaSig {
+   |                            ^^^^^^ unsatisfied trait bound
+   |
+help: the trait `for<'a> From<&'a [u8]>` is not implemented for `RsaSig`
+  --> tpt-cms\tests\cms_test.rs:42:1
+   |
+42 | struct RsaSig(Vec<u8>);
+   | ^^^^^^^^^^^^^
+   = note: required for `&'a [u8]` to implement `for<'a> Into<RsaSig>`
+   = note: required for `RsaSig` to implement `for<'a> TryFrom<&'a [u8]>`
+note: required by a bound in `signature::SignatureEncoding`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-2.2.0\src\encoding.rs:8:21
+   |
+ 7 | pub trait SignatureEncoding:
+   |           ----------------- required by a bound in this trait
+ 8 |     Clone + Sized + for<'a> TryFrom<&'a [u8]> + TryInto<Self::Repr>
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `SignatureEncoding`
+
+error[E0277]: the trait bound `Vec<u8>: From<RsaSig>` is not satisfied
+  --> tpt-cms\tests\cms_test.rs:43:28
+   |
+43 | impl SignatureEncoding for RsaSig {
+   |                            ^^^^^^ the trait `From<RsaSig>` is not implemented for `Vec<u8>`
+   |
+   = help: `Vec<u8>` implements trait `From<T>`:
+             From<&der::asn1::OctetStringRef>
+             From<&str>
+             From<ByteString>
+             From<CString>
+             From<String>
+             From<der::asn1::OctetString>
+   = note: required for `RsaSig` to implement `Into<Vec<u8>>`
+   = note: required for `Vec<u8>` to implement `TryFrom<RsaSig>`
+   = note: required for `RsaSig` to implement `TryInto<Vec<u8>>`
+note: required by a bound in `signature::SignatureEncoding`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-2.2.0\src\encoding.rs:8:49
+   |
+ 7 | pub trait SignatureEncoding:
+   |           ----------------- required by a bound in this trait
+ 8 |     Clone + Sized + for<'a> TryFrom<&'a [u8]> + TryInto<Self::Repr>
+   |                                                 ^^^^^^^^^^^^^^^^^^^ required by this bound in `SignatureEncoding`
+
+error[E0053]: method `to_public_key_der` has an incompatible type for trait
+  --> tpt-cms\tests\cms_test.rs:61:36
+   |
+61 |     fn to_public_key_der(&self) -> der::Result<spki::Document> {
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `spki::Error`, found `der::Error`
+   |
+   = note: expected signature `fn(&RsaVerifyingKey) -> Result<_, spki::Error>`
+              found signature `fn(&RsaVerifyingKey) -> Result<_, der::Error>`
+help: change the output type to match the trait
+   |
+61 -     fn to_public_key_der(&self) -> der::Result<spki::Document> {
+61 +     fn to_public_key_der(&self) -> Result<der::Document, spki::Error> {
+   |
+
+error[E0053]: method `signature_algorithm_identifier` has an incompatible type for trait
+  --> tpt-cms\tests\cms_test.rs:81:49
+   |
+81 |     fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifierOwned> {
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `spki::Error`, found `der::Error`
+   |
+   = note: expected signature `fn(&RsaSigner) -> Result<_, spki::Error>`
+              found signature `fn(&RsaSigner) -> Result<_, der::Error>`
+help: change the output type to match the trait
+   |
+81 -     fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifierOwned> {
+81 +     fn signature_algorithm_identifier(&self) -> Result<spki::AlgorithmIdentifier<der::Any>, spki::Error> {
+   |
+
+error[E0599]: no method named `to_public_key_der` found for struct `rsa::RsaPublicKey` in the current scope
+  --> tpt-cms\tests\cms_test.rs:62:16
+   |
+62 |         self.0.to_public_key_der()
+   |                ^^^^^^^^^^^^^^^^^
+   |
+   = help: items from traits can only be used if the trait is in scope
+help: there is a method `to_public_key_pem` with a similar name, but with different arguments
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spki-0.7.3\src\traits.rs:78:5
+   |
+78 |     fn to_public_key_pem(&self, line_ending: LineEnding) -> Result<String> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: trait `EncodePublicKey` which provides `to_public_key_der` is implemented but not in scope; perhaps you want to import it
+   |
+ 5 + use rsa::pkcs8::EncodePublicKey;
+   |
+
+error[E0308]: mismatched types
+   --> tpt-cms\tests\cms_test.rs:134:17
+    |
+134 |                 KeyUsages::DigitalSignature
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `FlagSet<KeyUsages>`, found `KeyUsages`
+    |
+    = note: expected struct `FlagSet<KeyUsages>`
+                 found enum `KeyUsages`
+help: call `Into::into` on this expression to convert `KeyUsages` into `FlagSet<KeyUsages>`
+    |
+134 |                 KeyUsages::DigitalSignature.into()
+    |                                            +++++++
+
+error[E0277]: the trait bound `ecdsa::Signature<NistP256>: spki::SignatureBitStringEncoding` is not satisfied
+   --> tpt-cms\tests\cms_test.rs:165:21
+    |
+165 |         .build::<_, p256::ecdsa::Signature>(&key)
+    |          -----      ^^^^^^^^^^^^^^^^^^^^^^ the trait `spki::SignatureBitStringEncoding` is not implemented for `ecdsa::Signature<NistP256>`
+    |          |
+    |          required by a bound introduced by this call
+    |
+note: there are multiple different versions of crate `spki` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spki-0.8.0\src\traits.rs:211:1
+    |
+211 | pub trait SignatureBitStringEncoding {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spki-0.7.3\src\traits.rs:181:1
+    |
+181 | pub trait SignatureBitStringEncoding {
+    | ------------------------------------ this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: the following other types implement trait `spki::SignatureBitStringEncoding`
+   --> tpt-cms\tests\cms_test.rs:52:1
+    |
+ 52 |   impl SignatureBitStringEncoding for RsaSig {
+    |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `RsaSig`
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\der.rs:326:1
+    |
+326 | / impl<C> SignatureBitStringEncoding for Signature<C>
+327 | | where
+328 | |     C: EcdsaCurve,
+329 | |     MaxSize<C>: ArraySize,
+330 | |     <FieldBytesSize<C> as Add>::Output: Add<MaxOverhead> + ArraySize,
+    | |_____________________________________________________________________^ `ecdsa::der::Signature<C>`
+note: required by a bound in `build`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\x509-cert-0.3.0\src\builder.rs:294:20
+    |
+289 |     fn build<S, Signature>(mut self, signer: &S) -> Result<Self::Output>
+    |        ----- required by a bound in this associated function
+...
+294 |         Signature: SignatureBitStringEncoding,
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Builder::build`
+
+error[E0308]: mismatched types
+   --> tpt-cms\tests\cms_test.rs:173:52
+    |
+173 |     let spki = SubjectPublicKeyInfoOwned::from_key(key.to_public_key()).unwrap();
+    |                ----------------------------------- ^^^^^^^^^^^^^^^^^^^ expected `&_`, found `RsaPublicKey`
+    |                |
+    |                arguments to this function are incorrect
+    |
+    = note: expected reference `&_`
+                  found struct `rsa::RsaPublicKey`
+note: associated function defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\spki-0.8.0\src\spki.rs:227:16
+    |
+227 |         pub fn from_key<T: EncodePublicKey>(source: &T) -> Result<Self> {
+    |                ^^^^^^^^
+help: consider borrowing here
+    |
+173 |     let spki = SubjectPublicKeyInfoOwned::from_key(&key.to_public_key()).unwrap();
+    |                                                    +
+
+error[E0277]: the trait bound `RsaSigner: p256::ecdsa::signature::Signer<RsaSig>` is not satisfied
+   --> tpt-cms\tests\cms_test.rs:182:32
+    |
+182 |     let cert = builder.build::<_, RsaSig>(&wrapped).unwrap();
+    |                        -----   ^ unsatisfied trait bound
+    |                        |
+    |                        required by a bound introduced by this call
+    |
+help: the trait `p256::ecdsa::signature::Signer<RsaSig>` is not implemented for `RsaSigner`
+   --> tpt-cms\tests\cms_test.rs:73:1
+    |
+ 73 | struct RsaSigner(RsaPrivateKey);
+    | ^^^^^^^^^^^^^^^^
+note: there are multiple different versions of crate `signature` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\signer.rs:13:1
+    |
+ 13 | pub trait Signer<S> {
+    | ^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-2.2.0\src\signer.rs:13:1
+    |
+ 13 | pub trait Signer<S> {
+    | ------------------- this is the found trait
+    = help: you can use `cargo tree` to explore your dependency tree
+help: `ecdsa::signing::SigningKey<C>` implements trait `p256::ecdsa::signature::Signer<S>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\signing.rs:180:1
+    |
+180 | / impl<C> Signer<Signature<C>> for SigningKey<C>
+181 | | where
+182 | |     C: EcdsaCurve + CurveArithmetic + DigestAlgorithm,
+183 | |     Scalar<C>: Invert<Output = CtOption<Scalar<C>>>,
+    | |____________________________________________________^ `p256::ecdsa::signature::Signer<ecdsa::Signature<C>>`
+...
+282 | / impl<C> Signer<SignatureWithOid<C>> for SigningKey<C>
+283 | | where
+284 | |     C: EcdsaCurve + CurveArithmetic + DigestAlgorithm,
+285 | |     C::Digest: AssociatedOid,
+286 | |     Scalar<C>: Invert<Output = CtOption<Scalar<C>>>,
+    | |____________________________________________________^ `p256::ecdsa::signature::Signer<ecdsa::SignatureWithOid<C>>`
+...
+321 | / impl<C> Signer<der::Signature<C>> for SigningKey<C>
+322 | | where
+323 | |     C: EcdsaCurve + CurveArithmetic + DigestAlgorithm,
+324 | |     Scalar<C>: Invert<Output = CtOption<Scalar<C>>>,
+325 | |     der::MaxSize<C>: ArraySize,
+326 | |     <FieldBytesSize<C> as Add>::Output: Add<der::MaxOverhead> + ArraySize,
+    | |__________________________________________________________________________^ `p256::ecdsa::signature::Signer<ecdsa::der::Signature<C>>`
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\recovery.rs:283:1
+    |
+283 | / impl<C> Signer<(Signature<C>, RecoveryId)> for SigningKey<C>
+284 | | where
+285 | |     C: EcdsaCurve + CurveArithmetic + DigestAlgorithm,
+286 | |     Scalar<C>: Invert<Output = CtOption<Scalar<C>>>,
+    | |____________________________________________________^ `p256::ecdsa::signature::Signer<(ecdsa::Signature<C>, RecoveryId)>`
+note: required by a bound in `build`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\x509-cert-0.3.0\src\builder.rs:291:12
+    |
+289 |     fn build<S, Signature>(mut self, signer: &S) -> Result<Self::Output>
+    |        ----- required by a bound in this associated function
+290 |     where
+291 |         S: Signer<Signature>,
+    |            ^^^^^^^^^^^^^^^^^ required by this bound in `Builder::build`
+
+error[E0277]: the trait bound `RsaSigner: p256::ecdsa::signature::Keypair` is not satisfied
+   --> tpt-cms\tests\cms_test.rs:182:32
+    |
+182 |     let cert = builder.build::<_, RsaSig>(&wrapped).unwrap();
+    |                        -----   ^ unsatisfied trait bound
+    |                        |
+    |                        required by a bound introduced by this call
+    |
+help: the trait `p256::ecdsa::signature::KeypairRef` is not implemented for `RsaSigner`
+   --> tpt-cms\tests\cms_test.rs:73:1
+    |
+ 73 | struct RsaSigner(RsaPrivateKey);
+    | ^^^^^^^^^^^^^^^^
+note: there are multiple different versions of crate `signature` in the dependency graph
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-3.0.0\src\keypair.rs:18:1
+    |
+ 18 | pub trait KeypairRef: AsRef<Self::VerifyingKey> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected trait
+    |
+   ::: C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-2.2.0\src\keypair.rs:18:1
+    |
+ 18 | pub trait KeypairRef: AsRef<Self::VerifyingKey> {
+    | ----------------------------------------------- this is the trait that was imported
+    = help: you can use `cargo tree` to explore your dependency tree
+help: the trait `p256::ecdsa::signature::KeypairRef` is implemented for `ecdsa::signing::SigningKey<C>`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\ecdsa-0.17.0\src\signing.rs:568:1
+    |
+568 | / impl<C> KeypairRef for SigningKey<C>
+569 | | where
+570 | |     C: EcdsaCurve + CurveArithmetic,
+571 | |     Scalar<C>: Invert<Output = CtOption<Scalar<C>>>,
+    | |____________________________________________________^
+    = note: required for `RsaSigner` to implement `p256::ecdsa::signature::Keypair`
+note: required by a bound in `build`
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\x509-cert-0.3.0\src\builder.rs:292:12
+    |
+289 |     fn build<S, Signature>(mut self, signer: &S) -> Result<Self::Output>
+    |        ----- required by a bound in this associated function
+...
+292 |         S: Keypair + DynSignatureAlgorithmIdentifier,
+    |            ^^^^^^^ required by this bound in `Builder::build`
+
+error[E0308]: mismatched types
+   --> tpt-cms\tests\cms_test.rs:188:65
+    |
+188 |         SigningKey::EcdsaP256(s) => p256::SecretKey::from_bytes(s.to_bytes()).unwrap(),
+    |                                     --------------------------- ^^^^^^^^^^^^ expected `&Array<u8, UInt<UInt<..., ...>, ...>>`, found `Array<u8, UInt<UInt<..., ...>, ...>>`
+    |                                     |
+    |                                     arguments to this function are incorrect
+    |
+    = note: expected reference `&p256::elliptic_curve::hybrid_array::Array<_, _>`
+                  found struct `p256::elliptic_curve::hybrid_array::Array<_, _>`
+note: associated function defined here
+   --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\elliptic-curve-0.14.1\src\secret_key.rs:137:12
+    |
+137 |     pub fn from_bytes(bytes: &FieldBytes<C>) -> Result<Self> {
+    |            ^^^^^^^^^^
+help: consider borrowing here
+    |
+188 |         SigningKey::EcdsaP256(s) => p256::SecretKey::from_bytes(&s.to_bytes()).unwrap(),
+    |                                                                 +
+
+Some errors have detailed explanations: E0053, E0277, E0308, E0407, E0599.
+For more information about an error, try `rustc --explain E0053`.
+error: could not compile `tpt-cms` (test "cms_test") due to 13 previous errors

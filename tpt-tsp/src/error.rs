@@ -12,11 +12,21 @@ pub enum TspError {
 
     /// The top-level `ContentInfo` `contentType` was not the expected one.
     #[error("the top-level ContentInfo contentType is not {expected} (got {got})")]
-    UnexpectedContentType { expected: String, got: String },
+    UnexpectedContentType {
+        /// The expected `contentType` OID string.
+        expected: String,
+        /// The actual `contentType` OID string.
+        got: String,
+    },
 
     /// The `TimeStampToken` was not a CMS `SignedData`.
     #[error("the TimeStampToken is not a CMS SignedData (expected {expected}, got {got})")]
-    NotSignedData { expected: String, got: String },
+    NotSignedData {
+        /// The expected `contentType` OID string.
+        expected: String,
+        /// The actual `contentType` OID string.
+        got: String,
+    },
 
     /// An unsupported or unknown hash-algorithm OID was encountered.
     #[error("unsupported or unknown hash algorithm OID: {0}")]

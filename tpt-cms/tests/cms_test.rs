@@ -6,14 +6,14 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use const_oid::ObjectIdentifier;
-use ecdsa::signature::{Keypair, Signature as _, Signer as _};
-use flagset::FlagSet;
-use p256::ecdsa::{SigningKey as P256SigningKey, VerifyingKey};
-use rsa::pkcs1v15::{Pkcs1v15Sign, Signature as RsaPkcs1Signature};
+use p256::ecdsa::SigningKey as P256SigningKey;
+use rsa::pkcs1v15::Pkcs1v15Sign;
 use rsa::RsaPrivateKey;
 use sha2::{Digest, Sha256};
+use sha2_010::Sha256 as Sha256010;
+use signature::{Keypair, Signer, SignatureEncoding, Verifier};
 use spki::{
-    AlgorithmIdentifier, DynSignatureAlgorithmIdentifier, EncodePublicKey,
+    AlgorithmIdentifierOwned, DynSignatureAlgorithmIdentifier, EncodePublicKey,
     SignatureBitStringEncoding, SubjectPublicKeyInfoOwned,
 };
 use x509_cert::builder::profile::BuilderProfile;
@@ -30,54 +30,23 @@ use tpt_cms::*;
 
 const ID_DATA: &str = "1.2.840.113549.1.7.1";
 
-type SigErr = ecdsa::signature::Error;
-
 // ---------------------------------------------------------------------------
-// Signature adapters for the x509-cert builder
+// RSA signature adapter for the x509-cert builder
 // ---------------------------------------------------------------------------
-
-struct EcdsaSig(p256::ecdsa::Signature);
-impl ecdsa::signature::Signature for EcdsaSig {
-    type Error = SigErr;
-    fn from_bytes(bytes: &[u8]) -> Result<Self, SigErr> {
-        Ok(EcdsaSig(p256::ecdsa::Signature::from_slice(bytes)?))
-    }
-    fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
-}
-impl SignatureBitStringEncoding for EcdsaSig {
-    fn to_bitstring(&self) -> der::Result<der::asn1::BitString> {
-        der::asn1::BitString::new(0, self.0.to_vec())
-    }
-}
-struct EcdsaSigner(p256::ecdsa::SigningKey);
-impl Keypair for EcdsaSigner {
-    type VerifyingKey = VerifyingKey;
-    fn verifying_key(&self) -> Self::VerifyingKey {
-        self.0.verifying_key()
-    }
-}
-impl DynSignatureAlgorithmIdentifier for EcdsaSigner {
-    fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifier> {
-        self.0.signature_algorithm_identifier()
-    }
-}
-impl Signer<EcdsaSig> for EcdsaSigner {
-    type Error = SigErr;
-    fn try_sign(&self, msg: &[u8]) -> Result<EcdsaSig, SigErr> {
-        Ok(EcdsaSig(self.0.sign(msg)))
-    }
-}
+// `rsa` 0.9's signer does not implement the `signature`-crate `Signer` trait,
+// so we wrap it. The digest is computed with `sha2` 0.11 (matching the rest of
+// the workspace) but the RSA padding is selected with a `digest` 0.10 hash type
+// (via `sha2_010`) because `rsa` 0.9 pins that version. The `signature` crate
+// 2.x uses `SignatureEncoding` (not the removed `Signature` trait).
 
 struct RsaSig(Vec<u8>);
-impl ecdsa::signature::Signature for RsaSig {
-    type Error = SigErr;
-    fn from_bytes(bytes: &[u8]) -> Result<Self, SigErr> {
-        Ok(RsaSig(bytes.to_vec()))
+impl SignatureEncoding for RsaSig {
+    type Repr = Vec<u8>;
+    fn to_bytes(&self) -> Vec<u8> {
+        self.0.clone()
     }
-    fn as_bytes(&self) -> &[u8] {
-        &self.0
+    fn from_bytes(bytes: &Vec<u8>) -> std::result::Result<Self, signature::Error> {
+        Ok(RsaSig(bytes.clone()))
     }
 }
 impl SignatureBitStringEncoding for RsaSig {
@@ -85,29 +54,44 @@ impl SignatureBitStringEncoding for RsaSig {
         der::asn1::BitString::new(0, self.0.clone())
     }
 }
+
+#[derive(Clone)]
+struct RsaVerifyingKey(rsa::RsaPublicKey);
+impl EncodePublicKey for RsaVerifyingKey {
+    fn to_public_key_der(&self) -> der::Result<spki::Document> {
+        self.0.to_public_key_der()
+    }
+}
+impl Verifier<RsaSig> for RsaVerifyingKey {
+    fn verify(&self, msg: &[u8], sig: &RsaSig) -> std::result::Result<(), signature::Error> {
+        self.0
+            .verify(Pkcs1v15Sign::new::<Sha256010>(), msg, &sig.0)
+            .map_err(|_| signature::Error::new())
+    }
+}
+
 struct RsaSigner(RsaPrivateKey);
 impl Keypair for RsaSigner {
-    type VerifyingKey = rsa::RsaPublicKey;
-    fn verifying_key(&self) -> Self::VerifyingKey {
-        self.0.to_public_key()
+    type VerifyingKey = RsaVerifyingKey;
+    fn verifying_key(&self) -> RsaVerifyingKey {
+        RsaVerifyingKey(self.0.to_public_key())
     }
 }
 impl DynSignatureAlgorithmIdentifier for RsaSigner {
-    fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifier> {
-        Ok(AlgorithmIdentifier {
+    fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifierOwned> {
+        Ok(AlgorithmIdentifierOwned {
             oid: ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.11"),
             parameters: None,
         })
     }
 }
 impl Signer<RsaSig> for RsaSigner {
-    type Error = SigErr;
-    fn try_sign(&self, msg: &[u8]) -> Result<RsaSig, SigErr> {
+    fn try_sign(&self, msg: &[u8]) -> std::result::Result<RsaSig, signature::Error> {
         let digest = Sha256::digest(msg);
         let sig = self
             .0
-            .sign(Pkcs1v15Sign::new::<Sha256>(), &digest)
-            .map_err(|e| SigErr::from_source(e))?;
+            .sign(Pkcs1v15Sign::new::<Sha256010>(), &digest)
+            .map_err(|_| signature::Error::new())?;
         Ok(RsaSig(sig))
     }
 }
@@ -173,10 +157,13 @@ fn build_self_signed_p256(seed: u8, serial: u64, cn: &str) -> (SigningKey, Certi
         issuer: name(cn),
         ca: true,
     };
+    // `p256::ecdsa::SigningKey` directly implements the x509-cert builder traits
+    // (with the `spki` feature), so no adapter is needed here.
     let builder =
         CertificateBuilder::new(profile, SerialNumber::from(serial), valid_now(), spki).unwrap();
-    let wrapped = EcdsaSigner(key.clone());
-    let cert = builder.build::<_, EcdsaSig>(&wrapped).unwrap();
+    let cert = builder
+        .build::<_, p256::ecdsa::Signature>(&key)
+        .unwrap();
     (SigningKey::EcdsaP256(key), cert)
 }
 

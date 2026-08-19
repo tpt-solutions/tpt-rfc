@@ -7,23 +7,19 @@
 //! `hash2curve` (RFC 9380 `hash_to_curve`) and `sha2`.
 
 use core::num::NonZeroU16;
-use elliptic_curve::array::Array;
-use elliptic_curve::consts::{U48, U72};
+use core::ops::Add;
 use elliptic_curve::ff::PrimeField;
-use elliptic_curve::ops::Reduce;
-use elliptic_curve::array::typenum::Add1;
+use elliptic_curve::point::{AffineCoordinates, DecompressPoint};
 use elliptic_curve::sec1::ModulusSize;
-use generic_array::ArrayLength;
-use elliptic_curve::sec1::Sec1Point;
-use typenum::U2;
 use elliptic_curve::{
-    sec1::ToSec1Point, AffinePoint, Curve, CurveArithmetic, CurveGroup, FieldBytes, Group, PrimeCurve,
-    ProjectivePoint,
+    array::Array, array::ArraySize, array::typenum::Add1, consts::{U48, U72}, ops::Reduce,
+    AffinePoint, CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint,
 };
 use hash2curve::{ExpandMsg, ExpandMsgXmd, Expander, GroupDigest};
+use sha2::{Digest, Sha256, Sha384};
+
 pub use p256::NistP256;
 pub use p384::NistP384;
-use sha2::{Digest, Sha256, Sha384};
 
 use crate::error::OprfError;
 
@@ -45,9 +41,6 @@ pub type Scalar<C> = elliptic_curve::Scalar<C>;
 pub trait Suite: GroupDigest + CurveArithmetic + PrimeCurve
 where
     Self::FieldBytesSize: ModulusSize,
-    Add1<Self::FieldBytesSize>: ArrayLength<u8>,
-    <Self::FieldBytesSize as typenum::Mul<U2>>::Output: ArrayLength<u8>,
-    Add1<<Self::FieldBytesSize as typenum::Mul<U2>>::Output>: ArrayLength<u8>,
 {
     /// The protocol hash function (`Hash` in RFC 9497): SHA-256 for
     /// P-256 and SHA-384 for P-384. Also used as the expand-message hash.
@@ -92,6 +85,16 @@ pub(crate) fn dst_scalar<C: Suite + ?Sized>(mode: u8) -> Vec<u8> {
     format!("HashToScalar-{}", C::context_string(mode)).into_bytes()
 }
 
+/// Build a `&[&[u8]]` message-slice for `expand_message` / `hash_from_bytes`.
+fn msg_refs(input: &[u8]) -> [&[u8]; 1] {
+    [input]
+}
+
+/// Build a `&[&[u8]]` DST-slice for `expand_message` / `hash_from_bytes`.
+fn dst_refs(dst: &[u8]) -> [&[u8]; 1] {
+    [dst]
+}
+
 // ---------------------------------------------------------------------------
 // Suite: NistP256 (P256-SHA256)
 // ---------------------------------------------------------------------------
@@ -105,9 +108,12 @@ impl Suite for NistP256 {
     const L: usize = 48;
 
     fn hash_to_scalar(input: &[u8], dst: &[u8]) -> Scalar<Self> {
-        let expander =
-            ExpandMsgXmd::<Sha256>::expand_message(&[input], &[dst], u16_len(Self::L as u16))
-                .expect("expand_message");
+        let expander = ExpandMsgXmd::<Sha256>::expand_message(
+            &msg_refs(input),
+            &dst_refs(dst),
+            u16_len(Self::L as u16),
+        )
+        .expect("expand_message");
         let mut buf = [0u8; 48];
         expander.fill_bytes(&mut buf).expect("expand_message fill");
         let arr = Array::<u8, U48>::from_slice(&buf);
@@ -115,7 +121,7 @@ impl Suite for NistP256 {
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
-        <Self as GroupDigest>::hash_from_bytes(&[input], &[dst])
+        <Self as GroupDigest>::hash_from_bytes(&msg_refs(input), &dst_refs(dst))
             .map_err(|_| OprfError::InvalidElement)
     }
 }
@@ -133,9 +139,12 @@ impl Suite for NistP384 {
     const L: usize = 72;
 
     fn hash_to_scalar(input: &[u8], dst: &[u8]) -> Scalar<Self> {
-        let expander =
-            ExpandMsgXmd::<Sha384>::expand_message(&[input], &[dst], u16_len(Self::L as u16))
-                .expect("expand_message");
+        let expander = ExpandMsgXmd::<Sha384>::expand_message(
+            &msg_refs(input),
+            &dst_refs(dst),
+            u16_len(Self::L as u16),
+        )
+        .expect("expand_message");
         let mut buf = [0u8; 72];
         expander.fill_bytes(&mut buf).expect("expand_message fill");
         let arr = Array::<u8, U72>::from_slice(&buf);
@@ -143,7 +152,7 @@ impl Suite for NistP384 {
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
-        <Self as GroupDigest>::hash_from_bytes(&[input], &[dst])
+        <Self as GroupDigest>::hash_from_bytes(&msg_refs(input), &dst_refs(dst))
             .map_err(|_| OprfError::InvalidElement)
     }
 }
@@ -168,25 +177,34 @@ pub(crate) fn deserialize_scalar<C: Suite + ?Sized>(b: &[u8]) -> Result<Scalar<C
 }
 
 /// Serialize a group element using the compressed SEC1 encoding
-/// (`SerializeElement` in RFC 9497 §2.1).
-pub(crate) fn serialize_element<C: Suite + ?Sized>(p: &Point<C>) -> Vec<u8>
-where
-    C::FieldBytesSize: ModulusSize,
-{
-    p.to_affine().to_sec1_point(true).as_bytes().to_vec()
+/// (`SerializeElement` in RFC 9497 §2.1): `0x02|0x03 || x-coordinate`.
+///
+/// Uses [`AffineCoordinates`] rather than the `ModulusSize`-gated
+/// `ToSec1Point` path so the generic [`Suite`] bound stays simple.
+pub(crate) fn serialize_element<C: Suite + ?Sized>(p: &Point<C>) -> Vec<u8> {
+    let aff = p.to_affine();
+    let x = aff.x();
+    let tag: u8 = 0x02u8 | (u8::from(aff.y_is_odd()));
+    let mut out = Vec::with_capacity(1 + x.as_ref().len());
+    out.push(tag);
+    out.extend_from_slice(x.as_ref());
+    out
 }
 
 /// Deserialize a group element, rejecting wrong-length, invalid, or
 /// identity points (`DeserializeElement` in RFC 9497 §2.1).
-pub(crate) fn deserialize_element<C: Suite + ?Sized>(b: &[u8]) -> Result<Point<C>, OprfError>
-where
-    C::FieldBytesSize: ModulusSize,
-{
+pub(crate) fn deserialize_element<C: Suite + ?Sized>(b: &[u8]) -> Result<Point<C>, OprfError> {
     if b.len() != C::NE {
         return Err(OprfError::InvalidElement);
     }
-    let ep = Sec1Point::<C>::from_bytes(b).map_err(|_| OprfError::InvalidElement)?;
-    let aff = AffinePoint::<C>::try_from(ep).map_err(|_| OprfError::InvalidElement)?;
+    let tag = b[0];
+    if tag & 0xFE != 0x02 {
+        return Err(OprfError::InvalidElement);
+    }
+    let y_is_odd = elliptic_curve::subtle::Choice::from(tag & 0x01);
+    let x = FieldBytes::<C>::clone_from_slice(&b[1..]);
+    let aff = AffinePoint::<C>::decompress(&x, y_is_odd).into_option();
+    let aff = aff.ok_or(OprfError::InvalidElement)?;
     let pt = Point::<C>::from(aff);
     if bool::from(pt.is_identity()) {
         return Err(OprfError::InvalidElement);

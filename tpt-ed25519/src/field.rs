@@ -512,6 +512,21 @@ mod tests {
             "x^2*(1+d*y^2) != y^2-1"
         );
     }
+    #[test]
+    fn curve_equation_holds() {
+        // For the base point y = 4/5, the recovered x must satisfy
+        // -x^2 + y^2 == 1 + d*x^2*y^2 (mod p).
+        let y = FieldElement::from_u64(4).mul(&FieldElement::from_u64(5).invert());
+        let d = FieldElement::from_u64(121665)
+            .neg()
+            .mul(&FieldElement::from_u64(121666).invert());
+        let y2 = y.square();
+        let den = y2.mul(&d).add(&FieldElement::ONE);
+        let x2 = y2.sub(&FieldElement::ONE).mul(&den.invert());
+        let lhs = y2.sub(&x2);
+        let rhs = FieldElement::ONE.add(&d.mul(&x2));
+        assert_eq!(lhs, rhs, "base x^2 fails curve equation");
+    }
 
     #[test]
     fn ref_mul_matches() {

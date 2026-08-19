@@ -5,7 +5,6 @@
 
 use const_oid::ObjectIdentifier;
 use ecdsa::signature::hazmat::PrehashSigner;
-use ecdsa::signature::SignatureEncoding;
 use p256::ecdsa::{Signature as P256Signature, SigningKey as P256SigningKey};
 use p384::ecdsa::{Signature as P384Signature, SigningKey as P384SigningKey};
 use rsa::pkcs1v15::Pkcs1v15Sign;
@@ -17,6 +16,7 @@ use crate::hash::HashAlgorithm;
 use crate::oids;
 
 /// A private signing key usable by an OCSP responder.
+#[derive(Clone)]
 pub enum SigningKey {
     /// ECDSA on the NIST P-256 curve (paired with SHA-256).
     EcdsaP256(P256SigningKey),
@@ -66,25 +66,22 @@ impl SigningKey {
                 let digest = hash.digest(tbs);
                 let (oid, sig) = match hash {
                     HashAlgorithm::Sha256 => {
-                        let sk = rsa::pkcs1v15::SigningKey::<Sha256>::new(key.clone());
-                        let s = sk
-                            .sign_prehash(&digest)
+                        let sig = key
+                            .sign(Pkcs1v15Sign::new::<Sha256>(), &digest)
                             .map_err(|e| OcspError::Crypto(e.to_string()))?;
-                        (oids::oid(oids::SHA256_RSA), s.to_vec())
+                        (oids::oid(oids::SHA256_RSA), sig)
                     }
                     HashAlgorithm::Sha384 => {
-                        let sk = rsa::pkcs1v15::SigningKey::<Sha384>::new(key.clone());
-                        let s = sk
-                            .sign_prehash(&digest)
+                        let sig = key
+                            .sign(Pkcs1v15Sign::new::<Sha384>(), &digest)
                             .map_err(|e| OcspError::Crypto(e.to_string()))?;
-                        (oids::oid(oids::SHA384_RSA), s.to_vec())
+                        (oids::oid(oids::SHA384_RSA), sig)
                     }
                     HashAlgorithm::Sha512 => {
-                        let sk = rsa::pkcs1v15::SigningKey::<Sha512>::new(key.clone());
-                        let s = sk
-                            .sign_prehash(&digest)
+                        let sig = key
+                            .sign(Pkcs1v15Sign::new::<Sha512>(), &digest)
                             .map_err(|e| OcspError::Crypto(e.to_string()))?;
-                        (oids::oid(oids::SHA512_RSA), s.to_vec())
+                        (oids::oid(oids::SHA512_RSA), sig)
                     }
                     HashAlgorithm::Sha1 => return Err(OcspError::UnsupportedHash("SHA-1".into())),
                 };
@@ -92,7 +89,7 @@ impl SigningKey {
             }
             SigningKey::Ed25519(key) => {
                 let sig = key.sign(tbs, None);
-                Ok((oids::oid(oids::ED25519), sig.bytes().to_vec()))
+                Ok((oids::oid(oids::ED25519), sig.as_slice().to_vec()))
             }
         }
     }

@@ -14,6 +14,8 @@ Cargo.lock
 
 # Build/test logs
 *.log
+cms_build*.txt
+cms_test_build.txt
 
 # Editor / IDE
 .idea/

@@ -5,8 +5,8 @@
 
 use const_oid::ObjectIdentifier;
 use sha1::{Digest as _, Sha1};
-use sha2::{Digest as _, Sha256, Sha384, Sha512};
-use spki::AlgorithmIdentifierRef;
+use sha2::{Sha256, Sha384, Sha512};
+use spki::{AlgorithmIdentifier, AlgorithmIdentifierRef};
 
 use crate::error::{OcspError, OcspResult};
 use crate::oids;
@@ -43,7 +43,7 @@ impl HashAlgorithm {
     /// AlgorithmIdentifier with a `NULL` parameter (the form used by RFC 6960
     /// for `CertID.hashAlgorithm`).
     pub fn algorithm_id(&self) -> AlgorithmIdentifierRef<'static> {
-        AlgorithmIdentifierRef {
+        AlgorithmIdentifier {
             oid: self.oid(),
             parameters: crate::verify::null_params(),
         }

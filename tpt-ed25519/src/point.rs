@@ -467,5 +467,7 @@ mod tests {
         let (a, _p) = crate::expand_seed(&seed);
         eprintln!("a    = {:?}", a.to_bytes_le());
         eprintln!("PK = {:?}", sk.verifying_key().to_bytes());
+        eprintln!("OC base = {}", on_curve(&b));
+        eprintln!("OC d2   = {}", on_curve(&b.add(&b)));
     }
 }

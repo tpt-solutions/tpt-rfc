@@ -4,7 +4,7 @@ use std::time::SystemTime;
 
 use der::{
     asn1::{OctetString, Uint},
-    Decode,
+    Decode, Encode,
 };
 
 use x509_cert::Certificate;

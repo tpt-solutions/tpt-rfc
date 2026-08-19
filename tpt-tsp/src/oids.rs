@@ -22,7 +22,9 @@ pub const ID_SIGNED_DATA: &str = "1.2.840.113549.1.7.2";
 
 /// CMS signed-attribute OIDs (RFC 5652 §11).
 pub const CONTENT_TYPE: &str = "1.2.840.113549.1.9.3";
+/// `message-digest` signed attribute OID.
 pub const MESSAGE_DIGEST: &str = "1.2.840.113549.1.9.4";
+/// `signing-time` signed attribute OID.
 pub const SIGNING_TIME: &str = "1.2.840.113549.1.9.5";
 
 // --- PKIStatus / response status -----------------------------------------
@@ -32,27 +34,40 @@ pub const ID_AA_SIGNING_CERTIFICATE: &str = "1.2.840.113549.1.9.16.2.12";
 
 // --- Digest algorithm OIDs (NIST hashAlgs arc) ---------------------------
 
+/// SHA-1 (deprecated; retained for interop only).
 pub const SHA1: &str = "1.3.14.3.2.26";
+/// SHA-256.
 pub const SHA256: &str = "2.16.840.1.101.3.4.2.1";
+/// SHA-384.
 pub const SHA384: &str = "2.16.840.1.101.3.4.2.2";
+/// SHA-512.
 pub const SHA512: &str = "2.16.840.1.101.3.4.2.3";
 
 // --- Signature algorithm OIDs (RFC 4055 / 3279 / 8410) ------------------
 
+/// `rsaEncryption` (PKCS#1 v1.5 key transport / signature).
 pub const RSA_ENCRYPTION: &str = "1.2.840.113549.1.1.1";
+/// RSASSA-PKCS1-v1_5 with SHA-256 (RFC 4055).
 pub const SHA256_RSA: &str = "1.2.840.113549.1.1.11";
+/// RSASSA-PKCS1-v1_5 with SHA-384.
 pub const SHA384_RSA: &str = "1.2.840.113549.1.1.12";
+/// RSASSA-PKCS1-v1_5 with SHA-512.
 pub const SHA512_RSA: &str = "1.2.840.113549.1.1.13";
+/// ECDSA with SHA-256 (RFC 3279 / 5758).
 pub const ECDSA_SHA256: &str = "1.2.840.10045.4.3.2";
+/// ECDSA with SHA-384.
 pub const ECDSA_SHA384: &str = "1.2.840.10045.4.3.3";
+/// ECDSA with SHA-512.
 pub const ECDSA_SHA512: &str = "1.2.840.10045.4.3.4";
+/// Ed25519 (RFC 8410 / 8419).
 pub const ED25519: &str = "1.3.101.112";
 
 /// `id-ecPublicKey` (RFC 5480).
 pub const EC_PUBLIC_KEY: &str = "1.2.840.10045.2.1";
 
-/// NIST P-curve OIDs.
+/// NIST P-256 curve OID.
 pub const P256: &str = "1.2.840.10045.3.1.7";
+/// NIST P-384 curve OID.
 pub const P384: &str = "1.3.132.0.34";
 
 /// `id-ce-subjectKeyIdentifier` (RFC 5280 §4.2.1.2).

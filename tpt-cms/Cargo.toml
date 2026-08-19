@@ -47,7 +47,12 @@ rand_core = { version = "0.6", features = ["getrandom"] } # MIT/Apache-2.0 (CEK 
 
 [dev-dependencies]
 hex = "0.4"
-flagset = "0.4"
+# `signature` 2.x is the trait crate re-exported by `ecdsa`/`spki`; bringing it in
+# directly keeps the test's `Signer`/`Verifier`/`Keypair`/`Signature` imports
+# unambiguous across the two versions present in the graph.
+signature = "2"
+# RSA PKCS#1 v1.5 signing needs a `digest` 0.10-compatible hash (matching `rsa` 0.9).
+sha2_010 = { package = "sha2", version = "0.10", features = ["oid"] }
 
 [package.metadata.docs.rs]
 all-features = true

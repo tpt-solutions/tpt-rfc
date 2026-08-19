@@ -18,7 +18,7 @@ use base64::Engine;
 
 /// A parameter value on a component identifier or signature-input item.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum SfParam {
+pub enum SfParam {
     Int(i64),
     Str(String),
     Bool(bool),

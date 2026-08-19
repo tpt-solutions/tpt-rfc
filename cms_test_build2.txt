@@ -1,0 +1,602 @@
+warning: unused import: `BlockDecryptMut`
+   --> tpt-cms\src\crypto.rs:104:27
+    |
+104 |         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+    |                           ^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Decryptor`
+   --> tpt-cms\src\crypto.rs:106:19
+    |
+106 |         use cbc::{Decryptor, Encryptor};
+    |                   ^^^^^^^^^
+
+warning: unused import: `BlockEncryptMut`
+   --> tpt-cms\src\crypto.rs:124:44
+    |
+124 |         use aes::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+    |                                            ^^^^^^^^^^^^^^^
+
+warning: unused import: `Encryptor`
+   --> tpt-cms\src\crypto.rs:126:30
+    |
+126 |         use cbc::{Decryptor, Encryptor};
+    |                              ^^^^^^^^^
+
+warning: unused import: `Pkcs1v15Encrypt`
+   --> tpt-cms\src\crypto.rs:382:21
+    |
+382 | use rsa::pkcs1v15::{Pkcs1v15Encrypt, Pkcs1v15Sign};
+    |                     ^^^^^^^^^^^^^^^
+
+warning: unused import: `Oaep`
+   --> tpt-cms\src\crypto.rs:384:11
+    |
+384 | use rsa::{Oaep, RsaPrivateKey, RsaPublicKey};
+    |           ^^^^
+
+warning: unused import: `Length`
+  --> tpt-cms\src\wire.rs:12:21
+   |
+12 |     Decode, Encode, Length, Tag, TagNumber, Tagged,
+   |                     ^^^^^^
+
+warning: unused import: `spki::AlgorithmIdentifierRef`
+  --> tpt-cms\src\wire.rs:14:5
+   |
+14 | use spki::AlgorithmIdentifierRef;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `PrehashSigner`
+   --> tpt-cms\src\crypto.rs:380:38
+    |
+380 | use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+    |                                      ^^^^^^^^^^^^^
+
+warning: unused import: `PrehashVerifier`
+   --> tpt-cms\src\crypto.rs:380:58
+    |
+380 | use p384::ecdsa::signature::hazmat::{PrehashSigner as _, PrehashVerifier as _};
+    |                                                          ^^^^^^^^^^^^^^^
+
+warning: unused variable: `enc_alg_oid`
+   --> tpt-cms\src\enveloped_data.rs:412:9
+    |
+412 |     let enc_alg_oid = algid.oid.to_owned();
+    |         ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_enc_alg_oid`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `rid_ski` is never read
+   --> tpt-cms\src\enveloped_data.rs:373:5
+    |
+370 | struct ParsedKeyTrans {
+    |        -------------- field in this struct
+...
+373 |     rid_ski: Option<Vec<u8>>,
+    |     ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `rid_ski` is never read
+   --> tpt-cms\src\enveloped_data.rs:385:5
+    |
+378 | struct ParsedKeyAgree {
+    |        -------------- field in this struct
+...
+385 |     rid_ski: Option<Vec<u8>>,
+    |     ^^^^^^^
+
+warning: function `subject_public_key_info` is never used
+   --> tpt-cms\src\cert.rs:171:15
+    |
+171 | pub(crate) fn subject_public_key_info(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `remaining` is never used
+   --> tpt-cms\src\wire.rs:188:12
+    |
+166 | impl<'a> Cursor<'a> {
+    | ------------------- method in this implementation
+...
+188 |     pub fn remaining(&self) -> &'a [u8] {
+    |            ^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:34:19
+   |
+34 |     KeyTransRsa { cert: Certificate, oaep: bool },
+   |                   ^^^^^^^^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> tpt-cms\src\lib.rs:18:9
+   |
+18 | #![warn(missing_docs)]
+   |         ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:34:38
+   |
+34 |     KeyTransRsa { cert: Certificate, oaep: bool },
+   |                                      ^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:38:20
+   |
+38 |     KeyAgreeEcdh { cert: Certificate, wrap: KeyWrap },
+   |                    ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\enveloped_data.rs:38:39
+   |
+38 |     KeyAgreeEcdh { cert: Certificate, wrap: KeyWrap },
+   |                                       ^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\enveloped_data.rs:44:5
+   |
+44 |     Rsa(RsaPrivateKey, Certificate),
+   |     ^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\enveloped_data.rs:45:5
+   |
+45 |     EcdhP256(P256Secret, Certificate),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\enveloped_data.rs:46:5
+   |
+46 |     EcdhP384(P384Secret, Certificate),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+ --> tpt-cms\src\error.rs:9:5
+  |
+9 |     Asn1(#[from] der::Error),
+  |     ^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:12:5
+   |
+12 |     UnexpectedContentType { expected: String, got: String },
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\error.rs:12:29
+   |
+12 |     UnexpectedContentType { expected: String, got: String },
+   |                             ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\error.rs:12:47
+   |
+12 |     UnexpectedContentType { expected: String, got: String },
+   |                                               ^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:15:5
+   |
+15 |     UnsupportedHash(String),
+   |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:18:5
+   |
+18 |     UnsupportedContentEncryption(String),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:21:5
+   |
+21 |     UnsupportedKeyWrap(String),
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:24:5
+   |
+24 |     UnsupportedKeyTransport(String),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:27:5
+   |
+27 |     UnsupportedKeyAgreement(String),
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:30:5
+   |
+30 |     UnsupportedSignature(String),
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:33:5
+   |
+33 |     UnsupportedKey(String),
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:36:5
+   |
+36 |     UnsupportedCurve(String),
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:39:5
+   |
+39 |     SignerCertNotFound,
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:42:5
+   |
+42 |     NoMatchingRecipient,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:45:5
+   |
+45 |     ContentTypeMismatch,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:48:5
+   |
+48 |     MessageDigestMismatch,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:51:5
+   |
+51 |     Signature(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:54:5
+   |
+54 |     Untrusted(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:57:5
+   |
+57 |     CertChain(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:60:5
+   |
+60 |     MissingContent,
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:63:5
+   |
+63 |     KeyUnwrap,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\error.rs:66:5
+   |
+66 |     Crypto(String),
+   |     ^^^^^^
+
+warning: missing documentation for a type alias
+  --> tpt-cms\src\error.rs:69:1
+   |
+69 | pub type Result<T> = std::result::Result<T, CmsError>;
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\signed_data.rs:17:5
+   |
+17 |     pub key: SigningKey,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> tpt-cms\src\signed_data.rs:18:5
+   |
+18 |     pub cert: Certificate,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> tpt-cms\src\signed_data.rs:22:5
+   |
+22 |     pub fn new(key: SigningKey, cert: Certificate) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> tpt-cms\src\signed_data.rs:140:5
+    |
+140 |     pub content_type: ObjectIdentifier,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> tpt-cms\src\signed_data.rs:141:5
+    |
+141 |     pub content: Vec<u8>,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+  --> tpt-cms\src\crypto.rs:19:1
+   |
+19 | pub enum HashAlgorithm {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:20:5
+   |
+20 |     Sha256,
+   |     ^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:21:5
+   |
+21 |     Sha384,
+   |     ^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:22:5
+   |
+22 |     Sha512,
+   |     ^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:26:5
+   |
+26 |     pub fn oid(&self) -> ObjectIdentifier {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> tpt-cms\src\crypto.rs:34:5
+   |
+34 |     pub fn from_oid(oid: &ObjectIdentifier) -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:44:5
+   |
+44 |     pub fn digest(&self, data: &[u8]) -> Vec<u8> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:52:5
+   |
+52 |     pub fn output_size(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+  --> tpt-cms\src\crypto.rs:66:1
+   |
+66 | pub enum ContentEncryption {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:67:5
+   |
+67 |     Aes128Cbc,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:68:5
+   |
+68 |     Aes192Cbc,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> tpt-cms\src\crypto.rs:69:5
+   |
+69 |     Aes256Cbc,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:73:5
+   |
+73 |     pub fn oid(&self) -> ObjectIdentifier {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> tpt-cms\src\crypto.rs:81:5
+   |
+81 |     pub fn from_oid(oid: &ObjectIdentifier) -> Result<Self> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:91:5
+   |
+91 |     pub fn key_size(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> tpt-cms\src\crypto.rs:99:5
+   |
+99 |     pub fn iv_size(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:103:5
+    |
+103 |     pub fn encrypt(&self, key: &[u8], iv: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:123:5
+    |
+123 |     pub fn decrypt(&self, key: &[u8], iv: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+   --> tpt-cms\src\crypto.rs:150:1
+    |
+150 | pub enum KeyWrap {
+    | ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:151:5
+    |
+151 |     Aes128Wrap,
+    |     ^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:152:5
+    |
+152 |     Aes192Wrap,
+    |     ^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:153:5
+    |
+153 |     Aes256Wrap,
+    |     ^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:157:5
+    |
+157 |     pub fn oid(&self) -> ObjectIdentifier {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> tpt-cms\src\crypto.rs:165:5
+    |
+165 |     pub fn from_oid(oid: &ObjectIdentifier) -> Result<Self> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> tpt-cms\src\crypto.rs:175:5
+    |
+175 |     pub fn key_size(&self) -> usize {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:389:5
+    |
+389 |     EcdsaP256(P256SigningKey),
+    |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:390:5
+    |
+390 |     EcdsaP384(P384SigningKey),
+    |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:391:5
+    |
+391 |     Rsa(RsaPrivateKey),
+    |     ^^^
+
+warning: missing documentation for a variant
+   --> tpt-cms\src\crypto.rs:392:5
+    |
+392 |     Ed25519(ed25519_compact::SecretKey),
+    |     ^^^^^^^
+
+   Compiling tpt-cms v0.1.0 (C:\Programming\2 WIP\tpt-rfc\tpt-cms)
+warning: `tpt-cms` (lib) generated 79 warnings (run `cargo fix --lib -p tpt-cms` to apply 9 suggestions)
+error[E0432]: unresolved import `signature::Signature`
+  --> tpt-cms\tests\cms_test.rs:14:26
+   |
+14 | use signature::{Keypair, Signature, Signer, Verifier};
+   |                          ^^^^^^^^^ no `Signature` in the root
+
+warning: unused import: `EncodePublicKey`
+  --> tpt-cms\tests\cms_test.rs:16:64
+   |
+16 |     AlgorithmIdentifierOwned, DynSignatureAlgorithmIdentifier, EncodePublicKey,
+   |                                                                ^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+  --> tpt-cms\tests\cms_test.rs:59:51
+   |
+59 |     fn verify(&self, msg: &[u8], sig: &RsaSig) -> Result<(), signature::Error> {
+   |                                                   ^^^^^^   ------------------ help: remove the unnecessary generic argument
+   |                                                   |
+   |                                                   expected 1 generic argument
+   |
+note: type alias defined here, with 1 generic parameter: `T`
+  --> tpt-cms\src\error.rs:69:10
+   |
+69 | pub type Result<T> = std::result::Result<T, CmsError>;
+   |          ^^^^^^ -
+
+error[E0053]: method `verify` has an incompatible type for trait
+  --> tpt-cms\tests\cms_test.rs:59:51
+   |
+59 |     fn verify(&self, msg: &[u8], sig: &RsaSig) -> Result<(), signature::Error> {
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `signature::Error`, found `CmsError`
+   |
+   = note: expected signature `fn(&RsaVerifyingKey, &_, &RsaSig) -> std::result::Result<_, signature::Error>`
+              found signature `fn(&RsaVerifyingKey, &_, &RsaSig) -> std::result::Result<_, CmsError>`
+help: change the output type to match the trait
+   |
+59 |     fn verify(&self, msg: &[u8], sig: &RsaSig) -> std::result::Result<(), signature::Error> {
+   |                                                   +++++++++++++
+
+error[E0277]: the trait bound `RsaVerifyingKey: Clone` is not satisfied
+  --> tpt-cms\tests\cms_test.rs:68:25
+   |
+68 |     type VerifyingKey = RsaVerifyingKey;
+   |                         ^^^^^^^^^^^^^^^ the trait `Clone` is not implemented for `RsaVerifyingKey`
+   |
+note: required by a bound in `signature::Keypair::VerifyingKey`
+  --> C:\Users\Phillip\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\signature-2.2.0\src\keypair.rs:8:24
+   |
+ 8 |     type VerifyingKey: Clone;
+   |                        ^^^^^ required by this bound in `Keypair::VerifyingKey`
+help: consider annotating `RsaVerifyingKey` with `#[derive(Clone)]`
+   |
+57 + #[derive(Clone)]
+58 | struct RsaVerifyingKey(rsa::RsaPublicKey);
+   |
+
+error[E0053]: method `signature_algorithm_identifier` has an incompatible type for trait
+  --> tpt-cms\tests\cms_test.rs:74:49
+   |
+74 |     fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifierOwned> {
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `spki::Error`, found `der::Error`
+   |
+   = note: expected signature `fn(&RsaSigner) -> std::result::Result<_, spki::Error>`
+              found signature `fn(&RsaSigner) -> std::result::Result<_, der::Error>`
+help: change the output type to match the trait
+   |
+74 -     fn signature_algorithm_identifier(&self) -> der::Result<AlgorithmIdentifierOwned> {
+74 +     fn signature_algorithm_identifier(&self) -> std::result::Result<spki::AlgorithmIdentifier<der::Any>, spki::Error> {
+   |
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+  --> tpt-cms\tests\cms_test.rs:82:39
+   |
+82 |     fn try_sign(&self, msg: &[u8]) -> Result<RsaSig, signature::Error> {
+   |                                       ^^^^^^       ------------------ help: remove the unnecessary generic argument
+   |                                       |
+   |                                       expected 1 generic argument
+   |
+note: type alias defined here, with 1 generic parameter: `T`
+  --> tpt-cms\src\error.rs:69:10
+   |
+69 | pub type Result<T> = std::result::Result<T, CmsError>;
+   |          ^^^^^^ -
+
+error[E0053]: method `try_sign` has an incompatible type for trait
+  --> tpt-cms\tests\cms_test.rs:82:39
+   |
+82 |     fn try_sign(&self, msg: &[u8]) -> Result<RsaSig, signature::Error> {
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `signature::Error`, found `CmsError`
+   |
+   = note: expected signature `fn(&RsaSigner, &_) -> std::result::Result<_, signature::Error>`
+              found signature `fn(&RsaSigner, &_) -> std::result::Result<_, CmsError>`
+help: change the output type to match the trait
+   |
+82 |     fn try_sign(&self, msg: &[u8]) -> std::result::Result<RsaSig, signature::Error> {
+   |                                       +++++++++++++
+
+Some errors have detailed explanations: E0053, E0107, E0277, E0432.
+For more information about an error, try `rustc --explain E0053`.
+warning: `tpt-cms` (test "cms_test") generated 1 warning
+error: could not compile `tpt-cms` (test "cms_test") due to 7 previous errors; 1 warning emitted
+warning: build failed, waiting for other jobs to finish...
+warning: `tpt-cms` (lib test) generated 79 warnings (79 duplicates)

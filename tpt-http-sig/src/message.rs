@@ -7,8 +7,9 @@
 //! an optional `http` feature adapts `http::Request`/`http::Response`.
 
 /// Whether a message is an HTTP request or response.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MessageKind {
+    #[default]
     Request,
     Response,
 }
@@ -182,7 +183,10 @@ impl HttpMessage for Message {
         if let Some(a) = &self.authority {
             Some(a)
         } else {
-            self.header_values("host").into_iter().next()
+            self.headers
+                .iter()
+                .find(|(n, _)| n == "host")
+                .map(|(_, v)| v.as_str())
         }
     }
 

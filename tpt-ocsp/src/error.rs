@@ -55,11 +55,4 @@ pub enum OcspError {
     Crypto(String),
 }
 
-impl From<der::Error> for OcspError {
-    fn from(e: der::Error) -> Self {
-        // Encode vs decode — the public surface only needs one DER error kind.
-        OcspError::Decode(e)
-    }
-}
-
 pub type OcspResult<T> = std::result::Result<T, OcspError>;

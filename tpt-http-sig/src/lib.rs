@@ -50,7 +50,7 @@
 //!
 //! let key = SigningKey::from_pem(
 //!     Algorithm::RsaPssSha512,
-//!     include_str!("../tests/data/test-key-rsa-pss.pem"),
+//!     include_str!("../tests/data/test-key-rsa-pss.private.pem"),
 //! ).unwrap();
 //!
 //! let components = [
@@ -80,7 +80,7 @@
 //!
 //! let key = VerifyingKey::from_pem(
 //!     Algorithm::Ed25519,
-//!     include_str!("../tests/data/test-key-ed25519.pub.pem"),
+//!     include_str!("../tests/data/test-key-ed25519.public.pem"),
 //! ).unwrap();
 //!
 //! let input_value = "(\"@method\" \"@authority\" \"date\");created=1618884473;keyid=\"test-key-ed25519\"";
@@ -104,4 +104,5 @@ pub use components::ComponentId;
 pub use error::{HttpSigError, Result};
 pub use headers::SignatureInput;
 pub use message::{HttpMessage, Message, MessageKind};
+pub use sf::SfParam;
 pub use signer::{build_signature_base, Signer, SignatureOutput, Verifier};
