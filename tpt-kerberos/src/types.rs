@@ -63,7 +63,9 @@ impl EncryptedData {
 
     pub fn decode_implicit(n: u8, any: &Any) -> Result<Self> {
         ensure_tag(any.tag(), ctx_primitive(n))?;
-        let mut cur = Cursor::new(any.value());
+        let seq = Any::from_der(any.value()).map_err(Error::Asn1)?;
+        ensure_tag(seq.tag(), Tag::Sequence)?;
+        let mut cur = Cursor::new(seq.value());
         let etype = decode_int32(&cur.take()?)?;
         let mut kvno = None;
         let mut cipher = Vec::new();
@@ -106,7 +108,9 @@ impl Checksum {
 
     pub fn decode_implicit(n: u8, any: &Any) -> Result<Self> {
         ensure_tag(any.tag(), ctx_primitive(n))?;
-        let mut cur = Cursor::new(any.value());
+        let seq = Any::from_der(any.value()).map_err(Error::Asn1)?;
+        ensure_tag(seq.tag(), Tag::Sequence)?;
+        let mut cur = Cursor::new(seq.value());
         let cksumtype = decode_int32(&cur.take()?)?;
         let cs = cur.take()?;
         ensure_tag(cs.tag(), Tag::OctetString)?;
@@ -195,8 +199,8 @@ pub(crate) fn encode_host_addresses(list: &[HostAddress]) -> Vec<u8> {
 }
 
 pub(crate) fn decode_host_addresses(any: &Any) -> Result<Vec<HostAddress>> {
-    ensure_tag(any.tag(), Tag::Sequence)?;
-    let mut cur = Cursor::new(any.value());
+    let seq = unwrap_sequence(any.value())?;
+    let mut cur = Cursor::new(seq.value());
     let mut out = Vec::new();
     while !cur.at_end() {
         out.push(HostAddress::decode(&mut cur)?);
@@ -225,8 +229,8 @@ pub(crate) fn encode_authorization_data(ad: &AuthorizationData) -> Vec<u8> {
 }
 
 pub(crate) fn decode_authorization_data(any: &Any) -> Result<AuthorizationData> {
-    ensure_tag(any.tag(), Tag::Sequence)?;
-    let mut cur = Cursor::new(any.value());
+    let seq = unwrap_sequence(any.value())?;
+    let mut cur = Cursor::new(seq.value());
     let mut out = Vec::new();
     while !cur.at_end() {
         let seq = cur.take()?;
@@ -311,7 +315,12 @@ impl KdcReqBody {
         }
         // [11] additional-tickets (SEQUENCE OF Ticket)
         if let Some(tkts) = &self.additional_tickets {
-            let t = sequence(&tkts.iter().map(|t| t.encode_application(1)).collect::<Vec<_>>());
+            let t = sequence(
+                &tkts
+                    .iter()
+                    .map(|t| t.encode_application(1))
+                    .collect::<Vec<_>>(),
+            );
             parts.push(ctx(11, &t));
         }
         sequence(&parts)
@@ -396,6 +405,7 @@ pub(crate) fn bit_string_u32(v: u32) -> Vec<u8> {
 }
 
 pub(crate) fn read_bit_string_u32(any: &Any) -> Result<u32> {
+    let any = peel_explicit(any)?;
     ensure_tag(any.tag(), Tag::BitString)?;
     let v = any.value();
     if v.len() != 5 || v[0] != 0 {
@@ -429,8 +439,15 @@ impl KdcReq {
 
     pub fn decode_application(app: u8, data: &[u8]) -> Result<Self> {
         let outer = Any::from_der(data)?;
-        ensure_tag(outer.tag(), Tag::Application { constructed: true, number: TagNumber(app as u32) })?;
-        let mut c = Cursor::new(outer.value());
+        ensure_tag(
+            outer.tag(),
+            Tag::Application {
+                constructed: true,
+                number: TagNumber(app as u32),
+            },
+        )?;
+        let seq = unwrap_sequence(outer.value())?;
+        let mut c = Cursor::new(seq.value());
         let pvno = decode_int32(&c.take()?)?;
         let msg_type = decode_int32(&c.take()?)?;
         let mut padata = None;
@@ -513,15 +530,14 @@ pub fn decode_ticket(data: &[u8]) -> Result<Ticket> {
 }
 
 pub(crate) fn decode_ticket_value(value: &[u8]) -> Result<Ticket> {
-    let mut c = Cursor::new(value);
+    let seq = unwrap_sequence(value)?;
+    let mut c = Cursor::new(seq.value());
     let tkt_vno = decode_int32(&c.take()?)?;
     let r = c.take()?;
     let realm = read_kerberos_string(&r)?;
-    // sname is the next element (a SEQUENCE).
-    let sname_any = c.take()?;
-    ensure_tag(sname_any.tag(), Tag::Sequence)?;
-    let mut sc = Cursor::new(sname_any.value());
-    let sname = PrincipalName::decode(&mut sc)?;
+    // sname is the next element (a plain, untagged SEQUENCE); PrincipalName::decode
+    // consumes its own Sequence TLV directly from the cursor.
+    let sname = PrincipalName::decode(&mut c)?;
     let enc = c.take()?;
     let enc_part = EncryptedData::decode_implicit(3, &enc)?;
     Ok(Ticket {
@@ -559,13 +575,16 @@ pub struct TransitedEncoding {
 
 impl EncTicketPart {
     pub fn encode(&self) -> Vec<u8> {
-        let mut parts = vec![bit_string_u32(self.flags), self.key.encode()];
+        let mut parts = vec![bit_string_u32(self.flags), self.key.encode_key_implicit(0)];
         parts.push(ctx(1, &realm(&self.crealm)));
         parts.push(ctx(2, &self.cname.encode()));
         // [3] transited
         parts.push(ctx(
             3,
-            &sequence(&[int32(self.transited.tr_type), octet_string(&self.transited.contents)]),
+            &sequence(&[
+                int32(self.transited.tr_type),
+                octet_string(&self.transited.contents),
+            ]),
         ));
         // [4] authtime
         parts.push(ctx(4, &kerberos_time(self.authtime)));
@@ -625,7 +644,8 @@ impl EncTicketPart {
                     etp.cname = PrincipalName::decode(&mut nc)?;
                 }
                 t if t == ctx_constructed(3) => {
-                    let mut tc = Cursor::new(a.value());
+                    let seq = unwrap_sequence(a.value())?;
+                    let mut tc = Cursor::new(seq.value());
                     etp.transited.tr_type = decode_int32(&tc.take()?)?;
                     let c = tc.take()?;
                     ensure_tag(c.tag(), Tag::OctetString)?;
@@ -667,7 +687,9 @@ impl EncryptionKey {
 
     pub fn decode_implicit(n: u8, any: &Any) -> Result<Self> {
         ensure_tag(any.tag(), ctx_primitive(n))?;
-        let mut cur = Cursor::new(any.value());
+        let seq = Any::from_der(any.value()).map_err(Error::Asn1)?;
+        ensure_tag(seq.tag(), Tag::Sequence)?;
+        let mut cur = Cursor::new(seq.value());
         let keytype = decode_int32(&cur.take()?)?;
         let v = cur.take()?;
         ensure_tag(v.tag(), Tag::OctetString)?;
@@ -695,15 +717,12 @@ pub struct KdcRep {
 
 impl KdcRep {
     pub fn encode_application(&self, app: u8) -> Vec<u8> {
-        let mut parts = vec![
-            int32(self.pvno),
-            int32(self.msg_type),
-        ];
+        let mut parts = vec![int32(self.pvno), int32(self.msg_type)];
         if let Some(pa) = &self.padata {
             parts.push(encode_pa_data(pa));
         }
-        parts.push(realm(&self.crealm));
-        parts.push(self.cname.encode());
+        parts.push(ctx(1, &realm(&self.crealm)));
+        parts.push(ctx(2, &self.cname.encode()));
         parts.push(self.ticket.encode_application(1));
         parts.push(self.enc_part.encode_implicit(6));
         tlv(app_tag(app), &sequence(&parts))
@@ -718,7 +737,8 @@ impl KdcRep {
                 number: TagNumber(app as u32),
             },
         )?;
-        let mut c = Cursor::new(outer.value());
+        let seq = unwrap_sequence(outer.value())?;
+        let mut c = Cursor::new(seq.value());
         let pvno = decode_int32(&c.take()?)?;
         let msg_type = decode_int32(&c.take()?)?;
         let mut padata = None;
@@ -735,7 +755,12 @@ impl KdcRep {
                     let mut nc = Cursor::new(a.value());
                     cname = Some(PrincipalName::decode(&mut nc)?);
                 }
-                t if t == Tag::Application { constructed: true, number: TagNumber(1) } => {
+                t if t
+                    == Tag::Application {
+                        constructed: true,
+                        number: TagNumber(1),
+                    } =>
+                {
                     ticket = Some(decode_ticket_value(a.value())?);
                 }
                 t if t == ctx_primitive(6) => {
@@ -837,22 +862,32 @@ impl EncKdcRepPart {
             endtime: 0,
             renew_till: None,
             srealm: String::new(),
-            sname: PrincipalName { name_type: 0, name_string: Vec::new() },
+            sname: PrincipalName {
+                name_type: 0,
+                name_string: Vec::new(),
+            },
             caddr: None,
         };
         while !c.at_end() {
             let a = c.take()?;
             match a.tag() {
-                Tag::Sequence => ek.key = {
-                    let mut kc = Cursor::new(a.value());
-                    let keytype = decode_int32(&kc.take()?)?;
-                    let v = kc.take()?;
-                    EncryptionKey { keytype, keyvalue: v.value().to_vec() }
-                },
+                Tag::Sequence => {
+                    ek.key = {
+                        let mut kc = Cursor::new(a.value());
+                        let keytype = decode_int32(&kc.take()?)?;
+                        let v = kc.take()?;
+                        EncryptionKey {
+                            keytype,
+                            keyvalue: v.value().to_vec(),
+                        }
+                    }
+                }
                 t if t == ctx_constructed(0) => {
-                    let mut lc = Cursor::new(a.value());
+                    let outer_seq = unwrap_sequence(a.value())?;
+                    let mut lc = Cursor::new(outer_seq.value());
                     while !lc.at_end() {
                         let seq = lc.take()?;
+                        ensure_tag(seq.tag(), Tag::Sequence)?;
                         let mut ic = Cursor::new(seq.value());
                         let lr_type = decode_int32(&ic.take()?)?;
                         let lr_value = read_kerberos_time(&ic.take()?)?;
@@ -928,9 +963,9 @@ impl Authenticator {
         let mut c = Cursor::new(seq.value());
         let authenticator_vno = decode_int32(&c.take()?)?;
         let crealm = read_kerberos_string(&c.take()?)?;
-        let sname_any = c.take()?;
-        let mut nc = Cursor::new(sname_any.value());
-        let cname = PrincipalName::decode(&mut nc)?;
+        // cname is a plain, untagged SEQUENCE; PrincipalName::decode consumes
+        // its own Sequence TLV directly from the cursor.
+        let cname = PrincipalName::decode(&mut c)?;
         let mut au = Authenticator {
             authenticator_vno,
             crealm,
@@ -948,9 +983,13 @@ impl Authenticator {
                 t if t == ctx_primitive(3) => au.checksum = Some(Checksum::decode_implicit(3, &a)?),
                 t if t == ctx_constructed(4) => au.cusec = decode_u32(&a)?,
                 t if t == ctx_constructed(5) => au.ctime = read_kerberos_time(&a)?,
-                t if t == ctx_primitive(6) => au.subkey = Some(EncryptionKey::decode_implicit(6, &a)?),
+                t if t == ctx_primitive(6) => {
+                    au.subkey = Some(EncryptionKey::decode_implicit(6, &a)?)
+                }
                 t if t == ctx_constructed(7) => au.seq_number = Some(decode_u32(&a)?),
-                t if t == ctx_constructed(8) => au.authorization_data = Some(decode_authorization_data(&a)?),
+                t if t == ctx_constructed(8) => {
+                    au.authorization_data = Some(decode_authorization_data(&a)?)
+                }
                 _ => return Err(Error::Unexpected("Authenticator field")),
             }
         }
@@ -999,7 +1038,8 @@ impl ApReq {
                 number: TagNumber(14),
             },
         )?;
-        let mut c = Cursor::new(outer.value());
+        let seq = unwrap_sequence(outer.value())?;
+        let mut c = Cursor::new(seq.value());
         let pvno = decode_int32(&c.take()?)?;
         let msg_type = decode_int32(&c.take()?)?;
         let mut ap_options = 0u32;
@@ -1009,7 +1049,12 @@ impl ApReq {
             let a = c.take()?;
             match a.tag() {
                 t if t == ctx_constructed(0) => ap_options = read_bit_string_u32(&a)?,
-                t if t == Tag::Application { constructed: true, number: TagNumber(1) } => {
+                t if t
+                    == Tag::Application {
+                        constructed: true,
+                        number: TagNumber(1),
+                    } =>
+                {
                     ticket = Some(decode_ticket_value(a.value())?);
                 }
                 t if t == ctx_primitive(2) => {
@@ -1031,7 +1076,7 @@ impl ApReq {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApRep {
     pub pvno: i32,
-    pub msg_type: i32, // 15
+    pub msg_type: i32,           // 15
     pub enc_part: EncryptedData, // EncAPRepPart (IMPLICIT [0])
 }
 
@@ -1054,7 +1099,8 @@ impl ApRep {
                 number: TagNumber(15),
             },
         )?;
-        let mut c = Cursor::new(outer.value());
+        let seq = unwrap_sequence(outer.value())?;
+        let mut c = Cursor::new(seq.value());
         let pvno = decode_int32(&c.take()?)?;
         let msg_type = decode_int32(&c.take()?)?;
         let enc_part = {
@@ -1153,7 +1199,10 @@ pub mod pa_enc_ts {
             if !ic.at_end() {
                 pausec = Some(decode_u32(&ic.take()?)?);
             }
-            Ok(PaEncTsEnc { patimestamp, pausec })
+            Ok(PaEncTsEnc {
+                patimestamp,
+                pausec,
+            })
         }
     }
 }
@@ -1208,7 +1257,11 @@ pub mod pa_etype_info2 {
                     s2kparams = Some(a.value().to_vec());
                 }
             }
-            out.push(EtypeInfo2Entry { etype, salt, s2kparams });
+            out.push(EtypeInfo2Entry {
+                etype,
+                salt,
+                s2kparams,
+            });
         }
         Ok(out)
     }

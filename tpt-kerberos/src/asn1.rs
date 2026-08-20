@@ -8,10 +8,7 @@
 //! derive macros. The helpers here mirror the conventions established in the
 //! sibling `tpt-cms` crate.
 
-use der::{
-    asn1::Any,
-    Decode, Encode, Length, Tag, TagNumber, Tagged,
-};
+use der::{asn1::Any, Decode, Encode, Length, Tag, TagNumber, Tagged};
 
 use crate::error::{Error, Result};
 
@@ -114,15 +111,19 @@ impl<'a> Cursor<'a> {
     }
 
     /// Take the next full TLV, advancing the cursor past it.
+    ///
+    /// Uses `from_der_partial` (not `from_der`) because `self.data` generally
+    /// holds more than one TLV back-to-back (the rest of the enclosing
+    /// SEQUENCE); `from_der` rejects any trailing bytes, so it only succeeds
+    /// when the item being read happens to be the last one in the buffer.
     pub fn take(&mut self) -> Result<Any> {
-        let a = Any::from_der(self.data).map_err(Error::Asn1)?;
-        let full = a.to_der().map_err(Error::Asn1)?;
-        self.data = &self.data[full.len()..];
+        let (a, rest) = Any::from_der_partial(self.data).map_err(Error::Asn1)?;
+        self.data = rest;
         Ok(a)
     }
 
     pub fn peek_tag(&self) -> Option<Tag> {
-        Any::from_der(self.data).ok().map(|a| a.tag())
+        Any::from_der_partial(self.data).ok().map(|(a, _)| a.tag())
     }
 
     pub fn at_end(&self) -> bool {
@@ -132,6 +133,20 @@ impl<'a> Cursor<'a> {
     pub fn remaining(&self) -> &'a [u8] {
         self.data
     }
+}
+
+/// Unwrap the SEQUENCE nested inside an outer APPLICATION/context tag's
+/// content. This crate follows RFC 4120's ASN.1 module, which is declared
+/// `DEFINITIONS EXPLICIT TAGS`, so `[APPLICATION n] SomeSequence` and
+/// `[n] SomeSequence` both encode as the outer tag wrapping a *complete*
+/// nested SEQUENCE TLV (its own universal tag/length included) rather than
+/// replacing the SEQUENCE's tag byte. Every "decode the value of an
+/// EXPLICIT-tagged SEQUENCE field" call site needs this one extra unwrap
+/// step before it can read the SEQUENCE's own fields.
+pub(crate) fn unwrap_sequence(value: &[u8]) -> Result<Any> {
+    let seq = Any::from_der(value).map_err(Error::Asn1)?;
+    ensure_tag(seq.tag(), Tag::Sequence)?;
+    Ok(seq)
 }
 
 pub(crate) fn ensure_tag(actual: Tag, expected: Tag) -> Result<()> {
@@ -167,6 +182,27 @@ pub(crate) fn value_of(any: &Any) -> &[u8] {
     any.value()
 }
 
+/// If `any` is an EXPLICIT context tag (`[n] T` under this crate's `EXPLICIT
+/// TAGS` convention, i.e. a *constructed* context-specific tag), unwrap one
+/// level to recover the inner `T` — a complete TLV in its own right, tag and
+/// all. Otherwise return `any` unchanged.
+///
+/// This lets the scalar readers below (`decode_int32`, `read_kerberos_time`,
+/// `read_kerberos_string`, `read_bit_string_u32`, ...) be called directly on
+/// a field just taken off a `Cursor` — whether that field was flat/untagged
+/// or `[n]`-tagged — without every call site having to unwrap it manually.
+/// *Primitive* context tags (`constructed: false`, used by this crate's own
+/// `[n] IMPLICIT`-style `EncryptedData`/`Checksum`/`EncryptionKey` wrapping)
+/// are left alone; those go through their own `decode_implicit`.
+pub(crate) fn peel_explicit(any: &Any) -> Result<Any> {
+    match any.tag() {
+        Tag::ContextSpecific {
+            constructed: true, ..
+        } => Any::from_der(any.value()).map_err(Error::Asn1),
+        _ => Ok(any.clone()),
+    }
+}
+
 /// Decode the `INTEGER` value of `any` as a big-endian byte vector.
 pub(crate) fn integer_value(any: &Any) -> Result<Vec<u8>> {
     ensure_tag(any.tag(), Tag::Integer)?;
@@ -198,6 +234,7 @@ pub(crate) fn kerberos_string(s: &str) -> Vec<u8> {
 
 /// Decode a `KerberosString` (GeneralString) from `any`.
 pub(crate) fn read_kerberos_string(any: &Any) -> Result<String> {
+    let any = peel_explicit(any)?;
     if any.tag() != Tag::GeneralString {
         return Err(Error::Unexpected("expected GeneralString (KerberosString)"));
     }
@@ -232,13 +269,40 @@ pub(crate) fn microseconds(v: u32) -> Vec<u8> {
 /// Note: `der::asn1::UtcTime` only spans 1950–2049, so we use a manual
 /// `GeneralizedTime` (YYYYMMDDHHMMSSZ) encoded with the `0x18` tag.
 pub(crate) fn kerberos_time(epoch_secs: u64) -> Vec<u8> {
-    let s = format!("{:014}Z", epoch_secs);
+    let (year, month, day, hour, min, sec) = epoch_to_ymdhms(epoch_secs);
+    let s = format!("{year:04}{month:02}{day:02}{hour:02}{min:02}{sec:02}Z");
     tlv(0x18, s.as_bytes())
+}
+
+fn epoch_to_ymdhms(epoch_secs: u64) -> (u64, u64, u64, u64, u64, u64) {
+    let days = epoch_secs / 86400;
+    let rem = epoch_secs % 86400;
+    let (year, month, day) = days_to_ymd(days);
+    (year, month, day, rem / 3600, (rem % 3600) / 60, rem % 60)
+}
+
+/// Civil date from a day count since the Unix epoch (Howard Hinnant's
+/// `civil_from_days`, public-domain "chrono-Compatible Low-Level Date
+/// Algorithms"), specialised to non-negative `days` (post-1970 dates only,
+/// which is all `KerberosTime` ever needs to represent).
+fn days_to_ymd(days: u64) -> (u64, u64, u64) {
+    let z = days + 719468;
+    let era = z / 146097;
+    let doe = z - era * 146097; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
+    let year = if m <= 2 { y + 1 } else { y };
+    (year, m, d)
 }
 
 /// Decode a `KerberosTime` (GeneralizedTime, tagged `0x18`) into seconds since
 /// the Unix epoch.
 pub(crate) fn read_kerberos_time(any: &Any) -> Result<u64> {
+    let any = peel_explicit(any)?;
     if any.tag() != Tag::GeneralizedTime {
         return Err(Error::Unexpected("expected GeneralizedTime (KerberosTime)"));
     }
@@ -249,11 +313,19 @@ pub(crate) fn read_kerberos_time(any: &Any) -> Result<u64> {
         return Err(Error::Unexpected("bad KerberosTime format"));
     }
     let year: u64 = s[0..4].parse().map_err(|_| Error::Unexpected("bad year"))?;
-    let month: u64 = s[4..6].parse().map_err(|_| Error::Unexpected("bad month"))?;
+    let month: u64 = s[4..6]
+        .parse()
+        .map_err(|_| Error::Unexpected("bad month"))?;
     let day: u64 = s[6..8].parse().map_err(|_| Error::Unexpected("bad day"))?;
-    let hour: u64 = s[8..10].parse().map_err(|_| Error::Unexpected("bad hour"))?;
-    let min: u64 = s[10..12].parse().map_err(|_| Error::Unexpected("bad min"))?;
-    let sec: u64 = s[12..14].parse().map_err(|_| Error::Unexpected("bad sec"))?;
+    let hour: u64 = s[8..10]
+        .parse()
+        .map_err(|_| Error::Unexpected("bad hour"))?;
+    let min: u64 = s[10..12]
+        .parse()
+        .map_err(|_| Error::Unexpected("bad min"))?;
+    let sec: u64 = s[12..14]
+        .parse()
+        .map_err(|_| Error::Unexpected("bad sec"))?;
 
     // Days since epoch using a simplified Gregorian conversion.
     let days = ymd_to_days(year, month, day)?;
@@ -327,7 +399,8 @@ impl PrincipalName {
 
 /// Decode an `INTEGER` `Any` into an `i32`.
 pub(crate) fn decode_int32(any: &Any) -> Result<i32> {
-    let v = integer_value(any)?;
+    let any = peel_explicit(any)?;
+    let v = integer_value(&any)?;
     if v.len() > 4 {
         return Err(Error::Range("INTEGER does not fit in i32"));
     }
@@ -345,13 +418,22 @@ pub(crate) fn decode_int32(any: &Any) -> Result<i32> {
 
 /// Decode an `INTEGER` `Any` into a `u32`.
 pub(crate) fn decode_u32(any: &Any) -> Result<u32> {
-    let v = integer_value(any)?;
+    let any = peel_explicit(any)?;
+    let full = integer_value(&any)?;
+    // DER INTEGER is two's-complement, so a value with the high bit set (e.g.
+    // 0x9ABCDEF0) is minimally encoded with a leading 0x00 sign-padding byte
+    // to keep it positive. That's one legitimate extra byte beyond 4.
+    let v: &[u8] = if full.len() == 5 && full[0] == 0 {
+        &full[1..]
+    } else {
+        &full
+    };
     if v.len() > 4 {
         return Err(Error::Range("INTEGER does not fit in u32"));
     }
     let mut buf = [0u8; 4];
     let off = 4 - v.len();
-    buf[off..].copy_from_slice(&v);
+    buf[off..].copy_from_slice(v);
     Ok(u32::from_be_bytes(buf))
 }
 

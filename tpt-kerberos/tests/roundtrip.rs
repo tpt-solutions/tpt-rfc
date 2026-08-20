@@ -38,7 +38,10 @@ fn as_exchange_issues_tgt() {
     let tgt = client.tgt().expect("TGT cached");
     assert_eq!(tgt.crealm, REALM);
     assert_eq!(tgt.cname.name_string, vec![USER.to_string()]);
-    assert_eq!(tgt.sname.name_string, vec!["krbtgt".to_string(), REALM.to_string()]);
+    assert_eq!(
+        tgt.sname.name_string,
+        vec!["krbtgt".to_string(), REALM.to_string()]
+    );
     let _ = kdc; // keep alive
 }
 
@@ -73,7 +76,7 @@ fn full_tgs_ap_exchange() -> Result<()> {
 
 #[test]
 fn tgs_requires_valid_tgt() -> Result<()> {
-    let (kdc, mut client) = setup();
+    let (kdc, _client) = setup();
     // A second, fresh client that has NOT authenticated must fail to get a
     // service ticket (no TGT cached).
     let mut stranger = Client::new("bob", REALM);
@@ -84,8 +87,8 @@ fn tgs_requires_valid_tgt() -> Result<()> {
 
 #[test]
 fn ap_req_rejected_with_wrong_service_key() -> Result<()> {
-    let (_kdc, mut client) = setup();
-    client.service_ticket(&kdc_fixture()?, &format!("{}@{}", SVC, REALM))?;
+    let (kdc, mut client) = setup();
+    client.service_ticket(&kdc, &format!("{}@{}", SVC, REALM))?;
     let apreq = client.make_ap_req(&format!("{}@{}", SVC, REALM))?;
     // Service built with a *different* key must reject.
     let wrong_key = EncryptionKey {
@@ -100,19 +103,7 @@ fn ap_req_rejected_with_wrong_service_key() -> Result<()> {
     Ok(())
 }
 
-/// Standalone KDC used when we don't need the client half.
-fn kdc_fixture() -> Result<MemoryKdc> {
-    let mut kdc = MemoryKdc::new_with_realm(REALM);
-    kdc.add_principal(USER, REALM, USER_PW, ENCTYPE_AES256_CTS_HMAC_SHA1_96)?;
-    kdc.add_service(SVC, REALM, SVC_PW, ENCTYPE_AES256_CTS_HMAC_SHA1_96)?;
-    Ok(kdc)
-}
-
-fn service_long_term_key(
-    service: &str,
-    password: &str,
-    etype: u32,
-) -> Result<EncryptionKey> {
+fn service_long_term_key(service: &str, password: &str, etype: u32) -> Result<EncryptionKey> {
     let enct = Enctype::from_etype(etype)?;
     let salt = format!("{}{}", REALM, service).into_bytes();
     let kv = tpt_kerberos::crypto::string2key(
@@ -153,10 +144,13 @@ fn spnego_neg_token_init_roundtrip() -> Result<()> {
 #[test]
 fn spnego_neg_token_resp_roundtrip() -> Result<()> {
     let mech = const_oid::ObjectIdentifier::new_unwrap(OID_KRB5);
-    let resp = NegTokenResp::accept_completed(mech.clone(), Some(vec![1, 2, 3, 4]));
+    let resp = NegTokenResp::accept_completed(mech, Some(vec![1, 2, 3, 4]));
     let token = resp.to_token()?;
     let decoded = NegTokenResp::from_token(&token)?;
-    assert_eq!(decoded.supported_mech.map(|o| o.to_string()), Some(OID_KRB5.to_string()));
+    assert_eq!(
+        decoded.supported_mech.map(|o| o.to_string()),
+        Some(OID_KRB5.to_string())
+    );
     assert_eq!(decoded.response_token, Some(vec![1, 2, 3, 4]));
     Ok(())
 }
@@ -166,7 +160,7 @@ fn aes128_enctype_also_works() -> Result<()> {
     let mut kdc = MemoryKdc::new_with_realm(REALM);
     kdc.add_principal(USER, REALM, USER_PW, ENCTYPE_AES128_CTS_HMAC_SHA1_96)?;
     kdc.add_service(SVC, REALM, SVC_PW, ENCTYPE_AES128_CTS_HMAC_SHA1_96)?;
-    let mut client = Client::new(USER, REALM);
+    let mut client = Client::with_enctype(USER, REALM, ENCTYPE_AES128_CTS_HMAC_SHA1_96)?;
     client.authenticate(&kdc, USER_PW)?;
     let cached = client.service_ticket(&kdc, &format!("{}@{}", SVC, REALM))?;
     assert!(!cached.session_key.keyvalue.is_empty());
@@ -178,7 +172,7 @@ fn rfc8009_enctype_roundtrip() -> Result<()> {
     let mut kdc = MemoryKdc::new_with_realm(REALM);
     kdc.add_principal(USER, REALM, USER_PW, ENCTYPE_AES256_CTS_HMAC_SHA384_192)?;
     kdc.add_service(SVC, REALM, SVC_PW, ENCTYPE_AES256_CTS_HMAC_SHA384_192)?;
-    let mut client = Client::new(USER, REALM);
+    let mut client = Client::with_enctype(USER, REALM, ENCTYPE_AES256_CTS_HMAC_SHA384_192)?;
     client.authenticate(&kdc, USER_PW)?;
     let _ = client.service_ticket(&kdc, &format!("{}@{}", SVC, REALM))?;
     Ok(())

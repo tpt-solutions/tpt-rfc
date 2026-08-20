@@ -468,6 +468,10 @@ mod tests {
         eprintln!("a    = {:?}", a.to_bytes_le());
         eprintln!("PK = {:?}", sk.verifying_key().to_bytes());
         eprintln!("OC base = {}", on_curve(&b));
-        eprintln!("OC d2   = {}", on_curve(&b.add(&b)));
+        let d2 = b.add(&b);
+        eprintln!("OC d2   = {}", on_curve(&d2));
+        let zin = d2.z.invert();
+        eprintln!("d2 aff x = {:?}", d2.x.mul(&zin).to_bytes());
+        eprintln!("d2 aff y = {:?}", d2.y.mul(&zin).to_bytes());
     }
 }

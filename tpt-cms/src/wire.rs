@@ -9,6 +9,7 @@
 use const_oid::ObjectIdentifier;
 use der::{
     asn1::Any,
+    Reader,
     Decode, Encode, Length, Tag, TagNumber, Tagged,
 };
 use spki::AlgorithmIdentifierRef;
@@ -169,16 +170,23 @@ impl<'a> Cursor<'a> {
     }
 
     /// Take the next TLV, advancing the cursor past it.
+    ///
+    /// `der::Decode::from_der` is strict and requires the whole buffer to be a
+    /// single object, so we decode through a `SliceReader` (which advances past
+    /// the first TLV and leaves the rest available) rather than `Any::from_der`
+    /// on the remaining (multi-TLV) cursor data.
     pub fn take(&mut self) -> Result<Any> {
-        let a = Any::from_der(self.data).map_err(CmsError::Asn1)?;
-        let full = a.to_der().map_err(CmsError::Asn1)?;
-        self.data = &self.data[full.len()..];
+        let mut reader = der::SliceReader::new(self.data).map_err(CmsError::Asn1)?;
+        let a = reader.decode::<Any>().map_err(CmsError::Asn1)?;
+        let consumed = a.to_der().map_err(CmsError::Asn1)?.len();
+        self.data = &self.data[consumed..];
         Ok(a)
     }
 
     /// Peek at the next tag without consuming it.
     pub fn peek_tag(&self) -> Option<Tag> {
-        Any::from_der(self.data).ok().map(|a| a.tag())
+        let mut reader = der::SliceReader::new(self.data).ok()?;
+        reader.decode::<Any>().ok().map(|a| a.tag())
     }
 
     pub fn at_end(&self) -> bool {

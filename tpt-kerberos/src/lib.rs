@@ -36,13 +36,14 @@
 //! use tpt_kerberos::crypto::ENCTYPE_AES256_CTS_HMAC_SHA1_96;
 //!
 //! let mut kdc = MemoryKdc::new();
-//! kdc.add_principal("alice", "EXAMPLE.COM", "secret", ENCTYPE_AES256_CTS_HMAC_SHA1_96);
-//! kdc.add_service("host/server.example.com", "EXAMPLE.COM", "svcpass", ENCTYPE_AES256_CTS_HMAC_SHA1_96);
+//! kdc.add_principal("alice", "EXAMPLE.COM", "secret", ENCTYPE_AES256_CTS_HMAC_SHA1_96).unwrap();
+//! kdc.add_service("host/server.example.com", "EXAMPLE.COM", "svcpass", ENCTYPE_AES256_CTS_HMAC_SHA1_96).unwrap();
 //!
 //! let mut client = Client::new("alice", "EXAMPLE.COM");
-//! client.authenticate(&mut kdc, "secret").unwrap();
-//! let ap = client.service_ticket(&mut kdc, "host/server.example.com@EXAMPLE.COM").unwrap();
-//! assert!(ap.ap_options == 0);
+//! client.authenticate(&kdc, "secret").unwrap();
+//! client.service_ticket(&kdc, "host/server.example.com@EXAMPLE.COM").unwrap();
+//! let ap_req = client.make_ap_req("host/server.example.com@EXAMPLE.COM").unwrap();
+//! assert!(!ap_req.is_empty());
 //! ```
 //!
 //! ## Interop

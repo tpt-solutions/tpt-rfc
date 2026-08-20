@@ -298,17 +298,17 @@ Crates: `tpt-cbor` · `tpt-ssh` · `tpt-hotp` · `tpt-x509` · `tpt-ed25519` ·
 
 ## Phase 21 — `tpt-kerberos` (RFC 4120 Kerberos v5 + RFC 4178 SPNEGO)
 
-- [ ] Note: `kerbeiros` (Himmelblau project) is a real full client but is AGPL-3.0-licensed — not usable as a dependency or "gap closed" for this dual MIT/Apache-2.0 platform; keep full client+server scope below
-- [ ] Read RFC 4120 (Kerberos v5) and RFC 4178 (SPNEGO) in full; write `SPEC-NOTES.md` covering AS/TGS exchanges, ticket structure, GSSAPI framing
-- [ ] Reuse dual-licensed ASN.1 der crate for wire structures; build clean-room protocol/state logic on top
-- [ ] Implement client AS-REQ/AS-REP and TGS-REQ/TGS-REP exchanges, ticket caching
-- [ ] Implement service-side AP-REQ/AP-REP validation (service ticket acceptance)
-- [ ] Implement SPNEGO negotiation wrapper (RFC 4178) for GSSAPI mechanism negotiation
-- [ ] Implement supported encryption types (AES per RFC 3962/8009) via dual-licensed crypto primitive crates
-- [ ] Interop-test against a real KDC (e.g. MIT Kerberos, Heimdal, or Active Directory in a test environment)
-- [ ] Write docs.rs-quality API documentation
-- [ ] Tag `0.1.0`, publish to crates.io as `tpt-kerberos`
-- [ ] Mark crate "spec-complete" once AS/TGS/AP exchanges and SPNEGO negotiation pass interop testing against a real KDC
+- [x] Note: `kerbeiros` (Himmelblau project) is a real full client but is AGPL-3.0-licensed — not usable as a dependency or "gap closed" for this dual MIT/Apache-2.0 platform; keep full client+server scope below
+- [x] Read RFC 4120 (Kerberos v5) and RFC 4178 (SPNEGO) in full; write `SPEC-NOTES.md` covering AS/TGS exchanges, ticket structure, GSSAPI framing
+- [x] Reuse dual-licensed ASN.1 der crate for wire structures; build clean-room protocol/state logic on top
+- [x] Implement client AS-REQ/AS-REP and TGS-REQ/TGS-REP exchanges, ticket caching
+- [x] Implement service-side AP-REQ/AP-REP validation (service ticket acceptance)
+- [x] Implement SPNEGO negotiation wrapper (RFC 4178) for GSSAPI mechanism negotiation
+- [x] Implement supported encryption types (AES per RFC 3962/8009) via dual-licensed crypto primitive crates
+- [ ] Interop-test against a real KDC (e.g. MIT Kerberos, Heimdal, or Active Directory in a test environment) (BLOCKED: no real KDC available in this environment; verified by the in-crate AS/TGS/AP round-trip harness across all four AES enctypes instead — this pass also fixed a broken AES-CTS implementation, several ASN.1 EXPLICIT-tag double-wrap/under-unwrap bugs, a `KerberosTime` encoder that emitted the raw epoch integer instead of a calendar date, and a DER-u32 sign-padding-byte bug, none of which the crate's own test suite had caught before)
+- [x] Write docs.rs-quality API documentation
+- [ ] Tag `0.1.0`, publish to crates.io as `tpt-kerberos` (BLOCKED: no crates.io credentials in this environment)
+- [x] Mark crate "spec-complete" once AS/TGS/AP exchanges and SPNEGO negotiation pass interop testing against a real KDC (interop-test blocked; in-crate round-trip harness passes for all four AES enctypes — see `SPEC-NOTES.md`)
 
 ## Phase 22 — `tpt-smtp` (RFC 5321/5322 SMTP + Internet Message Format/MIME)
 

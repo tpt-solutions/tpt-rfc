@@ -11,8 +11,8 @@ use crate::asn1::{self, Principal, PrincipalName};
 use crate::crypto::{self, Enctype};
 use crate::error::{Error, Result};
 use crate::kdc::Kdc;
-use crate::types::*;
 use crate::types::EncryptionKey;
+use crate::types::*;
 
 use super::key_usage;
 
@@ -39,15 +39,28 @@ pub struct Client {
 }
 
 impl Client {
-    /// Create a client for `name@realm`.
+    /// Create a client for `name@realm`, assuming the default
+    /// `aes256-cts-hmac-sha1-96` enctype for pre-authentication. Use
+    /// [`Client::with_enctype`] if the principal's long-term key uses a
+    /// different enctype.
     pub fn new(name: &str, realm: &str) -> Self {
-        Client {
+        Self::with_enctype(name, realm, crypto::ENCTYPE_AES256_CTS_HMAC_SHA1_96)
+            .expect("default enctype is supported")
+    }
+
+    /// Create a client for `name@realm` that derives its long-term key (and
+    /// PA-ENC-TIMESTAMP pre-authentication) using `etype`. This must match
+    /// the enctype the KDC's principal entry was registered with — unlike a
+    /// real KDC, [`crate::kdc::MemoryKdc`] does not advertise
+    /// `PA-ETYPE-INFO2` for the client to discover it automatically.
+    pub fn with_enctype(name: &str, realm: &str, etype: u32) -> Result<Self> {
+        Ok(Client {
             principal: Principal::new(&[name], realm, NT_PRINCIPAL),
             password: String::new(),
-            enct: Enctype::from_etype(crypto::ENCTYPE_AES256_CTS_HMAC_SHA1_96).expect("enctype"),
+            enct: Enctype::from_etype(etype)?,
             tgt: None,
             svc_tickets: HashMap::new(),
-        }
+        })
     }
 
     /// Set the client's password (used to derive the long-term key for
@@ -57,8 +70,12 @@ impl Client {
     }
 
     fn salt(&self) -> Vec<u8> {
-        format!("{}{}", self.principal.realm, self.principal.name.name_string.join("/"))
-            .into_bytes()
+        format!(
+            "{}{}",
+            self.principal.realm,
+            self.principal.name.name_string.join("/")
+        )
+        .into_bytes()
     }
 
     fn long_term_key(&self) -> Result<Vec<u8>> {
@@ -88,12 +105,7 @@ impl Client {
             patimestamp: now,
             pausec: None,
         };
-        let ts_enc = crypto::encrypt(
-            &self.enct,
-            &ltk,
-            key_usage::PA_ENC_TIMESTAMP,
-            &ts.encode(),
-        )?;
+        let ts_enc = crypto::encrypt(&self.enct, &ltk, key_usage::PA_ENC_TIMESTAMP, &ts.encode())?;
         let padata = vec![PaData {
             padata_type: PA_ENC_TIMESTAMP,
             padata_value: EncryptedData {
@@ -129,12 +141,7 @@ impl Client {
         let rep = KdcRep::decode_application(11, &rep_bytes)?;
 
         // Decrypt EncASRepPart with the long-term key.
-        let plain = crypto::decrypt(
-            &self.enct,
-            &ltk,
-            key_usage::AS_REP,
-            &rep.enc_part.cipher,
-        )?;
+        let plain = crypto::decrypt(&self.enct, &ltk, key_usage::AS_REP, &rep.enc_part.cipher)?;
         let mut cur = asn1::Cursor::new(&plain);
         let ek = EncKdcRepPart::decode(&mut cur)?;
 
@@ -243,8 +250,10 @@ impl Client {
             authtime: ek.authtime,
             endtime: ek.endtime,
         };
-        self.svc_tickets
-            .insert(format!("{}@{}", svc.name.name_string.join("/"), svc.realm), cached.clone());
+        self.svc_tickets.insert(
+            format!("{}@{}", svc.name.name_string.join("/"), svc.realm),
+            cached.clone(),
+        );
         Ok(cached)
     }
 

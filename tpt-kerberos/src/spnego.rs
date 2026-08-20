@@ -12,7 +12,6 @@
 use const_oid::ObjectIdentifier;
 use der::{Decode, Encode, Tagged};
 
-
 use crate::asn1::{self, tlv};
 use crate::error::{Error, Result};
 
@@ -26,7 +25,7 @@ fn gss_initial_context_token(mech: &ObjectIdentifier, inner: &[u8]) -> Vec<u8> {
     // ThisMech OID then innerToken (EXPLICIT tagged OCTET STRING per GSS-API).
     let mech_der = mech.to_der().expect("oid der");
     let inner_tlv = tlv(0x04, inner); // OCTET STRING wrapping the inner token
-    // GSS-API: [APPLICATION 0] IMPLICIT SEQUENCE { thisMech OID, innerContextToken ANY }
+                                      // GSS-API: [APPLICATION 0] IMPLICIT SEQUENCE { thisMech OID, innerContextToken ANY }
     let mut content = mech_der;
     content.extend_from_slice(&inner_tlv);
     tlv(0x60, &content) // 0x60 = APPLICATION 0 constructed
@@ -137,11 +136,14 @@ impl NegTokenInit {
             let a = ic.take()?;
             let tag = a.tag();
             if tag == asn1::ctx_constructed(0) {
-                let mut mc = asn1::Cursor::new(a.value());
+                let seq = asn1::unwrap_sequence(a.value())?;
+                let mut mc = asn1::Cursor::new(seq.value());
                 while !mc.at_end() {
                     let o = mc.take()?;
-                    out.mech_types
-                        .push(ObjectIdentifier::from_der(&o.to_der().map_err(Error::Asn1)?).map_err(Error::Asn1)?);
+                    out.mech_types.push(
+                        ObjectIdentifier::from_der(&o.to_der().map_err(Error::Asn1)?)
+                            .map_err(Error::Asn1)?,
+                    );
                 }
             } else if tag == asn1::ctx_constructed(1) {
                 let b = asn1::Cursor::new(a.value()).take()?;
@@ -152,9 +154,13 @@ impl NegTokenInit {
                 }
                 out.req_flags = Some(u32::from_be_bytes([v[1], v[2], v[3], v[4]]));
             } else if tag == asn1::ctx_constructed(2) {
-                out.mech_token = Some(a.value().to_vec());
+                let os = asn1::Cursor::new(a.value()).take()?;
+                asn1::ensure_tag(os.tag(), der::Tag::OctetString)?;
+                out.mech_token = Some(os.value().to_vec());
             } else if tag == asn1::ctx_constructed(3) {
-                out.mech_list_mic = Some(a.value().to_vec());
+                let os = asn1::Cursor::new(a.value()).take()?;
+                asn1::ensure_tag(os.tag(), der::Tag::OctetString)?;
+                out.mech_list_mic = Some(os.value().to_vec());
             } else {
                 return Err(Error::Unexpected("NegTokenInit field"));
             }
@@ -239,12 +245,18 @@ impl NegTokenResp {
                 out.neg_state = Some(NegState::from_u8(e.value()[0])?);
             } else if tag == asn1::ctx_constructed(1) {
                 let o = asn1::Cursor::new(a.value()).take()?;
-                out.supported_mech =
-                    Some(ObjectIdentifier::from_der(&o.to_der().map_err(Error::Asn1)?).map_err(Error::from)?);
+                out.supported_mech = Some(
+                    ObjectIdentifier::from_der(&o.to_der().map_err(Error::Asn1)?)
+                        .map_err(Error::from)?,
+                );
             } else if tag == asn1::ctx_constructed(2) {
-                out.response_token = Some(a.value().to_vec());
+                let os = asn1::Cursor::new(a.value()).take()?;
+                asn1::ensure_tag(os.tag(), der::Tag::OctetString)?;
+                out.response_token = Some(os.value().to_vec());
             } else if tag == asn1::ctx_constructed(3) {
-                out.mech_list_mic = Some(a.value().to_vec());
+                let os = asn1::Cursor::new(a.value()).take()?;
+                asn1::ensure_tag(os.tag(), der::Tag::OctetString)?;
+                out.mech_list_mic = Some(os.value().to_vec());
             } else {
                 return Err(Error::Unexpected("NegTokenResp field"));
             }

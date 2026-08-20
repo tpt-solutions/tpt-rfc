@@ -8,8 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::asn1::{Cursor, Principal};
 use crate::crypto::{self, Enctype};
 use crate::error::{Error, Result};
-use crate::types::*;
 use crate::types::EncryptionKey;
+use crate::types::*;
 
 use super::key_usage;
 
@@ -46,7 +46,12 @@ impl Service {
         let ap = ApReq::decode_application(apreq_bytes)?;
         // The ticket must be for this service.
         if Principal::new(
-            &ap.ticket.sname.name_string.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+            &ap.ticket
+                .sname
+                .name_string
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>(),
             &ap.ticket.realm,
             ap.ticket.sname.name_type,
         ) != self.principal
@@ -65,9 +70,14 @@ impl Service {
         let etp = EncTicketPart::decode(&mut cur)?;
         let now = self.now();
         if etp.endtime < now {
-            return Err(Error::KrbError { code: 41, etext: Some("ticket expired".into()) });
+            return Err(Error::KrbError {
+                code: 41,
+                etext: Some("ticket expired".into()),
+            });
         }
-        if etp.flags & crate::kdc::flags::INITIAL == 0 && etp.flags & crate::kdc::flags::FORWARDABLE == 0 {
+        if etp.flags & crate::kdc::flags::INITIAL == 0
+            && etp.flags & crate::kdc::flags::FORWARDABLE == 0
+        {
             // Allow either; this is an informational check only.
         }
 
@@ -98,7 +108,12 @@ impl Service {
     /// Build an AP-REP (APPLICATION 15) in response to an accepted AP-REQ, using
     /// the ticket session key and a caller-supplied client timestamp. The
     /// returned message proves possession of the service key to the client.
-    pub fn make_ap_rep(&self, session_key: &EncryptionKey, ctime: u64, cusec: u32) -> Result<Vec<u8>> {
+    pub fn make_ap_rep(
+        &self,
+        session_key: &EncryptionKey,
+        ctime: u64,
+        cusec: u32,
+    ) -> Result<Vec<u8>> {
         let session_enct = Enctype::from_etype(session_key.keytype as u32)?;
         let enc = EncApRepPart {
             ctime,

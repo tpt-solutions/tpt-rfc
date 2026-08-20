@@ -13,12 +13,12 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::asn1::{self, Cursor, Principal};
-use der::asn1::Any;
-use der::Decode;
 use crate::crypto::{self, Enctype, ENCTYPE_AES256_CTS_HMAC_SHA1_96};
 use crate::error::{Error, Result};
-use crate::types::*;
 use crate::types::EncryptionKey;
+use crate::types::*;
+use der::asn1::Any;
+use der::Decode;
 
 /// Default ticket lifetime: 10 hours (in seconds).
 pub const DEFAULT_LIFETIME: u64 = 10 * 3600;
@@ -88,8 +88,7 @@ impl MemoryKdc {
         let enct = Enctype::from_etype(kdc.krbtgt_etype).expect("enctype");
         let mut raw = vec![0u8; enct.keylen];
         let _ = getrandom_fill(&mut raw);
-        let krbtgt_principal =
-            Principal::new(&["krbtgt"], realm, NT_SRV_INST);
+        let krbtgt_principal = Principal::new(&["krbtgt", realm], realm, NT_SRV_INST);
         let entry = PrincipalEntry {
             principal: krbtgt_principal.clone(),
             key: EncryptionKey {
@@ -118,7 +117,12 @@ impl MemoryKdc {
     ) -> Result<()> {
         let enct = Enctype::from_etype(etype)?;
         let salt = format!("{}{}", realm, name).into_bytes();
-        let keyval = crypto::string2key(etype, password.as_bytes(), &salt, crypto::DEFAULT_STRING2KEY_ITER)?;
+        let keyval = crypto::string2key(
+            etype,
+            password.as_bytes(),
+            &salt,
+            crypto::DEFAULT_STRING2KEY_ITER,
+        )?;
         let principal = Principal::new(&[name], realm, NT_PRINCIPAL);
         self.principals.insert(
             format!("{}@{}", name, realm),
@@ -145,7 +149,12 @@ impl MemoryKdc {
     ) -> Result<()> {
         let enct = Enctype::from_etype(etype)?;
         let salt = format!("{}{}", realm, service).into_bytes();
-        let keyval = crypto::string2key(etype, password.as_bytes(), &salt, crypto::DEFAULT_STRING2KEY_ITER)?;
+        let keyval = crypto::string2key(
+            etype,
+            password.as_bytes(),
+            &salt,
+            crypto::DEFAULT_STRING2KEY_ITER,
+        )?;
         // service components split on '/'
         let comps: Vec<&str> = service.split('/').collect();
         let principal = Principal::new(&comps, realm, NT_SRV_INST);
@@ -165,7 +174,8 @@ impl MemoryKdc {
     }
 
     fn krbtgt_entry(&self) -> Result<&PrincipalEntry> {
-        self.krbtgt().ok_or_else(|| Error::Constraint("no krbtgt key"))
+        self.krbtgt()
+            .ok_or_else(|| Error::Constraint("no krbtgt key"))
     }
 
     fn krbtgt(&self) -> Option<&PrincipalEntry> {
@@ -173,7 +183,8 @@ impl MemoryKdc {
     }
 
     fn lookup(&self, p: &Principal) -> Option<&PrincipalEntry> {
-        self.principals.get(&format!("{}@{}", p.name.name_string.join("/"), p.realm))
+        self.principals
+            .get(&format!("{}@{}", p.name.name_string.join("/"), p.realm))
     }
 
     /// Generate a random session key for the given enctype.
@@ -204,23 +215,26 @@ impl Kdc for MemoryKdc {
             .clone()
             .ok_or(Error::MissingField("AS-REQ cname"))?;
         let crealm = body.realm.clone();
-        let client = Principal { name: cname.clone(), realm: crealm.clone() };
+        let client = Principal {
+            name: cname.clone(),
+            realm: crealm.clone(),
+        };
         let entry = self
             .lookup(&client)
             .ok_or_else(|| Error::Principal(format!("unknown client {}", client.to_string())))?;
         let enct = Enctype::from_etype(entry.etype)?;
 
         // Verify PA-ENC-TIMESTAMP pre-authentication.
-        let pa = req
-            .padata
-            .as_ref()
-            .ok_or(Error::PreauthRequired)?;
+        let pa = req.padata.as_ref().ok_or(Error::PreauthRequired)?;
         let ts_pa = pa
             .iter()
             .find(|p| p.padata_type == PA_ENC_TIMESTAMP)
             .ok_or(Error::PreauthRequired)?;
-        let enc = EncryptedData::decode_implicit(0, &Any::from_der(&ts_pa.padata_value).map_err(|_| Error::PreauthRequired)?)
-            .map_err(|_| Error::PreauthRequired)?;
+        let enc = EncryptedData::decode_implicit(
+            0,
+            &Any::from_der(&ts_pa.padata_value).map_err(|_| Error::PreauthRequired)?,
+        )
+        .map_err(|_| Error::PreauthRequired)?;
         let plain = crypto::decrypt(
             &enct,
             &entry.key.keyvalue,
@@ -263,7 +277,7 @@ impl Kdc for MemoryKdc {
         let tgt = Ticket {
             tkt_vno: 5,
             realm: crealm.clone(),
-            sname: Principal::new(&["krbtgt"], &crealm, NT_SRV_INST).name,
+            sname: Principal::new(&["krbtgt", &crealm], &crealm, NT_SRV_INST).name,
             enc_part: EncryptedData {
                 etype: krbtgt_enct.etype as i32,
                 kvno: Some(1),
@@ -282,7 +296,7 @@ impl Kdc for MemoryKdc {
             endtime: now + DEFAULT_LIFETIME,
             renew_till: Some(now + DEFAULT_LIFETIME),
             srealm: crealm.clone(),
-            sname: Principal::new(&["krbtgt"], &crealm, NT_SRV_INST).name,
+            sname: Principal::new(&["krbtgt", &crealm], &crealm, NT_SRV_INST).name,
             caddr: None,
         };
         let enc_part = crypto::encrypt(
@@ -340,7 +354,10 @@ impl Kdc for MemoryKdc {
         }
         let now = now_secs();
         if etp.endtime < now {
-            return Err(Error::KrbError { code: 41, etext: Some("TGT expired".into()) });
+            return Err(Error::KrbError {
+                code: 41,
+                etext: Some("TGT expired".into()),
+            });
         }
 
         // Decrypt the authenticator with the TGT session key.
@@ -361,7 +378,10 @@ impl Kdc for MemoryKdc {
         }
 
         // Look up the target service key.
-        let service = Principal { name: sname.clone(), realm: crealm.clone() };
+        let service = Principal {
+            name: sname.clone(),
+            realm: crealm.clone(),
+        };
         let svc_entry = self
             .lookup(&service)
             .ok_or_else(|| Error::Principal(format!("unknown service {}", service.to_string())))?;

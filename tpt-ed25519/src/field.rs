@@ -529,6 +529,26 @@ mod tests {
     }
 
     #[test]
+    fn mul_known_products() {
+        // 2^60 * 2^60 = 2^120
+        let a = FieldElement::from_u64(1u64 << 60);
+        let b = FieldElement::from_u64(1u64 << 60);
+        assert_eq!(a.mul(&b).limbs, [0, 72057594037927936, 0, 0], "2^120");
+        // (2^64-1)^2 mod p
+        let c = FieldElement::from_u64(u64::MAX);
+        let cp = c.mul(&c);
+        assert_eq!(cp.limbs, [1, 18446744073709551614, 0, 0], "(2^64-1)^2 mod p");
+        // big product
+        let la = [0xabcdef0123456789, 0x1234567890, 0x0, 0x0];
+        let lb = [0x6543210987654321, 0xfedcba0987, 0x0, 0x0];
+        let fa = FieldElement { limbs: la };
+        let fb = FieldElement { limbs: lb };
+        let got = fa.mul(&fb).limbs;
+        let exp = [0x45c9ec2cce1833a9, 0xb6073255d26b5cbe, 0xa000a3723a57c419, 0x121f];
+        assert_eq!(got, exp, "big product mismatch");
+    }
+
+    #[test]
     fn ref_mul_matches() {
         let mut s = 0x1234_5678_9abc_def0u64;
         fn lcg(st: &mut u64) -> u64 {

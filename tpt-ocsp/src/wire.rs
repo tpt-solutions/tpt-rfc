@@ -78,7 +78,7 @@ pub(crate) struct ResponseData<'a> {
 /// `ResponderID` (RFC 6960 §4.2.1).
 #[derive(Clone, Choice)]
 pub(crate) enum ResponderId {
-    #[asn1(context_specific = "1", tag_mode = "IMPLICIT")]
+    #[asn1(context_specific = "1", tag_mode = "IMPLICIT", constructed = "true")]
     ByName(Name),
     #[asn1(context_specific = "2", tag_mode = "IMPLICIT")]
     ByKey(OctetString),
@@ -208,4 +208,77 @@ pub(crate) struct Signature<'a> {
     pub signature: BitStringRef<'a>,
     #[asn1(context_specific = "0", constructed = "true", optional = "true")]
     pub certs: Option<Vec<Certificate>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use der::{Decode, Encode};
+
+    #[test]
+    fn responder_id_bykey_roundtrip() {
+        let rid = ResponderId::ByKey(OctetString::new(vec![1, 2, 3, 4]).unwrap());
+        let der = rid.to_der().unwrap();
+        eprintln!("bykey der: {:02x?}", der);
+        let rid2 = ResponderId::from_der(&der).unwrap();
+        assert!(matches!(rid2, ResponderId::ByKey(_)));
+    }
+
+    #[test]
+    fn cert_status_good_roundtrip() {
+        let cs = CertStatus::Good(Null);
+        let der = cs.to_der().unwrap();
+        eprintln!("good der: {:02x?}", der);
+        let cs2 = CertStatus::from_der(&der).unwrap();
+        assert!(matches!(cs2, CertStatus::Good(_)));
+    }
+
+    #[test]
+    fn cert_status_revoked_roundtrip() {
+        let rt = GeneralizedTime::from_unix_duration(std::time::Duration::from_secs(1_700_000_000))
+            .unwrap();
+        let cs = CertStatus::Revoked(RevokedInfo {
+            revocation_time: rt,
+            revocation_reason: None,
+        });
+        let der = cs.to_der().unwrap();
+        eprintln!("revoked der: {:02x?}", der);
+        let cs2 = CertStatus::from_der(&der).unwrap();
+        assert!(matches!(cs2, CertStatus::Revoked(_)));
+    }
+
+    #[test]
+    fn response_data_roundtrip() {
+        use spki::AlgorithmIdentifier;
+        let alg = AlgorithmIdentifier::<der::asn1::AnyRef<'static>> {
+            oid: const_oid::ObjectIdentifier::new_unwrap("1.3.14.3.2.26"),
+            parameters: None::<der::asn1::AnyRef<'static>>,
+        };
+        let cert_id = CertIdWire {
+            hash_algorithm: alg,
+            issuer_name_hash: OctetString::new(vec![0u8; 32]).unwrap(),
+            issuer_key_hash: OctetString::new(vec![0u8; 32]).unwrap(),
+            serial_number: Uint::new(&[1, 2, 3]).unwrap(),
+        };
+        let single = SingleResponse {
+            cert_id,
+            cert_status: CertStatus::Good(Null),
+            this_update: GeneralizedTime::from_unix_duration(std::time::Duration::from_secs(1_700_000_000))
+                .unwrap(),
+            next_update: None,
+            single_extensions: None,
+        };
+        let rd = ResponseData {
+            version: None,
+            responder_id: ResponderId::ByKey(OctetString::new(vec![1, 2, 3, 4]).unwrap()),
+            produced_at: GeneralizedTime::from_unix_duration(std::time::Duration::from_secs(1_700_000_000))
+                .unwrap(),
+            responses: vec![single],
+            response_extensions: None,
+        };
+        let der = rd.to_der().unwrap();
+        eprintln!("rd der: {:02x?}", der);
+        let rd2 = ResponseData::from_der(&der).unwrap();
+        assert!(matches!(rd2.responder_id, ResponderId::ByKey(_)));
+    }
 }

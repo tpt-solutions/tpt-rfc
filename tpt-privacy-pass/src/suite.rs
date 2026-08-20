@@ -6,22 +6,17 @@
 //! dual-licensed (MIT/Apache-2.0): `p256`, `p384`, `elliptic-curve`,
 //! `hash2curve` (RFC 9380 `hash_to_curve`) and `sha2`.
 
-use core::num::NonZeroU16;
-use core::ops::Add;
 use elliptic_curve::ff::PrimeField;
 use elliptic_curve::point::{AffineCoordinates, DecompressPoint};
 use elliptic_curve::sec1::ModulusSize;
-use elliptic_curve::{
-    array::Array, array::ArraySize, array::typenum::Add1, consts::{U48, U72}, ops::Reduce,
-    AffinePoint, CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint,
-};
-use hash2curve::{ExpandMsg, ExpandMsgXmd, Expander, GroupDigest};
+use elliptic_curve::{AffinePoint, CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint};
 use sha2::{Digest, Sha256, Sha384};
 
 pub use p256::NistP256;
 pub use p384::NistP384;
 
 use crate::error::OprfError;
+use crate::h2c::{H2CCurve, P256_B, P256_L, P256_S, P384_B, P384_L, P384_S};
 
 /// Canonical group-element type for a [`Suite`] (the curve's projective
 /// point, which is what `GroupDigest::hash_from_bytes` yields).
@@ -38,7 +33,7 @@ pub type Scalar<C> = elliptic_curve::Scalar<C>;
 /// [`NistP384`] (P-384 / SHA-384, `SUITE_ID = "P384-SHA384"`) implement this
 /// trait directly; `hash2curve` already supplies their `GroupDigest`
 /// (`HashToGroup`) and RustCrypto supplies `CurveArithmetic` / `PrimeCurve`.
-pub trait Suite: GroupDigest + CurveArithmetic + PrimeCurve
+pub trait Suite: CurveArithmetic + PrimeCurve
 where
     Self::FieldBytesSize: ModulusSize,
 {
@@ -85,16 +80,6 @@ pub(crate) fn dst_scalar<C: Suite + ?Sized>(mode: u8) -> Vec<u8> {
     format!("HashToScalar-{}", C::context_string(mode)).into_bytes()
 }
 
-/// Build a `&[&[u8]]` message-slice for `expand_message` / `hash_from_bytes`.
-fn msg_refs(input: &[u8]) -> [&[u8]; 1] {
-    [input]
-}
-
-/// Build a `&[&[u8]]` DST-slice for `expand_message` / `hash_from_bytes`.
-fn dst_refs(dst: &[u8]) -> [&[u8]; 1] {
-    [dst]
-}
-
 // ---------------------------------------------------------------------------
 // Suite: NistP256 (P256-SHA256)
 // ---------------------------------------------------------------------------
@@ -108,21 +93,31 @@ impl Suite for NistP256 {
     const L: usize = 48;
 
     fn hash_to_scalar(input: &[u8], dst: &[u8]) -> Scalar<Self> {
-        let expander = ExpandMsgXmd::<Sha256>::expand_message(
-            &msg_refs(input),
-            &dst_refs(dst),
-            u16_len(Self::L as u16),
-        )
-        .expect("expand_message");
-        let mut buf = [0u8; 48];
-        expander.fill_bytes(&mut buf).expect("expand_message fill");
-        let arr = Array::<u8, U48>::from_slice(&buf);
-        Scalar::<Self>::reduce(arr)
+        crate::h2c::hash_to_scalar::<NistP256, P256_L, P256_S>(input, dst)
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
-        <Self as GroupDigest>::hash_from_bytes(&msg_refs(input), &dst_refs(dst))
-            .map_err(|_| OprfError::InvalidElement)
+        let (_q0, _q1, p) = crate::h2c::hash_to_curve::<NistP256, P256_L, P256_S>(input, dst);
+        Ok(p)
+    }
+}
+
+impl H2CCurve for NistP256 {
+    const L: usize = P256_L;
+    const S_BLOCK: usize = P256_S;
+    type Hash = Sha256;
+
+    fn field_a() -> Self::FieldElement {
+        -(Self::FieldElement::ONE + Self::FieldElement::ONE + Self::FieldElement::ONE)
+    }
+
+    fn field_b() -> Self::FieldElement {
+        Self::FieldElement::from_repr(FieldBytes::<Self>::clone_from_slice(P256_B))
+            .expect("valid P-256 B constant")
+    }
+
+    fn field_z() -> Self::FieldElement {
+        -Self::FieldElement::ONE
     }
 }
 
@@ -139,21 +134,31 @@ impl Suite for NistP384 {
     const L: usize = 72;
 
     fn hash_to_scalar(input: &[u8], dst: &[u8]) -> Scalar<Self> {
-        let expander = ExpandMsgXmd::<Sha384>::expand_message(
-            &msg_refs(input),
-            &dst_refs(dst),
-            u16_len(Self::L as u16),
-        )
-        .expect("expand_message");
-        let mut buf = [0u8; 72];
-        expander.fill_bytes(&mut buf).expect("expand_message fill");
-        let arr = Array::<u8, U72>::from_slice(&buf);
-        Scalar::<Self>::reduce(arr)
+        crate::h2c::hash_to_scalar::<NistP384, P384_L, P384_S>(input, dst)
     }
 
     fn hash_to_group(input: &[u8], dst: &[u8]) -> Result<Point<Self>, OprfError> {
-        <Self as GroupDigest>::hash_from_bytes(&msg_refs(input), &dst_refs(dst))
-            .map_err(|_| OprfError::InvalidElement)
+        let (_q0, _q1, p) = crate::h2c::hash_to_curve::<NistP384, P384_L, P384_S>(input, dst);
+        Ok(p)
+    }
+}
+
+impl H2CCurve for NistP384 {
+    const L: usize = P384_L;
+    const S_BLOCK: usize = P384_S;
+    type Hash = Sha384;
+
+    fn field_a() -> Self::FieldElement {
+        -(Self::FieldElement::ONE + Self::FieldElement::ONE + Self::FieldElement::ONE)
+    }
+
+    fn field_b() -> Self::FieldElement {
+        Self::FieldElement::from_repr(FieldBytes::<Self>::clone_from_slice(P384_B))
+            .expect("valid P-384 B constant")
+    }
+
+    fn field_z() -> Self::FieldElement {
+        -Self::FieldElement::ONE
     }
 }
 
@@ -218,10 +223,4 @@ pub(crate) fn len_prefixed(x: &[u8]) -> Vec<u8> {
     v.extend_from_slice(&(x.len() as u16).to_be_bytes());
     v.extend_from_slice(x);
     v
-}
-
-/// Build a `NonZeroU16` length for `expand_message` (lengths here are
-/// always non-zero).
-fn u16_len(v: u16) -> NonZeroU16 {
-    NonZeroU16::new(v).expect("non-zero length")
 }

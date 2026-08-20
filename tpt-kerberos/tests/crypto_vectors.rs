@@ -16,39 +16,41 @@ use tpt_kerberos::key_usage;
 fn pbkdf2_sha1_rfc6070() {
     // P="password", S="salt", c=1, dkLen=16
     let dk = pbkdf2_sha1(b"password", b"salt", 1, 16);
-    assert_eq!(
-        dk,
-        hex::decode("0c60c80f961f0e71f3a9b524af6012062fe037a6").unwrap()
-    );
+
+    assert_eq!(dk, hex::decode("0c60c80f961f0e71f3a9b524af601206").unwrap());
 
     // P="password", S="salt", c=4096, dkLen=16
     let dk = pbkdf2_sha1(b"password", b"salt", 4096, 16);
-    assert_eq!(
-        dk,
-        hex::decode("4b007901b765489abead49d926f721d065a429c1").unwrap()
-    );
+    assert_eq!(dk, hex::decode("4b007901b765489abead49d926f721d0").unwrap());
 }
 
 /// Helper that runs PBKDF2-HMAC-SHA1 by dispatching through `string2key`'s internal
 /// path. `string2key` uses the enctype's hash, so we test the SHA-1 enctypes.
 fn pbkdf2_sha1(password: &[u8], salt: &[u8], iter: u32, dklen: usize) -> Vec<u8> {
     // string2key with aes128-sha1 performs PBKDF2-HMAC-SHA1.
-    string2key(
-        ENCTYPE_AES128_CTS_HMAC_SHA1_96,
-        password,
-        salt,
-        iter,
-    )
-    .unwrap()
-    .into_iter()
-    .take(dklen)
-    .collect()
+    string2key(ENCTYPE_AES128_CTS_HMAC_SHA1_96, password, salt, iter)
+        .unwrap()
+        .into_iter()
+        .take(dklen)
+        .collect()
 }
 
 #[test]
 fn string2key_is_deterministic_and_sized() {
-    let k1 = string2key(ENCTYPE_AES256_CTS_HMAC_SHA1_96, b"secret", b"EXAMPLE.COMalice", 4096).unwrap();
-    let k2 = string2key(ENCTYPE_AES256_CTS_HMAC_SHA1_96, b"secret", b"EXAMPLE.COMalice", 4096).unwrap();
+    let k1 = string2key(
+        ENCTYPE_AES256_CTS_HMAC_SHA1_96,
+        b"secret",
+        b"EXAMPLE.COMalice",
+        4096,
+    )
+    .unwrap();
+    let k2 = string2key(
+        ENCTYPE_AES256_CTS_HMAC_SHA1_96,
+        b"secret",
+        b"EXAMPLE.COMalice",
+        4096,
+    )
+    .unwrap();
     assert_eq!(k1, k2);
     assert_eq!(k1.len(), 32);
 }

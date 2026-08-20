@@ -137,12 +137,7 @@ fn hmac_for(enct: &Enctype, key: &[u8], data: &[u8]) -> Vec<u8> {
 ///
 /// Mirrors RFC 3962 §4: `tkey = PBKDF2-HMAC(password, salt, iterations, keylen)`,
 /// then `random-to-key` (identity for AES).
-pub fn string2key(
-    etype: u32,
-    password: &[u8],
-    salt: &[u8],
-    iterations: u32,
-) -> Result<Vec<u8>> {
+pub fn string2key(etype: u32, password: &[u8], salt: &[u8], iterations: u32) -> Result<Vec<u8>> {
     let enct = Enctype::from_etype(etype)?;
     let k = enct.keylen;
     let key = pbkdf2(etype, password, salt, iterations, k);
@@ -168,7 +163,13 @@ fn pbkdf2(etype: u32, password: &[u8], salt: &[u8], iterations: u32, dklen: usiz
     }
 }
 
-fn pbkdf2_with_hmac<M: Mac + KeyInit>(hlen: usize, password: &[u8], salt: &[u8], iterations: u32, dklen: usize) -> Vec<u8> {
+fn pbkdf2_with_hmac<M: Mac + KeyInit>(
+    hlen: usize,
+    password: &[u8],
+    salt: &[u8],
+    iterations: u32,
+    dklen: usize,
+) -> Vec<u8> {
     let mut out = vec![0u8; dklen];
     let blocks = (dklen + hlen - 1) / hlen;
     for i in 1..=blocks as u32 {
@@ -350,19 +351,20 @@ fn aes_cts_encrypt(enct: &Enctype, key: &[u8], pt: &[u8]) -> Vec<u8> {
         cbc[i * BLOCK..i * BLOCK + BLOCK].copy_from_slice(&c);
         prev = c;
     }
-    // prev = C_{n-1} (X in the spec)
+    // prev = C_{n-1} (standard CBC ciphertext of the second-to-last block)
     let lastlen = l - (n - 1) * BLOCK;
-    // X_padded = X[0..B-lastlen] || P_n
-    let mut xpadded = prev[..BLOCK - lastlen].to_vec();
-    xpadded.extend_from_slice(&pt[(n - 1) * BLOCK..l]);
-    let mut xblk = [0u8; BLOCK];
-    xblk.copy_from_slice(&xpadded);
+    // P_n padded with zeros to a full block, then combined with C_{n-1} (CS3,
+    // NIST SP 800-38A Addendum): C_n' = E(pad(P_n) XOR C_{n-1}).
+    let mut pn_padded = [0u8; BLOCK];
+    pn_padded[..lastlen].copy_from_slice(&pt[(n - 1) * BLOCK..l]);
+    let x = xor_bytes(&pn_padded, &prev);
+    let xblk: [u8; BLOCK] = x.try_into().expect("block len");
     let cn = aes_ecb_encrypt(enct, key, &xblk);
-    // Output: C_1..C_{n-2}, C_n (full), X[0..lastlen]
+    // Output: C_1..C_{n-2}, C_n' (full, at position n-1), C_{n-1}[0..lastlen] (truncated, at position n)
     let mut out = Vec::with_capacity(l);
-    out.extend_from_slice(&cbc[..(n - 1) * BLOCK]); // C_1..C_{n-2}
-    out.extend_from_slice(&cn); // C_n (full block)
-    out.extend_from_slice(&prev[..lastlen]); // X[0..lastlen]
+    out.extend_from_slice(&cbc[..(n - 2) * BLOCK]); // C_1..C_{n-2}
+    out.extend_from_slice(&cn); // C_n' (full block)
+    out.extend_from_slice(&prev[..lastlen]); // C_{n-1}[0..lastlen]
     out
 }
 
@@ -381,28 +383,10 @@ fn aes_cts_decrypt(enct: &Enctype, key: &[u8], ct: &[u8]) -> Result<Vec<u8>> {
     }
     let n = (l + BLOCK - 1) / BLOCK;
     let lastlen = l - (n - 1) * BLOCK;
-    // Recover X_full = D(C_n), whose head is X[0..B-lastlen] and tail is P_n.
-    let mut cn_block = [0u8; BLOCK];
-    cn_block.copy_from_slice(&ct[(n - 2) * BLOCK..(n - 1) * BLOCK]);
-    let xfull = aes_ecb_decrypt(enct, key, &cn_block);
-    // Reconstruct full X = X_full[0..B-lastlen] || (ct tail)
-    let mut x = xfull[..BLOCK - lastlen].to_vec();
-    x.extend_from_slice(&ct[(n - 1) * BLOCK..l]);
-    // P_n = X_full[B-lastlen .. B]
-    let p_n = xfull[BLOCK - lastlen..BLOCK].to_vec();
-    // P_{n-1} = D(X) ^ C_{n-2}
-    let mut xblk = [0u8; BLOCK];
-    xblk.copy_from_slice(&x);
-    let dx = aes_ecb_decrypt(enct, key, &xblk);
-    let c_n2 = if n == 2 {
-        [0u8; BLOCK]
-    } else {
-        let mut c = [0u8; BLOCK];
-        c.copy_from_slice(&ct[..BLOCK]);
-        c
-    };
-    let p_nm1 = xor_bytes(&dx, &c_n2);
-    // CBC-decrypt C_1..C_{n-2} (all full blocks preceding C_n in `ct`)
+
+    // CBC-decrypt C_1..C_{n-2} (all full blocks preceding the CTS pair),
+    // tracking `prev` as the running chaining value (IV for the first block,
+    // ending as C_{n-2} — or IV itself when n == 2).
     let mut pt = Vec::with_capacity(l);
     let mut prev = [0u8; BLOCK];
     for i in 0..(n - 2) {
@@ -413,9 +397,30 @@ fn aes_cts_decrypt(enct: &Enctype, key: &[u8], ct: &[u8]) -> Result<Vec<u8>> {
         pt.extend_from_slice(&ptext);
         prev = c;
     }
-    // P_{n-1}
+    // prev is now C_{n-2} (or IV if n == 2).
+
+    // Position n-1 holds C_n' = E(pad(P_n) XOR C_{n-1}); position n holds the
+    // truncated tail C_{n-1}[0..lastlen].
+    let mut cn_prime = [0u8; BLOCK];
+    cn_prime.copy_from_slice(&ct[(n - 2) * BLOCK..(n - 1) * BLOCK]);
+    let tail = &ct[(n - 1) * BLOCK..l];
+    let y = aes_ecb_decrypt(enct, key, &cn_prime); // Y = pad(P_n) XOR C_{n-1}
+
+    // Recover C_{n-1} in full: its first `lastlen` bytes are the ciphertext
+    // tail; its remaining bytes equal Y's remaining bytes (since P_n was
+    // zero-padded there).
+    let mut c_nm1 = [0u8; BLOCK];
+    c_nm1[..lastlen].copy_from_slice(tail);
+    c_nm1[lastlen..].copy_from_slice(&y[lastlen..]);
+
+    // P_n = Y[0..lastlen] XOR C_{n-1}[0..lastlen] (= tail)
+    let p_n: Vec<u8> = y[..lastlen].iter().zip(tail).map(|(a, b)| a ^ b).collect();
+
+    // P_{n-1} = D(C_{n-1}) XOR C_{n-2}
+    let d_nm1 = aes_ecb_decrypt(enct, key, &c_nm1);
+    let p_nm1 = xor_bytes(&d_nm1, &prev);
+
     pt.extend_from_slice(&p_nm1);
-    // P_n (length lastlen)
     pt.extend_from_slice(&p_n);
     Ok(pt)
 }
@@ -430,13 +435,12 @@ fn aes_cts_decrypt(enct: &Enctype, key: &[u8], ct: &[u8]) -> Result<Vec<u8>> {
 /// the MAC appended.
 pub fn encrypt(enct: &Enctype, base_key: &[u8], usage: u32, plaintext: &[u8]) -> Result<Vec<u8>> {
     let dk = derive_keys(enct, base_key, usage);
-    // Confounder (one AES block) || data, zero-padded to block multiple.
+    // Confounder (one AES block) || data. AES-CTS handles arbitrary lengths
+    // (including partial final blocks) directly, so no padding is added —
+    // ciphertext length equals plaintext length, per RFC 3961 §5.
     let mut buf = vec![0u8; BLOCK];
     getrandom(&mut buf)?;
     buf.extend_from_slice(plaintext);
-    while buf.len() % BLOCK != 0 {
-        buf.push(0);
-    }
     let c = aes_cts_encrypt(enct, &dk.enc, &buf);
     // HMAC input: 0x0000 (kvno, unused) || [usage] || C  (usage only for RFC 8009)
     let mut hmac_input = vec![0x00, 0x00];
@@ -469,13 +473,12 @@ pub fn decrypt(enct: &Enctype, base_key: &[u8], usage: u32, cipher: &[u8]) -> Re
         return Err(Error::ChecksumMismatch);
     }
     let pt = aes_cts_decrypt(enct, &dk.enc, c)?;
-    // Strip the confounder (first block) and trailing zero padding.
+    // Strip the confounder (first block); no padding is added by `encrypt`,
+    // so the remainder is exactly the original plaintext.
     if pt.len() < BLOCK {
         return Err(Error::DecryptFailed);
     }
-    let data = &pt[BLOCK..];
-    let end = data.iter().rposition(|b| *b != 0).map(|i| i + 1).unwrap_or(0);
-    Ok(data[..end].to_vec())
+    Ok(pt[BLOCK..].to_vec())
 }
 
 /// Compute a standalone checksum (used for `Checksum`/`GSSAPI-MIC`).

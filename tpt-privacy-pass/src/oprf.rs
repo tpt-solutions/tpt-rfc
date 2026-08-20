@@ -37,7 +37,7 @@ pub struct Proof<C: Suite> {
 pub fn random_scalar<C: Suite>() -> ScalarE<C> {
     loop {
         let mut buf = [0u8; 64];
-        getrandom::fill(&mut buf).expect("getrandom failure");
+        getrandom::getrandom(&mut buf).expect("getrandom failure");
         let fb = FieldBytes::<C>::clone_from_slice(&buf[..C::NS]);
         if let Some(sp) = ScalarE::<C>::from_repr(fb).into_option() {
             if !bool::from(sp.is_zero()) {

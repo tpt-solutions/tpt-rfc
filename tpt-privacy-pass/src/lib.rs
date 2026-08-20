@@ -73,6 +73,7 @@
 #![warn(missing_docs)]
 
 pub mod error;
+pub mod h2c;
 pub mod oprf;
 pub mod suite;
 pub mod token;
