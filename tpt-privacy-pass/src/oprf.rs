@@ -10,7 +10,7 @@
 use crate::error::OprfError;
 use crate::suite::*;
 use digest::Digest;
-use elliptic_curve::{
+use p256::elliptic_curve::{
     ff::{Field, PrimeField},
     group::GroupOps,
     FieldBytes, Group,

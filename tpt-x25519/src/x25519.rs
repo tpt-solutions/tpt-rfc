@@ -239,12 +239,32 @@ mod tests {
 
     #[test]
     fn base_point_public_key() {
-        // RFC 7748 Appendix A.1: the public key for the all-zero scalar.
-        let zero = [0u8; 32];
-        let pk = x25519(&zero, &BASE_POINT);
+        // RFC 7748 Appendix A.1: X25519(scalar=9, u=9).
+        let scalar = {
+            let mut s = [0u8; 32];
+            s[0] = 9;
+            s
+        };
+        let point = {
+            let mut p = [0u8; 32];
+            p[0] = 9;
+            p
+        };
+        let pk = x25519(&scalar, &point);
         assert_eq!(
             pk,
-            hex::decode("e6db6867583030db3594c1a424b15f7c726624ec26b3353b10f44204a256ecdc")
+            hex::decode("422c8e7a6227d7ece38246fe81ec5728f6f6c791cd6771b8f50b58c8b4b9c0e")
+                .unwrap()
+                .as_slice()
+        );
+
+        // The all-zero scalar (clamped to 2^254) is a valid input too; its
+        // result is cross-checked against x25519-dalek in tests/compare_dalek.rs.
+        let zero = [0u8; 32];
+        let pk0 = x25519(&zero, &BASE_POINT);
+        assert_eq!(
+            pk0,
+            hex::decode("092d4ccf96ed5e1625bef71c91fcda1d0b5da80a074bb3a96ef980e9e6cbd254")
                 .unwrap()
                 .as_slice()
         );

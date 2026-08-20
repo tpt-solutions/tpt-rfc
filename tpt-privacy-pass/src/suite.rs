@@ -6,10 +6,10 @@
 //! dual-licensed (MIT/Apache-2.0): `p256`, `p384`, `elliptic-curve`,
 //! `hash2curve` (RFC 9380 `hash_to_curve`) and `sha2`.
 
-use elliptic_curve::ff::PrimeField;
-use elliptic_curve::point::{AffineCoordinates, DecompressPoint};
-use elliptic_curve::sec1::ModulusSize;
-use elliptic_curve::{AffinePoint, CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint};
+use p256::elliptic_curve::ff::PrimeField;
+use p256::elliptic_curve::point::{AffineCoordinates, DecompressPoint};
+use p256::elliptic_curve::sec1::ModulusSize;
+use p256::elliptic_curve::{AffinePoint, CurveArithmetic, FieldBytes, Group, PrimeCurve, ProjectivePoint};
 use sha2::{Digest, Sha256, Sha384};
 
 pub use p256::NistP256;
@@ -23,8 +23,8 @@ use crate::h2c::{H2CCurve, P256_B, P256_L, P256_S, P384_B, P384_L, P384_S};
 pub type Point<C> = ProjectivePoint<C>;
 
 /// Canonical scalar type for a [`Suite`] (the RFC 9497 §2.1 scalar field
-/// element, i.e. `elliptic_curve::Scalar<C>`).
-pub type Scalar<C> = elliptic_curve::Scalar<C>;
+/// element, i.e. `p256::elliptic_curve::Scalar<C>`).
+pub type Scalar<C> = p256::elliptic_curve::Scalar<C>;
 
 /// A Privacy Pass / OPRF ciphersuite: a prime-order group (P-256 or P-384)
 /// paired with a hash function, exactly as defined in RFC 9497 §4.
@@ -206,7 +206,7 @@ pub(crate) fn deserialize_element<C: Suite + ?Sized>(b: &[u8]) -> Result<Point<C
     if tag & 0xFE != 0x02 {
         return Err(OprfError::InvalidElement);
     }
-    let y_is_odd = elliptic_curve::subtle::Choice::from(tag & 0x01);
+    let y_is_odd = p256::elliptic_curve::subtle::Choice::from(tag & 0x01);
     let x = FieldBytes::<C>::clone_from_slice(&b[1..]);
     let aff = AffinePoint::<C>::decompress(&x, y_is_odd).into_option();
     let aff = aff.ok_or(OprfError::InvalidElement)?;

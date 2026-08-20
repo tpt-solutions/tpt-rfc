@@ -182,3 +182,37 @@ pub fn default_esp_proposal(spi: &[u8]) -> Proposal {
         ],
     }
 }
+
+/// Build the default IKE SA proposal with an explicit 8-byte IKE SPI (used for
+/// IKE SA rekeying, where the new SA has a freshly chosen initiator SPI).
+pub fn ike_proposal_with_spi(spi: &[u8]) -> Proposal {
+    let mut p = default_ike_proposal();
+    p.spi = spi.to_vec();
+    p
+}
+
+/// Build a default CHILD SA (ESP) proposal with an explicit 4-byte SPI (used
+/// for CHILD SA rekeying).
+pub fn esp_proposal_with_spi(spi: &[u8]) -> Proposal {
+    default_esp_proposal(spi)
+}
+
+/// The number of keying-material bytes (`KEYMAT`) required by a CHILD SA
+/// proposal: the encryption key length plus the integrity key length (in
+/// bytes). AEAD CHILD SAs would add a 4-byte salt (not used by the default
+/// ESP proposal).
+pub fn child_keymat_len(prop: &Proposal) -> usize {
+    let encr = prop
+        .find(TransformType::Encr)
+        .and_then(|t| EncrId::from_u16(t.transform_id).map(|e| e.key_len()))
+        .unwrap_or(0);
+    let integ = prop
+        .find(TransformType::Integ)
+        .map(|t| {
+            IntegId::from_u16(t.transform_id)
+                .map(|i| i.key_len())
+                .unwrap_or(0)
+        })
+        .unwrap_or(0);
+    encr + integ
+}

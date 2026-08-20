@@ -229,11 +229,19 @@ fn payload_header(next: PayloadType, critical: bool, body_len: usize) -> [u8; 4]
 
 pub fn encode_sa_body(sa: &SaPayload) -> Vec<u8> {
     let mut out = Vec::new();
-    for prop in &sa.proposals {
+    let n_props = sa.proposals.len();
+    for (idx, prop) in sa.proposals.iter().enumerate() {
         let spi = &prop.spi;
         let n_trans = prop.transforms.len();
-        // Proposal substructure header (8 bytes) + spi
-        let prop_len = 8 + spi.len() + prop.transforms.iter().map(|t| transform_len(t)).sum::<usize>();
+        // Proposal substructure (RFC 7296 §3.3.1): an 8-byte header
+        // (last-substructure byte, reserved, 2-byte proposal length) followed
+        // by proposal-num, protocol-id, spi-size, num-transforms, spi, transforms.
+        let transforms_len: usize = prop.transforms.iter().map(|t| transform_len(t)).sum();
+        let prop_len = 8 + spi.len() + transforms_len;
+        let first_byte = if idx + 1 == n_props { 0u8 } else { 2u8 };
+        out.push(first_byte);
+        out.push(0);
+        out.extend_from_slice(&(prop_len as u16).to_be_bytes());
         out.push(prop.proposal_num);
         out.push(prop.protocol.to_u8());
         out.push(spi.len() as u8);
@@ -276,24 +284,25 @@ fn encode_transform(out: &mut Vec<u8>, t: &Transform, last: bool) {
 pub fn decode_sa_body(body: &[u8]) -> Result<SaPayload> {
     let mut proposals = Vec::new();
     let mut off = 0;
-    while off < body.len() {
-        if body.len() - off < 8 {
+    while off + 8 <= body.len() {
+        // Proposal substructure: [last-byte, reserved, proposal-length(2),
+        // proposal-num, protocol-id, spi-size, num-transforms].
+        let prop_len = u16::from_be_bytes([body[off + 2], body[off + 3]]) as usize;
+        if prop_len < 8 || off + prop_len > body.len() {
             return Err(Error::Truncated {
-                needed: 8,
-                have: body.len() - off,
+                needed: off + prop_len,
+                have: body.len(),
             });
         }
-        let proposal_num = body[off];
-        let protocol = ProtocolId::from_u8(body[off + 1]).ok_or(Error::UnsupportedPayload(body[off + 1]))?;
-        let spi_size = body[off + 2] as usize;
-        let n_trans = body[off + 3] as usize;
-        let spi = body[off + 4..off + 4 + spi_size].to_vec();
-        let mut p = off + 4 + spi_size;
+        let protocol = ProtocolId::from_u8(body[off + 5]).ok_or(Error::UnsupportedPayload(body[off + 5]))?;
+        let spi_size = body[off + 6] as usize;
+        let n_trans = body[off + 7] as usize;
+        let spi = body[off + 8..off + 8 + spi_size].to_vec();
+        let mut p = off + 8 + spi_size;
         let mut transforms = Vec::with_capacity(n_trans);
         for _ in 0..n_trans {
             let (t, nxt) = decode_transform(&body[p..])?;
             transforms.push(t);
-            // advance by transform length stored in the transform header
             let tlen = u16::from_be_bytes([body[p + 2], body[p + 3]]) as usize;
             p += tlen;
             if nxt == 0 {
@@ -301,14 +310,12 @@ pub fn decode_sa_body(body: &[u8]) -> Result<SaPayload> {
             }
         }
         proposals.push(Proposal {
-            proposal_num,
+            proposal_num: body[off + 4],
             protocol,
             spi,
             transforms,
         });
-        // advance to next proposal: we already consumed transforms; the proposal
-        // length isn't carried, so we stop when transforms are consumed.
-        off = p;
+        off += prop_len;
     }
     Ok(SaPayload { proposals })
 }

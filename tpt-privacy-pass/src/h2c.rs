@@ -26,7 +26,13 @@
 use core::ops::{Add, Mul, Neg, Sub};
 
 use digest::Digest;
-use elliptic_curve::{
+// Route every `elliptic-curve` reference through `p256::elliptic_curve`: that is
+// the exact `0.13.34` instance `p256`/`p384` 0.14 are built on (and the one the
+// rest of the workspace lock pins). This keeps the crate on a single
+// `elliptic-curve` copy — avoiding the version split that occurs if we depend on
+// `elliptic-curve` directly (its 0.13.x line has since been pulled from
+// crates.io) or on `0.14.x` (which would disagree with `p256`'s `Curve`).
+use p256::elliptic_curve::{
     ff::{Field, FromUniformBytes, PrimeField},
     group::GroupOps,
     sec1::{EncodedPoint, FromEncodedPoint, ToEncodedPoint},

@@ -24,7 +24,9 @@ fn rfc7748_appendix_a_x25519() {
     let base = [9u8; 32];
     let mine_zero = x25519(&zero, &base);
     let dalek_zero = x25519_dalek::x25519(zero, base);
-    eprintln!("DBG zero: mine={:?} dalek={:?}", mine_zero, dalek_zero);
+    eprintln!("DBG zero: mine={:?}", mine_zero);
+    eprintln!("DBG zero: dalek={:?}", dalek_zero);
+    assert_eq!(mine_zero, dalek_zero);
 
     let a = arr("a546e36bf0527c9d3b16154b82465edd62144c0ac1fc5a18506a224f1f3d1838");
     let b = arr("70076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177dfa50b3285f5");

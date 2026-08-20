@@ -36,9 +36,9 @@ const P_LIMBS: [u64; LIMBS] = [
     (1u64 << 56) - 1,
 ];
 
-/// `p` represented in the full 16-limb working vector, with the `2^448` term
-/// carried in limb 8 (and limbs 9..15 zero). Used by `reduce`'s final
-/// conditional subtraction over the full vector.
+/// `p` represented in the full 16-limb working vector (limbs 8..15 zero,
+/// since `p < 2^448`). Used by `reduce`'s final conditional subtraction over
+/// the full vector.
 const P_LIMBS_FULL: [u64; MUL_LIMBS] = [
     (1u64 << 56) - 1,
     (1u64 << 56) - 1,
@@ -48,7 +48,7 @@ const P_LIMBS_FULL: [u64; MUL_LIMBS] = [
     (1u64 << 56) - 1,
     (1u64 << 56) - 1,
     (1u64 << 56) - 1,
-    1,
+    0,
     0,
     0,
     0,
@@ -157,8 +157,10 @@ impl FieldElement {
     pub(crate) fn add(&self, other: &FieldElement) -> FieldElement {
         let mut r = [0u64; MUL_LIMBS];
         let mut carry = 0u64;
-        for i in 0..LIMBS {
-            let s = self.0[i] + other.0[i] + carry;
+        for i in 0..MUL_LIMBS {
+            let si = if i < LIMBS { self.0[i] } else { 0 };
+            let oi = if i < LIMBS { other.0[i] } else { 0 };
+            let s = si + oi + carry;
             r[i] = s & MASK;
             carry = s >> RADIX;
         }
@@ -171,14 +173,17 @@ impl FieldElement {
         // conditional subtraction inside `reduce` canonicalizes it to [0, p).
         let mut r = [0u64; MUL_LIMBS];
         let mut carry = 0u64;
-        for i in 0..LIMBS {
-            let s = self.0[i] + P_LIMBS[i] + carry;
+        for i in 0..MUL_LIMBS {
+            let si = if i < LIMBS { self.0[i] } else { 0 };
+            let pi = if i < LIMBS { P_LIMBS[i] } else { 0 };
+            let s = si + pi + carry;
             r[i] = s & MASK;
             carry = s >> RADIX;
         }
         let mut borrow = 0i64;
-        for i in 0..LIMBS {
-            let mut v = r[i] as i64 - other.0[i] as i64 - borrow;
+        for i in 0..MUL_LIMBS {
+            let oi = if i < LIMBS { other.0[i] } else { 0 };
+            let mut v = r[i] as i64 - oi as i64 - borrow;
             if v < 0 {
                 v += 1i64 << RADIX;
                 borrow = 1;
@@ -351,7 +356,15 @@ mod tests {
             b
         });
         let inv = a.invert();
-        assert!(a.mul(&inv).ct_eq(&FieldElement::ONE));
+        let prod = a.mul(&inv);
+        // Associativity with high-limb inputs:
+        let a2 = a.mul(&a);
+        let a3_l = a2.mul(&a);
+        let a3_r = a.mul(&a2);
+        eprintln!("DBG448 assoc_eq={}", a3_l.ct_eq(&a3_r));
+        eprintln!("DBG448 a.one={:?}", a.mul(&FieldElement::ONE).to_bytes());
+        eprintln!("DBG448 prod={:?}", prod.to_bytes());
+        assert!(prod.ct_eq(&FieldElement::ONE));
     }
 
     fn rand_fe() -> FieldElement {
@@ -400,6 +413,204 @@ mod tests {
             let x = rand_fe();
             let y = rand_fe();
             assert!(x.mul(&y).ct_eq(&y.mul(&x)), "x*y != y*x");
+        }
+    }
+
+    // ---- Independent reference big-integer field over p = 2^448 - 2^224 - 1
+    // (radix 2^32, 14 limbs). Used only to cross-check our limb arithmetic.
+    mod ref_bn {
+        // p limbs (little-endian radix 2^32): all 0xFFFFFFFF except limb 7
+        // (bit 224) and limb 0 (bit 0) cleared.
+        pub fn p_limbs() -> [u32; 14] {
+            let mut p = [0xFFFF_FFFFu32; 14];
+            p[0] &= !1u32;
+            p[7] &= !1u32;
+            p
+        }
+        pub fn from_bytes(b: &[u8; 56]) -> [u32; 14] {
+            let mut limbs = [0u32; 14];
+            for (i, chunk) in b.chunks(4).enumerate() {
+                let mut v = 0u32;
+                for (j, c) in chunk.iter().enumerate() {
+                    v |= (*c as u32) << (8 * j);
+                }
+                limbs[i] = v;
+            }
+            limbs
+        }
+        pub fn to_bytes(l: &[u32; 14]) -> [u8; 56] {
+            let mut b = [0u8; 56];
+            for (i, chunk) in b.chunks_mut(4).enumerate() {
+                let v = l[i];
+                for (j, c) in chunk.iter_mut().enumerate() {
+                    *c = (v >> (8 * j)) as u8;
+                }
+            }
+            b
+        }
+        pub fn add(a: &[u32; 14], b: &[u32; 14]) -> [u32; 14] {
+            let mut r = [0u32; 14];
+            let mut carry = 0u64;
+            for i in 0..14 {
+                let s = a[i] as u64 + b[i] as u64 + carry;
+                r[i] = s as u32;
+                carry = s >> 32;
+            }
+            let _ = carry;
+            r
+        }
+        pub fn sub(a: &[u32; 14], b: &[u32; 14]) -> [u32; 14] {
+            let mut r = [0u32; 14];
+            let mut borrow = 0i64;
+            for i in 0..14 {
+                let mut v = a[i] as i64 - b[i] as i64 - borrow;
+                if v < 0 {
+                    v += 1i64 << 32;
+                    borrow = 1;
+                } else {
+                    borrow = 0;
+                }
+                r[i] = v as u32;
+            }
+            r
+        }
+        // Reduce a 28-limb (radix 2^32) product mod p using 2^448 == 2^224 + 1.
+        pub fn mod_p(v: &mut [u32; 28]) {
+            // 2^448 == 2^224 + 1; 2^224 == 2^(32*7).
+            loop {
+                let mut any_high = false;
+                for i in 14..28 {
+                    if v[i] != 0 {
+                        any_high = true;
+                    }
+                }
+                if !any_high {
+                    break;
+                }
+                // new = L + H*(2^224 + 1)  where L = limbs 0..13, H = limbs 14..27.
+                let mut w = [0u32; 28];
+                w[0..14].copy_from_slice(&v[0..14]);
+                // w += H  (the +1 term), into limbs 0..14
+                let mut carry = 0u64;
+                for i in 0..14 {
+                    let s = w[i] as u64 + v[i + 14] as u64 + carry;
+                    w[i] = s as u32;
+                    carry = s >> 32;
+                }
+                let _ = carry;
+                // w += H << 7  (the 2^224 term), into limbs 7..21
+                let mut carry = 0u64;
+                for i in 0..14 {
+                    let s = w[i + 7] as u64 + v[i + 14] as u64 + carry;
+                    w[i + 7] = s as u32;
+                    carry = s >> 32;
+                }
+                let _ = carry;
+                *v = w;
+            }
+            // final conditional subtract of p (value now < 2^448)
+            let p = p_limbs();
+            let mut ge = false;
+            for i in (0..14).rev() {
+                if v[i] != p[i] {
+                    ge = v[i] > p[i];
+                    break;
+                }
+                ge = true;
+            }
+            if ge {
+                let mut borrow = 0i64;
+                for i in 0..14 {
+                    let mut x = v[i] as i64 - p[i] as i64 - borrow;
+                    if x < 0 {
+                        x += 1i64 << 32;
+                        borrow = 1;
+                    } else {
+                        borrow = 0;
+                    }
+                    v[i] = x as u32;
+                }
+            }
+        }
+        pub fn mul(a: &[u32; 14], b: &[u32; 14]) -> [u32; 14] {
+            let mut t = [0u128; 28];
+            for i in 0..14 {
+                for j in 0..14 {
+                    t[i + j] += (a[i] as u128) * (b[j] as u128);
+                }
+            }
+            let mut v = [0u32; 28];
+            let mut carry = 0u128;
+            for i in 0..28 {
+                let s = t[i] + carry;
+                v[i] = s as u32;
+                carry = s >> 32;
+            }
+            let _ = carry;
+            mod_p(&mut v);
+            let mut out = [0u32; 14];
+            out.copy_from_slice(&v[0..14]);
+            out
+        }
+        pub fn pow(mut base: [u32; 14], exp: &[u8; 56]) -> [u32; 14] {
+            let mut acc = [0u32; 14];
+            acc[0] = 1;
+            for &byte in exp.iter().rev() {
+                for bit in (0..8).rev() {
+                    acc = mul(&acc, &acc);
+                    if (byte >> bit) & 1 == 1 {
+                        acc = mul(&acc, &base);
+                    }
+                }
+            }
+            acc
+        }
+    }
+
+    #[test]
+    fn fermat_sweep() {
+        let two = FieldElement::from_bytes(&{
+            let mut b = [0u8; 56];
+            b[0] = 2;
+            b
+        });
+        let three = FieldElement::from_bytes(&{
+            let mut b = [0u8; 56];
+            b[0] = 3;
+            b
+        });
+        let six = FieldElement::from_bytes(&{
+            let mut b = [0u8; 56];
+            b[0] = 6;
+            b
+        });
+        let four = FieldElement::from_bytes(&{
+            let mut b = [0u8; 56];
+            b[0] = 4;
+            b
+        });
+        eprintln!("DBG 2*3==6: {}", two.mul(&three).ct_eq(&six));
+        eprintln!("DBG 2^2==4: {}", two.square().ct_eq(&four));
+
+        // For a=2 the inverse is (p+1)/2 = 2^447 - 2^223.
+        let mut expected_inv = [0u8; 56];
+        expected_inv[27] = 0x80;
+        for i in 28..55 {
+            expected_inv[i] = 0xFF;
+        }
+        expected_inv[55] = 0x7F;
+        eprintln!("DBG two.inv   ={:?}", two.invert().to_bytes());
+        eprintln!("DBG expected  ={:?}", expected_inv);
+        eprintln!("DBG inv_match={}", two.invert().to_bytes() == expected_inv);
+        for v in [2u8, 3, 5, 7, 0x13, 0x55] {
+            let mut b = [0u8; 56];
+            b[0] = v;
+            let a = FieldElement::from_bytes(&b);
+            let inv = a.invert();
+            let prod = a.mul(&inv);
+            let ok = prod.ct_eq(&FieldElement::ONE);
+            eprintln!("DBG fermat v={} ok={} prod0={}", v, ok, prod.to_bytes()[0]);
+            assert!(ok, "fermat failed for v={}", v);
         }
     }
 }

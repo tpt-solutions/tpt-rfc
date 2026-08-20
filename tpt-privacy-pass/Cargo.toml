@@ -17,21 +17,17 @@ workspace = true
 
 [dependencies]
 # All cryptographic primitives are dual-licensed (MIT/Apache-2.0) and reused
-# rather than reimplemented. `p256`/`p384` 0.14 are built on the
-# `elliptic-curve` 0.13 generation (generic-array 0.14, no `hybrid-array`), so
-# this crate pins the SAME generation for `elliptic-curve`/`hash2curve` to keep
-# the `Curve`/`FieldBytesSize` types aligned across `p256` and the generic
-# `elliptic_curve::{Scalar, FieldBytes, …}` paths used here.
+# rather than reimplemented. This crate deliberately does NOT take a direct
+# `elliptic-curve` dependency: `p256`/`p384` 0.14 are built on the
+# `elliptic-curve` 0.13.34 generation, and every `elliptic_curve::{…}` path in
+# this crate is reached via `p256::elliptic_curve` (the same locked, cached
+# 0.13.34 instance `p256`/`p384` use). That keeps the whole crate on a single
+# `elliptic-curve` copy — a direct `elliptic-curve` dependency would either
+# re-resolve to a different 0.13.y (or fail, since the 0.13.x line has since
+# been pulled from crates.io) or to 0.14.x, both of which disagree with
+# `p256`'s `Curve` and trigger type-mismatch errors.
 p256 = { version = "0.14", default-features = false, features = ["arithmetic", "alloc"] } # MIT/Apache-2.0
 p384 = { version = "0.14", default-features = false, features = ["arithmetic", "alloc"] } # MIT/Apache-2.0
-# Pin the EXACT `elliptic-curve` version `p256`/`p384` 0.14 resolve to
-# (`0.13.34`, cached in the workspace lock), so the `Curve` /
-# `CurveArithmetic` / `PrimeCurve` traits line up across `p256` and this
-# crate's generic `elliptic_curve::{Scalar, FieldBytes, …}` paths. A looser
-# `^0.13` would re-resolve to a different 0.13.y minor (or, since the 0.13.x
-# line has since been pulled from crates.io, fail to resolve at all), causing
-# two copies of `elliptic-curve` in the graph and type-mismatch errors.
-elliptic-curve = { version = "=0.13.34", default-features = false, features = ["arithmetic", "alloc", "ff", "group", "sec1"] } # MIT/Apache-2.0
 generic-array = "0.14" # MIT/Apache-2.0 — `ArrayLength` bound used on the `Suite` trait
 sha2 = "0.10"       # MIT/Apache-2.0 — hashing (Sha256/Sha384)
 digest = "0.10"     # MIT/Apache-2.0 — hashing traits used by the above
